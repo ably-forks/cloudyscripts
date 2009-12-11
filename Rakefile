@@ -12,7 +12,7 @@ require 'rake/testtask'
 
 spec = Gem::Specification.new do |s|
   s.name = 'CloudyScripts'
-  s.version = '0.0.1'
+  s.version = '0.0.2'
   s.has_rdoc = true
   s.extra_rdoc_files = ['README', 'LICENSE']
   s.summary = 'Scripts to facilitate programming for infrastructure clouds.'
@@ -25,6 +25,9 @@ spec = Gem::Specification.new do |s|
   s.files = %w(LICENSE README Rakefile) + Dir.glob("{bin,lib,spec}/**/*")
   s.require_path = "lib"
   s.bindir = "bin"
+  s.has_rdoc = true
+  s.add_dependency("amazon-ec2")
+  s.add_dependency("net-ssh")
 end
 
 Rake::GemPackageTask.new(spec) do |p|
