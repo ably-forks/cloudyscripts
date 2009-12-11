@@ -11,14 +11,14 @@ require 'rake/rdoctask'
 require 'rake/testtask'
 
 spec = Gem::Specification.new do |s|
-  s.name = 'CloudyScriptLibrary'
+  s.name = 'CloudyScripts'
   s.version = '0.0.1'
   s.has_rdoc = true
   s.extra_rdoc_files = ['README', 'LICENSE']
-  s.summary = 'Your summary here'
+  s.summary = 'Scripts to facilitate programming for infrastructure clouds.'
   s.description = s.summary
-  s.author = ''
-  s.email = ''
+  s.author = 'Matthias Jung'
+  s.email = 'matthias.jung@gmail.com'
   # s.executables = ['your_executable_here']
   s.files = %w(LICENSE README Rakefile) + Dir.glob("{bin,lib,spec}/**/*")
   s.require_path = "lib"
@@ -35,7 +35,7 @@ Rake::RDocTask.new do |rdoc|
   files =['README', 'LICENSE', 'lib/**/*.rb']
   rdoc.rdoc_files.add(files)
   rdoc.main = "README" # page to start on
-  rdoc.title = "CloudyScriptLibrary Docs"
+  rdoc.title = "CloudyScripts Docs"
   rdoc.rdoc_dir = 'doc/rdoc' # rdoc output folder
   rdoc.options << '--line-numbers'
 end
