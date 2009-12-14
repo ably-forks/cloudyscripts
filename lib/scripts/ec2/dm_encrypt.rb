@@ -8,16 +8,16 @@ class DmEncrypt < Ec2Script
   end
 
   # Input parameters
-  # aws_access_key => the Amazon AWS Access Key (see Your Account -> Security Credentials)
-  # aws_secret_key => the Amazon AWS Secret Key
-  # ip_address => IP Address of the machine to connect to
-  # ssh_key_file => Path of the keyfile used to connect to the machine
-  # device => Path of the device to encrypt
-  # device_name => Name of the Device to encrypt
-  # storage_path => Path on which the encrypted device is mounted
-  # remote_command_handler => object that allows to connect via ssh and execute commands
-  # ec2_api_handler => object that allows to access the EC2 API
-  # password => password used for encryption
+  # * aws_access_key => the Amazon AWS Access Key (see Your Account -> Security Credentials)
+  # * aws_secret_key => the Amazon AWS Secret Key
+  # * ip_address => IP Address of the machine to connect to
+  # * ssh_key_file => Path of the keyfile used to connect to the machine
+  # * device => Path of the device to encrypt
+  # * device_name => Name of the Device to encrypt
+  # * storage_path => Path on which the encrypted device is mounted
+  # * remote_command_handler => object that allows to connect via ssh and execute commands
+  # * ec2_api_handler => object that allows to access the EC2 API
+  # * password => password used for encryption
   #
   def initialize(input_params)
     super(input_params)

@@ -1,7 +1,3 @@
-require 'rubygems'
-require 'net/ssh'
-require 'AWS'
-
 # =About
 # CloudyScripts is a library that implements tasks that support common
 # usecases on Cloud Computing Infrastructures (such as Amazon EC2 or Rackspace).
@@ -12,15 +8,13 @@ require 'AWS'
 # the instances themselves.
 #
 # =Installation and Usage
-# ===Installation
+# ==Installation
 # <tt>gem install CloudyScripts</tt>
 #
-# ===Usage
-# All scripts are available under /lib/scripts/<em>provider</em>>
+# ==Usage
+# All scripts are available under /lib/scripts/<provider>
 #
-# ===Scripts
+# =Scripts
 # Here are the scripts implemented so far:
-# * #Scripts::EC2::DmEncrypt (encrypt Amazon EBS Storage using dm-encrypt)
+# * #DmEncrypt (encrypt Amazon EBS Storage using dm-encrypt)
 #
-class CloudyScripts
-end

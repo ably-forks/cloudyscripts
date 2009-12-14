@@ -1,6 +1,8 @@
 require 'rubygems'
 require 'net/ssh'
 
+# Provides methods to be executed via ssh to remote instances.
+# 
 class RemoteCommandHandler
   def initialize
     @crypto = DmCryptHelper.new #TODO: instantiate helpers for different tools
