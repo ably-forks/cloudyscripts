@@ -13,6 +13,8 @@
 #
 # ==Usage
 # All scripts are available under /lib/scripts/<provider>
+# They are initialized with a set of parameters and return a well-define
+# set of return values.
 #
 # =Scripts
 # Here are the scripts implemented so far:

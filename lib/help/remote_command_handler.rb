@@ -2,12 +2,12 @@ require 'rubygems'
 require 'net/ssh'
 
 # Provides methods to be executed via ssh to remote instances.
-# 
 class RemoteCommandHandler
   def initialize
     @crypto = DmCryptHelper.new #TODO: instantiate helpers for different tools
   end
 
+  # Check if the path/file specified exists
   def self.file_exists?(ssh_session, path)
     result = true
     ssh_session.exec!("ls #{path}") do |ch, stream, data|
@@ -17,28 +17,37 @@ class RemoteCommandHandler
     end
     result
   end
-  
+
+  # Connect to the machine as root using a keyfile.
+  # Params:
+  # * ip: ip address of the machine to connect to
+  # * keyfile: path of the keyfile to be used for authentication
   def connect(ip, keyfile)
     @ssh_session = Net::SSH.start(ip, 'root', :keys => [keyfile])
     @crypto.set_ssh(@ssh_session)
   end
 
+  # Disconnect the current handler
   def disconnect
     @ssh_session.close
   end
 
+  # Installs the software package specified.
   def install(software_package)
     @crypto.install()
   end
 
+  # Checks if the software package specified is installed.
   def tools_installed?(software_package)
     @crypto.tools_installed?
   end
 
+  # Encrypt the storage (using the crypto-helper used, e.g. #Help::DmCryptHelper)
   def encrypt_storage(name, password, device, path)
     @crypto.encrypt_storage(name, password, device, path)
   end
 
+  # Check if the storage is encrypted (using the crypto-helper used, e.g. #Help::DmCryptHelper)
   def storage_encrypted?(password, device, path)
     drive_mounted?(path) #TODO: must at least also check the name
   end
@@ -81,6 +90,7 @@ class RemoteCommandHandler
     drive_mounted
   end
 
+  # Activates the encrypted volume, i.e. mounts it if not yet done.
   def activate_encrypted_volume(name, path)
     drive_mounted = drive_mounted?(path)
     puts "drive #{path} mounted? #{drive_mounted}"
@@ -99,10 +109,12 @@ class RemoteCommandHandler
     end
   end
 
+  # Unconfigure the storage (using the crypto-helper used, e.g. #Help::DmCryptHelper)
   def undo_encryption(name, path)
     @crypto.undo_encryption(name, path)
   end
 
+  # Unmount the specified path.
   def umount(path)
     exec_string = "umount #{path}"
     puts "going to execute #{exec_string}"

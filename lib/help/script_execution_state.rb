@@ -51,6 +51,7 @@ class ScriptExecutionState
     s.sub(/.*\:\:/,'')
   end
 
+  # Standard state reached when an exception occurs.
   class FailedState < ScriptExecutionState
     attr_accessor :failure_reason, :from_state
     def initialize(context, failure_reason, from_state)

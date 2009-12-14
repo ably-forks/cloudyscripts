@@ -1,7 +1,8 @@
 require "help/script_execution_state"
 require "scripts/ec2/ec2_script"
 
-# Encrypts an EC2 Storage
+# Script to Encrypt an EC2 Storage (aka Elastic Block Storage)
+# 
 class DmEncrypt < Ec2Script
   def initialize(input_params)
     super(input_params)
@@ -66,7 +67,6 @@ class DmEncrypt < Ec2Script
   private
 
   # Here begins the state machine implementation
-
   class DmEncryptState < ScriptExecutionState
 
     def self.load_state(context)
@@ -146,6 +146,7 @@ class DmEncrypt < Ec2Script
 
   end
 
+  # The encrypted Volume is created. Going to mount it.
   class VolumeCreatedState < DmEncryptState
     def enter
       mount_and_activate()
@@ -159,6 +160,7 @@ class DmEncrypt < Ec2Script
     end
   end
 
+  # The encrypted storages is mounted. Cleanup and done.
   class MountedAndActivatedState < DmEncryptState
     def enter
       cleanup()

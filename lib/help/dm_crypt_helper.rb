@@ -1,16 +1,23 @@
 require 'lib/ssh_api'
 
+# This class implements helper methods for Dm Encryption
+# (see #Scripts::EC2::DmEncrypt)
+
 class DmCryptHelper
 
+  # Passes an remote command handler object
+  # (see #Help::RemoteCommandHandler)
   def set_ssh(ssh_session)
     @ssh_session = ssh_session
   end
 
+  # Installs the dm-crypt tools (if not yet done)
   def install()
     #TODO: dm-crypt seems to be installed automatically
     true
   end
 
+  # Checks if the dm-crypt tool is installed (true/false)
   def tools_installed?()
     @ssh_session.exec! "which dmsetup" do |ch, stream, data|
       if stream == :stderr
@@ -26,6 +33,12 @@ class DmCryptHelper
     true
   end
 
+  # Encrypts the device and mounting it using dm-crypt tools.
+  # Params
+  # * name: name of the virtual volume
+  # * password: paraphrase to be used for encryption
+  # * device: device to be encrypted
+  # * path: path to which the encrypted device is mounted
   def encrypt_storage(name, password, device, path)
     # first: check if a file in /dev/mapper exists
     if SshApi.file_exists?(@ssh_session, "/dev/mapper/dm-#{name}")
@@ -137,10 +150,12 @@ class DmCryptHelper
     end
   end
 
+  # Check if the storage is encrypted (not yet implemented).
   def test_storage_encryption(password, mount_point, path)
     raise Exception.new("not yet implemented")
   end
 
+  # Undo encryption for the volume specified by name and path
   def undo_encryption(name, path)
     exec_string = "umount #{path}"
     puts "going to execute #{exec_string}"
