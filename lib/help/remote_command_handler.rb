@@ -1,5 +1,6 @@
 require 'rubygems'
 require 'net/ssh'
+require 'help/dm_crypt_helper'
 
 # Provides methods to be executed via ssh to remote instances.
 class RemoteCommandHandler
@@ -24,6 +25,16 @@ class RemoteCommandHandler
   # * keyfile: path of the keyfile to be used for authentication
   def connect(ip, keyfile)
     @ssh_session = Net::SSH.start(ip, 'root', :keys => [keyfile])
+    @crypto.set_ssh(@ssh_session)
+  end
+
+  # Connect to the machine as root using keydata from a keyfile.
+  # Params:
+  # * ip: ip address of the machine to connect to
+  # * user: user name
+  # * key_data: key_data to be used for authentication
+  def connect(ip, user, key_data)
+    @ssh_session = Net::SSH.start(ip, user, :key_data => [key_data])
     @crypto.set_ssh(@ssh_session)
   end
 
@@ -67,7 +78,7 @@ class RemoteCommandHandler
       end
     end
     if drive_found
-      return SshApi.file_exists?(@ssh_session, path)
+      return RemoteCommandHandler.file_exists?(@ssh_session, path)
     else
       puts "not mounted (since #{path} non-existing)"
       false

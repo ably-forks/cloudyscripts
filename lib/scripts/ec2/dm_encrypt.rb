@@ -15,7 +15,8 @@ class DmEncrypt < Ec2Script
   # * aws_access_key => the Amazon AWS Access Key (see Your Account -> Security Credentials)
   # * aws_secret_key => the Amazon AWS Secret Key
   # * ip_address => IP Address of the machine to connect to
-  # * ssh_key_file => Path of the keyfile used to connect to the machine
+  # * ssh_key_file => Path of the keyfile used to connect to the machine (optional, otherwise: ssh_key_data)
+  # * ssh_key_data => Key information (optional, otherwise: ssh_key_file)
   # * device => Path of the device to encrypt
   # * device_name => Name of the Device to encrypt
   # * storage_path => Path on which the encrypted device is mounted
@@ -100,7 +101,13 @@ class DmEncrypt < Ec2Script
 
     def connect()
       puts "InitialState.connect"
-      @context[:remote_command_handler].connect(@context[:ip_address], @context[:ssh_key_file])
+      if @context[:ssh_key_file] != nil
+        @context[:remote_command_handler].connect(@context[:ip_address], @context[:ssh_key_file])
+      elsif @context[:ssh_key_data] != nil
+        @context[:remote_command_handler].connect(@context[:ip_address], "root", @context[:ssh_key_data])
+      else
+        raise Exception.new("no key information specified")
+      end
       ConnectedState.new(@context)
     end
   end
