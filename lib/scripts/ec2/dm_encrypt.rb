@@ -1,5 +1,8 @@
 require "help/script_execution_state"
 require "scripts/ec2/ec2_script"
+require "help/remote_command_handler"
+require "help/dm_crypt_helper"
+require "AWS"
 
 # Script to Encrypt an EC2 Storage (aka Elastic Block Storage)
 # 
@@ -16,9 +19,10 @@ class DmEncrypt < Ec2Script
   # * device => Path of the device to encrypt
   # * device_name => Name of the Device to encrypt
   # * storage_path => Path on which the encrypted device is mounted
-  # * remote_command_handler => object that allows to connect via ssh and execute commands
-  # * ec2_api_handler => object that allows to access the EC2 API
-  # * password => password used for encryption
+  # * paraphrase => paraphrase used for encryption
+  # * remote_command_handler => object that allows to connect via ssh and execute commands (optional)
+  # * ec2_api_handler => object that allows to access the EC2 API (optional)
+  # * ec2_api_server => server to connect to (option, default is us-east-1.ec2.amazonaws.com)
   #
   def initialize(input_params)
     super(input_params)
@@ -28,6 +32,18 @@ class DmEncrypt < Ec2Script
   # Executes the script.
   def start_script
     begin
+      # optional parameters and initialization
+      if @input_params[:ec2_api_server] == nil
+        @input_params[:ec2_api_server] = "us-east-1.ec2.amazonaws.com"
+      end
+      if @input_params[:remote_command_handler] == nil
+        @input_params[:remote_command_handler] = RemoteCommandHandler.new
+      end
+      if @input_params[:ec2_api_handler] == nil
+        @input_params[:ec2_api_handler] = AWS::EC2::Base.new(:access_key_id => @input_params[:aws_access_key],
+        :secret_access_key => @input_params[:aws_secret_key], :server => @input_params[:ec2_api_server])
+      end
+      # start state machine
       current_state = DmEncryptState.load_state(@input_params)
       end_state = current_state.start_state_machine()
       if end_state.failed?
@@ -41,10 +57,10 @@ class DmEncrypt < Ec2Script
       puts "exception during encryption: #{e}"
       puts e.backtrace.join("\n")
       err = e.to_s
-      err += " (in #{current_state.end_state.to_s})" unless current_state.blank?
+      err += " (in #{current_state.end_state.to_s})" unless current_state == nil
       @result[:failed] = true
       @result[:failure_reason] = err
-      @result[:end_state] = current_state.end_state unless current_state.blank?
+      @result[:end_state] = current_state.end_state unless current_state == nil
     ensure
       begin
       @input_params[:remote_command_handler].disconnect
@@ -135,7 +151,7 @@ class DmEncrypt < Ec2Script
       end
       #
       @context[:remote_command_handler].encrypt_storage(@context[:device_name],
-      @context[:password], @context[:device], @context[:storage_path])
+      @context[:paraphrase], @context[:device], @context[:storage_path])
       VolumeCreatedState.new(@context)
     end
 

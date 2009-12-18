@@ -1,9 +1,9 @@
+$:.unshift File.join(File.dirname(__FILE__),'..','lib')
+
 require "mock/mocked_ec2_api"
 require "mock/mocked_remote_command_handler"
 
 require "scripts/ec2/dm_encrypt"
-
-$:.unshift File.join(File.dirname(__FILE__),'..','lib')
 
 require 'test/unit'
 #require 'dm_encrypt'
@@ -16,11 +16,12 @@ class TestDmEncrypt < Test::Unit::TestCase
     params = {
       :remote_command_handler => rch,
       :ec2_api_handler => ec2,
-      :password => "password",
+      :paraphrase => "paraphrase",
       :ip_address => "127.0.0.1",
       :ssh_key_file => "/Users/mats/.ssh",
       :device => "/dev/sdh",
-      :device_name => "device-vol-i-12345"
+      :device_name => "device-vol-i-12345",
+      :storage_path => "/mnt/encrypted_drive"
     }
     script = DmEncrypt.new(params)
     script.start_script()

@@ -1,4 +1,4 @@
-require 'lib/ssh_api'
+require 'help/remote_command_handler'
 
 # This class implements helper methods for Dm Encryption
 # (see #Scripts::EC2::DmEncrypt)
@@ -41,7 +41,7 @@ class DmCryptHelper
   # * path: path to which the encrypted device is mounted
   def encrypt_storage(name, password, device, path)
     # first: check if a file in /dev/mapper exists
-    if SshApi.file_exists?(@ssh_session, "/dev/mapper/dm-#{name}")
+    if RemoteCommandHandler.file_exists?(@ssh_session, "/dev/mapper/dm-#{name}")
       mapper_exists = true
     else
       mapper_exists = false
@@ -108,7 +108,7 @@ class DmCryptHelper
       exec_string = "vgcreate vg-#{name} /dev/mapper/dm-#{name}"
       puts "vg_exists == false; execute #{exec_string}"
       @ssh_session.exec! exec_string do |ch, stream, data|
-        if stream == :stderr && !data.blank?
+        if stream == :stderr && data != nil
           err = "Failed during creation of volume group"
           puts "#{err}: #{data}"
           raise Exception.new(err)
@@ -118,7 +118,7 @@ class DmCryptHelper
       exec_string = "lvcreate -n lv-#{name} -l100%FREE vg-#{name}"
       puts "execute #{exec_string}"
       @ssh_session.exec! exec_string do |ch, stream, data|
-        if stream == :stderr && !data.blank?
+        if stream == :stderr && data != nil
           err = "Failed during creation of logical volume"
           puts "#{err}: #{data}"
           raise Exception.new(err)
@@ -127,13 +127,13 @@ class DmCryptHelper
       exec_string = "mkfs -t ext3 /dev/vg-#{name}/lv-#{name}"
       puts "execute #{exec_string}"
       @ssh_session.exec! exec_string #do |ch, stream, data|
-        #if stream == :stderr && !data.blank?
+        #if stream == :stderr && data != nil
         #err = "Failed during creation of file-system"
         #puts "#{err}: #{data}"
         #raise Exception.new(err)
         #end
       #end
-      if !SshApi.file_exists?(@ssh_session,"/dev/vg-#{name}/lv-#{name}")
+      if !RemoteCommandHandler.file_exists?(@ssh_session,"/dev/vg-#{name}/lv-#{name}")
         err = "Missing file: /dev/vg-#{name}/lv-#{name}"
         raise Exception.new(err)
       end
@@ -141,7 +141,7 @@ class DmCryptHelper
       exec_string = "/sbin/vgchange -a y vg-#{name}"
       puts "vg_exists == true; execute #{exec_string}"
       @ssh_session.exec! exec_string do |ch, stream, data| #TODO: the right size instead L2G!
-        if stream == :stderr && !data.blank?
+        if stream == :stderr && data != nil
           err = "Failed during re-activation of volume group"
           puts "#{err}: #{data}"
           raise Exception.new(err)

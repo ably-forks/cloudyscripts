@@ -99,7 +99,7 @@ class RemoteCommandHandler
       exec_string = "mount /dev/vg-#{name}/lv-#{name} #{path}"
       puts "drive not mounted; execute: #{exec_string}"
       @ssh_session.exec! "mount /dev/vg-#{name}/lv-#{name} #{path}" do |ch, stream, data|
-        if stream == :stderr && !data.blank?
+        if stream == :stderr && data != nil
           err = "Failed during mounting encrypted device"
           puts "#{err}: #{data}"
           puts "mount /dev/vg-#{name}/lv-#{name} #{path}"
