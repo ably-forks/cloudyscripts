@@ -8,6 +8,13 @@ class ScriptExecutionState
 
   def initialize(context)
     @context = context
+    @state_change_listeners = []
+  end
+
+  # Listener should extend #StateChangeListener (or implement a 
+  # state_changed(state) method). Note: calls are synchronous.
+  def register_state_change_listener(listener)
+    @state_change_listeners << listener
   end
 
   # Start the state machine using this state as initial state.
@@ -17,8 +24,10 @@ class ScriptExecutionState
     while !@current_state.done? && !@current_state.failed?
       begin
         @current_state = @current_state.enter()
+        notify_state_change_listeners(@current_state)
       rescue Exception => e
         @current_state = FailedState.new(@context, e.to_s, @current_state)
+        notify_state_change_listeners(@current_state)
         puts "Exception: #{e}"
         puts "#{e.backtrace.join("\n")}"
       end
@@ -65,6 +74,15 @@ class ScriptExecutionState
     def failed?
       true
     end
+  end
+
+  private
+
+  # Notifies all listeners of state changes
+  def notify_state_change_listeners(state)
+    @state_change_listeners.each() {|listener|
+      listener.state_changed(state)
+    }
   end
 
 end

@@ -6,7 +6,13 @@ class Ec2Script
   # Scripts may add specific key/value pairs.
   def initialize(input_params)
     @input_params = input_params
+    @state_change_listeners = []
   end
+
+  def register_state_change_listener(listener)
+    @state_change_listeners << listener
+  end
+
 
   # Return a hash of results. Common values are:
   # * :done => is true when the script has terminated, otherwise false

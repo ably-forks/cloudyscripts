@@ -7,10 +7,6 @@ require "AWS"
 # Script to Encrypt an EC2 Storage (aka Elastic Block Storage)
 # 
 class DmEncrypt < Ec2Script
-  def initialize(input_params)
-    super(input_params)
-  end
-
   # Input parameters
   # * aws_access_key => the Amazon AWS Access Key (see Your Account -> Security Credentials)
   # * aws_secret_key => the Amazon AWS Secret Key
@@ -46,6 +42,9 @@ class DmEncrypt < Ec2Script
       end
       # start state machine
       current_state = DmEncryptState.load_state(@input_params)
+      @state_change_listeners.each() {|listener|
+        current_state.register_state_change_listener(listener)
+      }
       end_state = current_state.start_state_machine()
       if end_state.failed?
         @result[:failed] = true
