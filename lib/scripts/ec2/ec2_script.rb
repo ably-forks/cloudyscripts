@@ -3,6 +3,7 @@ class Ec2Script
   # Initialization. Common Input parameters:
   # * aws_access_key => the Amazon AWS Access Key (see Your Account -> Security Credentials)
   # * aws_secret_key => the Amazon AWS Secret Key
+  # * ec2_api_server => the API Server to connect to (optional, default is us-east-1 (=> <ec2_api_server>.ec2.amazonaws.com)
   # Scripts may add specific key/value pairs.
   def initialize(input_params)
     @input_params = input_params
