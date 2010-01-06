@@ -23,7 +23,7 @@ class RemoteCommandHandler
   # Params:
   # * ip: ip address of the machine to connect to
   # * keyfile: path of the keyfile to be used for authentication
-  def connect(ip, keyfile)
+  def connect_with_keyfile(ip, keyfile)
     @ssh_session = Net::SSH.start(ip, 'root', :keys => [keyfile])
     @crypto.set_ssh(@ssh_session)
   end
@@ -61,6 +61,28 @@ class RemoteCommandHandler
   # Check if the storage is encrypted (using the crypto-helper used, e.g. #Help::DmCryptHelper)
   def storage_encrypted?(password, device, path)
     drive_mounted?(path) #TODO: must at least also check the name
+  end
+
+  def create_filesystem(fs_type, volume)
+    e = "echo y >tmp.txt; mkfs -t #{fs_type} #{volume} <tmp.txt; rm -f tmp.txt"
+    @ssh_session.exec! e do |ch, stream, data|
+      puts "#{e}: output on #{stream.inspect}: #{data}"
+    end
+  end
+
+  def mkdir(path)
+    e = "mkdir #{path}"
+    puts "start #{e}"
+    @ssh_session.exec! e do |ch, stream, data|
+      puts "#{e}: output on #{stream.inspect}: #{data}"
+    end
+  end
+
+  def mount(device, path)
+    e = "mount #{device} #{path}"
+    @ssh_session.exec! e do |ch, stream, data|
+      puts "#{e}: output on #{stream.inspect}: #{data}"
+    end
   end
 
   # Checks if the drive on path is mounted
@@ -135,4 +157,12 @@ class RemoteCommandHandler
     !drive_mounted?(path)
   end
   
+  # Copy directory using options -avHx
+  def rsync(source_path, dest_path)
+    e = "rsync -avHx #{source_path} #{dest_path}"
+    @ssh_session.exec! e do |ch, stream, data|
+      puts "#{e}: output on #{stream.inspect}: #{data}"
+    end
+  end
+
 end

@@ -14,6 +14,9 @@ class Ec2Script
     @state_change_listeners << listener
   end
 
+  def start_script
+    raise Exception.new("must be implemented")
+  end
 
   # Return a hash of results. Common values are:
   # * :done => is true when the script has terminated, otherwise false
