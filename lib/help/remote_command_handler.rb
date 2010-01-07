@@ -128,7 +128,7 @@ class RemoteCommandHandler
     drive_mounted = drive_mounted?(path)
     @logger.debug "drive #{path} mounted? #{drive_mounted}"
     if !drive_mounted
-      mkdir("mkdir #{path}")
+      mkdir(path)
       mount("/dev/vg-#{name}/lv-#{name}", "#{path}")
     end
   end

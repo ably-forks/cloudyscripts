@@ -8,7 +8,6 @@ class DmCryptHelper
 
   def initialize
     @logger = Logger.new(STDOUT)
-    @logger.level = Logger.WARN
   end
 
   # Passes an remote command handler object
