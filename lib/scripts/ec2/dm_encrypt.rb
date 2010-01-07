@@ -100,7 +100,7 @@ class DmEncrypt < Ec2Script
     def connect()
       @logger.debug "InitialState.connect"
       if @context[:ssh_key_file] != nil
-        @context[:remote_command_handler].connect(@context[:ip_address], @context[:ssh_key_file])
+        @context[:remote_command_handler].connect_with_keyfile(@context[:ip_address], @context[:ssh_key_file])
       elsif @context[:ssh_key_data] != nil
         @context[:remote_command_handler].connect(@context[:ip_address], "root", @context[:ssh_key_data])
       else
