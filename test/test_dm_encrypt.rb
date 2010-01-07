@@ -14,7 +14,8 @@ class TestDmEncrypt < Test::Unit::TestCase
     rch = MockedRemoteCommandHandler.new
     ec2 = MockedEc2Api.new
     listener = MockedStateChangeListener.new
-
+    logger = Logger.new(STDOUT)
+    logger.level = Logger::DEBUG
     params = {
       :remote_command_handler => rch,
       :ec2_api_handler => ec2,
@@ -23,7 +24,8 @@ class TestDmEncrypt < Test::Unit::TestCase
       :ssh_key_file => "/Users/mats/.ssh",
       :device => "/dev/sdh",
       :device_name => "device-vol-i-12345",
-      :storage_path => "/mnt/encrypted_drive"
+      :storage_path => "/mnt/encrypted_drive",
+      :logger => logger
     }
     script = DmEncrypt.new(params)
     script.register_state_change_listener(listener)

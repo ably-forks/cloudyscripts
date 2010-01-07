@@ -4,12 +4,16 @@ class Ec2Script
   # * aws_access_key => the Amazon AWS Access Key (see Your Account -> Security Credentials)
   # * aws_secret_key => the Amazon AWS Secret Key
   # * ec2_api_server => the API Server to connect to (optional, default is us-east-1 (=> <ec2_api_server>.ec2.amazonaws.com)
+  # * logger => allows to pass a ruby logger object used for logging (optional, default is a stdout logger with level WARN)
   # Scripts may add specific key/value pairs.
   def initialize(input_params)
     @input_params = input_params
     @state_change_listeners = []
-    @logger = input_params[:logger] == nil ? Logger.new(STDOUT) : input_params[:logger]
-    @logger.level = Logger::WARN
+    if input_params[:logger] == nil
+      @logger = Logger.new(STDOUT)
+      @logger .level = Logger::WARN
+      input_params[:logger] = @logger
+    end
   end
 
   def register_state_change_listener(listener)

@@ -9,7 +9,11 @@ class ScriptExecutionState
   def initialize(context)
     @context = context
     @state_change_listeners = []
-    @logger = Logger.new(STDOUT)
+    @logger = context[:logger]
+    if @logger == nil
+      @logger = Logger.new(STDOUT)
+      @logger.level = Logger::WARN
+    end
   end
 
   # Listener should extend #StateChangeListener (or implement a 

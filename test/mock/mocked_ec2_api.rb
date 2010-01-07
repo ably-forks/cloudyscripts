@@ -1,5 +1,5 @@
 class MockedEc2Api
-  attr_accessor :volumes, :next_volume_id, :fail
+  attr_accessor :volumes, :next_volume_id, :fail, :logger
 
   def initialize
     @volumes = []
@@ -7,6 +7,8 @@ class MockedEc2Api
     @fail = false
     @next_volume_id = nil
     @snapshots = []
+    @logger = Logger.new(STDOUT)
+    @logger.level = Logger::ERROR
   end
 
   def run_instances(options = {})
@@ -18,7 +20,7 @@ class MockedEc2Api
 
   def create_snapshot(volume_id)
     cause_failure()    
-    puts("MockedEc2API: create snapshot for #{volume_id}")
+    @logger.debug("MockedEc2API: create snapshot for #{volume_id}")
     snap = "snap_#{Time.now.to_i.to_s}"
     s = {"volumeId"=>"#{volume_id}", "snapshotId"=>"#{snap}", "requestId"=>"dummy-request",
       "progress"=>nil, "startTime"=>"2009-11-11T17:06:14.000Z",
@@ -82,7 +84,7 @@ class MockedEc2Api
   def describe_security_groups(*security_group_names)
     cause_failure()    
     groups = identify_security_groups()
-    puts "mocked_ec2_api.describe_security_groups identified #{groups.inspect}"
+    @logger.debug "mocked_ec2_api.describe_security_groups identified #{groups.inspect}"
     res = transform_secgroups(groups)
     res
   end
@@ -121,22 +123,22 @@ class MockedEc2Api
       volume_ids = []
     end
     cause_failure()
-    puts "describe_volumes: params = #{volume_ids.inspect} number=#{volume_ids.length}"
+    @logger.debug "describe_volumes: params = #{volume_ids.inspect} number=#{volume_ids.length}"
     if volume_ids.length == 0
       v = @volumes
     else
       v = @volumes.select() {|i|
-        puts "compare '#{i[:volume_id].inspect}' with '#{volume_ids[0].inspect}' =>#{(i[:volume_id] == volume_ids[0])}"
+        @logger.debug "compare '#{i[:volume_id].inspect}' with '#{volume_ids[0].inspect}' =>#{(i[:volume_id] == volume_ids[0])}"
         (i[:volume_id] == volume_ids[0])
       }
     end
-    puts "all volumes = #{@volumes.inspect} v=#{v.inspect}"
+    @logger.debug "all volumes = #{@volumes.inspect} v=#{v.inspect}"
     transform_volumes(v)
   end
 
   def create_volume(timezone)
     cause_failure()
-    puts "GOING TO CREATE VOLUME!"
+    @logger.debug "GOING TO CREATE VOLUME!"
     volume = {}
     vid = "vol-#{Time.now.to_i.to_s}"
     if next_volume_id() != nil
@@ -144,7 +146,7 @@ class MockedEc2Api
     end
     @next_volume_id = nil
     volume[:volume_id] = vid
-    puts "create volume with id = #{volume[:volume_id]}"
+    @logger.debug "create volume with id = #{volume[:volume_id]}"
     volume[:availability_zone] = timezone
     volume[:create_time] = Time.now
     volume[:volume_id]
@@ -162,7 +164,7 @@ class MockedEc2Api
     else
       instance_ids = []
     end
-    puts "instance_ids = #{instance_ids.inspect} number=#{instance_ids.length}"
+    @logger.debug "instance_ids = #{instance_ids.inspect} number=#{instance_ids.length}"
     if instance_ids == nil || instance_ids.length == 0
       return transform_instances(@instances)
     else
@@ -173,14 +175,14 @@ class MockedEc2Api
   end
 
   def transform_instances(instances)
-    puts "found #{instances.size} instances to transform"
+    @logger.debug "found #{instances.size} instances to transform"
     ret = {}
     ret['requestId'] = "request-id-dummy"
     ret['reservationSet'] = {}
     items = []
     ret['reservationSet']['item'] = items
     instances.each() {|i|
-      puts "start transforming #{i.inspect}"
+      @logger.debug "start transforming #{i.inspect}"
       item = {}
       groupSet = []
       instancesSet = {}
@@ -210,13 +212,13 @@ class MockedEc2Api
       instanceInfos['instanceState']['name'] = i[:instance_state]
       instanceInfos['instanceState']['code'] = state_to_code(i[:instance_state])
       instanceInfos['ownerId'] = "owner-dummy-id"
-      puts "mocked_ec2_api is going to add #{i[:groups].size} groups"
+      @logger.debug "mocked_ec2_api is going to add #{i[:groups].size} groups"
       i[:groups].each() {|sg|
         elem = {}
         elem['groupId'] = sg
         groupSet << elem
       }
-      puts "going to add item = #{item.inspect}"
+      @logger.debug "going to add item = #{item.inspect}"
       items << item
     }
     return ret
@@ -239,21 +241,21 @@ class MockedEc2Api
   end
 
   def transform_volumes(volumes)
-    puts "found #{volumes.size} volumes to transform"
+    @logger.debug "found #{volumes.size} volumes to transform"
     ret = {}
     ret['volumeSet'] = {}
     items = []
     ret['volumeSet']['item'] = items
     volumes.each() {|v|
-      puts "start transforming #{v.inspect}"
+      @logger.debug "start transforming #{v.inspect}"
       item = {}
       attachmentSet = {}
       item['attachmentSet'] = attachmentSet #TODO: attachments not yet possible
       if v[:attachments].size > 0
-        puts "#{item['attachmentSet']}"
+        @logger.debug "#{item['attachmentSet']}"
         item['attachmentSet']['item'] = []
         v[:attachments].each() {|a|
-          puts "attachment found: #{a.inspect}"
+          @logger.debug "attachment found: #{a.inspect}"
           attachments = {}
           attachments['device'] = a[:device]
           attachments['volumeId'] = v[:volume_id]
@@ -279,11 +281,11 @@ class MockedEc2Api
     volume_id = options[:volume_id]
     instance_id = options[:instance_id]
     device = options[:device]
-    puts "attach vol #{volume_id} to instance #{instance_id}"
+    @logger.debug "attach vol #{volume_id} to instance #{instance_id}"
     volume = get_volume(volume_id)
-    puts "volume = #{volume.inspect}"
+    @logger.debug "volume = #{volume.inspect}"
     instance = get_instance(instance_id)
-    puts "instance = #{instance.inspect}"
+    @logger.debug "instance = #{instance.inspect}"
     if volume == nil
       raise Exception.new("volume #{volume_id} does not exist")
     end
@@ -293,18 +295,18 @@ class MockedEc2Api
     att = {}
     att[:instance_id] = instance_id
     att[:device] = device
-    puts "add #{att.inspect} to attachments = #{volume[:attachments].inspect}"
+    @logger.debug "add #{att.inspect} to attachments = #{volume[:attachments].inspect}"
     update_volume_state(volume_id, "in-use")
     volume[:attachments] << att
-    puts "after attaching: #{@volumes.inspect}"
+    @logger.debug "after attaching: #{@volumes.inspect}"
   end
 
   def detach_volume(options)
     cause_failure()
     volume = get_volume(options[:volume_id])
-    puts "volume = #{volume.inspect}"
+    @logger.debug "volume = #{volume.inspect}"
     instance = get_instance(options[:instance_id])
-    puts "instance = #{instance.inspect}"
+    @logger.debug "instance = #{instance.inspect}"
     if volume == nil
       raise Exception.new("volume #{options[:volume_id]} does not exist")
     end
@@ -312,12 +314,12 @@ class MockedEc2Api
       raise Exception.new("instance #{options[:instance_id]} does not exist")
     end
     att = volume[:attachments]
-    puts "attachments = #{att.inspect}"
+    @logger.debug "attachments = #{att.inspect}"
     count = 0
     to_remove = -1
     att.each() {|a|
       if a[:instance_id] == options[:instance_id]
-        puts "going to remove #{a.inspect}"
+        @logger.debug "going to remove #{a.inspect}"
         to_remove = count
         break
       end
@@ -327,7 +329,7 @@ class MockedEc2Api
       volume[:attachments].delete_at(to_remove)
     end
     update_volume_state(options[:volume_id], "available")
-    puts "after detaching: #{@volumes.inspect}"
+    @logger.debug "after detaching: #{@volumes.inspect}"
   end
 
   def delete_volume(options)
@@ -351,22 +353,22 @@ class MockedEc2Api
   def get_volume(id)
     @volumes.each() {|v|
       if v[:volume_id] == id
-        puts "get_volume: #{v.inspect}"        
+        @logger.debug "get_volume: #{v.inspect}"
         return v
       end
     }
-    puts "no volume found"
+    @logger.debug "no volume found"
     return nil
   end
   
   def get_instance(id)
     @instances.each() {|i|
       if i[:instance_id] == id
-        puts "get_instance: #{i.inspect}"
+        @logger.debug "get_instance: #{i.inspect}"
         return i
       end
     }
-    puts "no instance found"
+    @logger.debug "no instance found"
     return nil
   end
 
@@ -399,13 +401,13 @@ class MockedEc2Api
   end  
 
   def update_volume_state(volume_id, state)
-    puts "update_volume_state for #{volume_id} to #{state}"
+    @logger.debug "update_volume_state for #{volume_id} to #{state}"
     v = get_volume(volume_id)
     v[:state] = state
   end
 
   def register_image_updated(options)
-    puts "register_image for #{options[:snapshot_id]} name #{options[:name]}"
+    @logger.debug "register_image for #{options[:snapshot_id]} name #{options[:name]}"
     {:image_id => "ami-#{options[:snapshot_id]}"}
   end
 
@@ -417,7 +419,7 @@ class MockedEc2Api
   
   def cause_failure()
     if @fail
-      puts "mocked_ec2 API is in failure mode"
+      @logger.debug "mocked_ec2 API is in failure mode"
       raise Exception.new("mocked_ec2 API is in failure mode")
     end
   end

@@ -12,6 +12,8 @@ class TestAmi2EbsConversion < Test::Unit::TestCase
     ec2_api = MockedEc2Api.new
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
+    logger = Logger.new(STDOUT)
+    logger.level = Logger::DEBUG
     params = {
       :ami_id => "ami-8729cfee",
       :ec2_api_handler => ec2_api,
@@ -19,24 +21,8 @@ class TestAmi2EbsConversion < Test::Unit::TestCase
       :remote_command_handler => ssh,
       :ssh_keyfile => "/Users/mats/.ssh/jungmats.pem",
       :key_name => "jungmats",
+      :logger => logger
     }
-
-=begin
-    params[:instance_id] = "i-5f567837"
-    params[:device] = "/dev/sdj"
-    params[:volume_id] = "vol-d461a6bd"
-    params[:dns_name] = "ec2-75-101-244-35.compute-1.amazonaws.com"
-    params[:path] = "/mnt/tmp_vol-d461a6bd"
-    #params[:initial_state] = Ami2EbsConversion::StorageAttached.new(params)
-    #ssh.connect_with_keyfile(params[:dns_name], params[:ssh_keyfile])
-    #params[:initial_state] = Ami2EbsConversion::FileSystemMounted.new(params)
-    #params[:initial_state] = Ami2EbsConversion::CopyDone.new(params)
-    #params[:initial_state] = Ami2EbsConversion::VolumeDetached.new(params)
-    params[:snapshot_id] = "snap-a11b64c8"
-    #params[:initial_state] = Ami2EbsConversion::SnapshotCreated.new(params)
-    #params[:initial_state] = Ami2EbsConversion::VolumeDeleted.new(params)
-    params[:initial_state] = Ami2EbsConversion::SnapshotRegistered.new(params)
-=end
     script = Ami2EbsConversion.new(params)
     script.register_state_change_listener(listener)
     starttime = Time.now.to_i
@@ -48,9 +34,7 @@ class TestAmi2EbsConversion < Test::Unit::TestCase
   end
 
   def test_resume
-    #ec2_api = AWS::EC2::Base.new(:access_key_id => "03AD8BV6FBQHFY3MZ4G2", :secret_access_key => "D9j14KgaMIVDxWhFyc9ASQWBH/BxyLO3hl0vuwkC")
     ec2_api = MockedEc2Api.new
-    #ssh = RemoteCommandHandler.new
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
     params = {
@@ -63,8 +47,10 @@ class TestAmi2EbsConversion < Test::Unit::TestCase
     }
 
     params[:instance_id] = "i-5f567837"
+    ec2_api.create_dummy_instance("i-5f567837", "ami-8729cfee", "running", "who.cares", "public.dns", "jungmats", ["MatsGroup"])
     params[:device] = "/dev/sdj"
     params[:volume_id] = "vol-d461a6bd"
+    ec2_api.create_dummy_volume("vol-d461a6bd", "timezone")
     params[:dns_name] = "ec2-75-101-244-35.compute-1.amazonaws.com"
     params[:path] = "/mnt/tmp_vol-d461a6bd"
     params[:initial_state] = Ami2EbsConversion::StorageAttached.new(params)

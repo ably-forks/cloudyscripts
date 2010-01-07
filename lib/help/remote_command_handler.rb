@@ -128,17 +128,8 @@ class RemoteCommandHandler
     drive_mounted = drive_mounted?(path)
     @logger.debug "drive #{path} mounted? #{drive_mounted}"
     if !drive_mounted
-      @ssh_session.exec! "mkdir #{path}"
-      exec_string = "mount /dev/vg-#{name}/lv-#{name} #{path}"
-      @logger.debug "drive not mounted; execute: #{exec_string}"
-      @ssh_session.exec! "mount /dev/vg-#{name}/lv-#{name} #{path}" do |ch, stream, data|
-        if stream == :stderr && data != nil
-          err = "Failed during mounting encrypted device"
-          @logger.debug "#{err}: #{data}"
-          @logger.debug "mount /dev/vg-#{name}/lv-#{name} #{path}"
-          raise Exception.new(err)
-        end
-      end
+      mkdir("mkdir #{path}")
+      mount("/dev/vg-#{name}/lv-#{name}", "#{path}")
     end
   end
 
