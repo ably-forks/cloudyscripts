@@ -4,11 +4,12 @@
 # return another state.
 class ScriptExecutionState
   # context information for the state (hash)
-  attr_reader :context
+  attr_reader :context, :logger
 
   def initialize(context)
     @context = context
     @state_change_listeners = []
+    @logger = Logger.new(STDOUT)
   end
 
   # Listener should extend #StateChangeListener (or implement a 
@@ -20,16 +21,17 @@ class ScriptExecutionState
   # Start the state machine using this state as initial state.
   def start_state_machine
     @current_state = self
-    puts "start state machine with #{@current_state.inspect}"
+    @logger.info "start state machine with #{@current_state.inspect}"
     while !@current_state.done? && !@current_state.failed?
       begin
+        @logger.info "state machine: current state = #{@current_state.inspect}"
         @current_state = @current_state.enter()
         notify_state_change_listeners(@current_state)
       rescue Exception => e
         @current_state = FailedState.new(@context, e.to_s, @current_state)
         notify_state_change_listeners(@current_state)
-        puts "Exception: #{e}"
-        puts "#{e.backtrace.join("\n")}"
+        @logger.warn "Exception: #{e}"
+        @logger.warn "#{e.backtrace.join("\n")}"
       end
     end
     @current_state

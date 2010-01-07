@@ -8,6 +8,8 @@ class Ec2Script
   def initialize(input_params)
     @input_params = input_params
     @state_change_listeners = []
+    @logger = input_params[:logger] == nil ? Logger.new(STDOUT) : input_params[:logger]
+    @logger.level = Logger::WARN
   end
 
   def register_state_change_listener(listener)

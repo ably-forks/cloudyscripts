@@ -9,9 +9,10 @@ require 'test/unit'
 
 class TestAmi2EbsConversion < Test::Unit::TestCase
   def test_execution
-    ec2_api = AWS::EC2::Base.new(:access_key_id => "03AD8BV6FBQHFY3MZ4G2",
-      :secret_access_key => "D9j14KgaMIVDxWhFyc9ASQWBH/BxyLO3hl0vuwkC")
-    ssh = RemoteCommandHandler.new
+    #ec2_api = AWS::EC2::Base.new(:access_key_id => "03AD8BV6FBQHFY3MZ4G2", :secret_access_key => "D9j14KgaMIVDxWhFyc9ASQWBH/BxyLO3hl0vuwkC")
+    ec2_api = MockedEc2Api.new
+    #ssh = RemoteCommandHandler.new
+    ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
     params = {
       :ami_id => "ami-8729cfee",
@@ -45,6 +46,39 @@ class TestAmi2EbsConversion < Test::Unit::TestCase
     endtime = Time.now.to_i
     assert script.get_execution_result[:failed] == nil || script.get_execution_result[:failed] == false, script.get_execution_result[:failure_reason]
     puts "done in #{endtime-starttime}s"
-    puts "#{script.get_execution_result()}"
+    puts "#{script.get_execution_result().inspect}"
   end
+
+  def test_resume
+    #ec2_api = AWS::EC2::Base.new(:access_key_id => "03AD8BV6FBQHFY3MZ4G2", :secret_access_key => "D9j14KgaMIVDxWhFyc9ASQWBH/BxyLO3hl0vuwkC")
+    ec2_api = MockedEc2Api.new
+    #ssh = RemoteCommandHandler.new
+    ssh = MockedRemoteCommandHandler.new
+    listener = MockedStateChangeListener.new
+    params = {
+      :ami_id => "ami-8729cfee",
+      :ec2_api_handler => ec2_api,
+      :security_group_name => "MatsGroup",
+      :remote_command_handler => ssh,
+      :ssh_keyfile => "/Users/mats/.ssh/jungmats.pem",
+      :key_name => "jungmats",
+    }
+
+    params[:instance_id] = "i-5f567837"
+    params[:device] = "/dev/sdj"
+    params[:volume_id] = "vol-d461a6bd"
+    params[:dns_name] = "ec2-75-101-244-35.compute-1.amazonaws.com"
+    params[:path] = "/mnt/tmp_vol-d461a6bd"
+    params[:initial_state] = Ami2EbsConversion::StorageAttached.new(params)
+
+    script = Ami2EbsConversion.new(params)
+    script.register_state_change_listener(listener)
+    starttime = Time.now.to_i
+    script.start_script()
+    endtime = Time.now.to_i
+    assert script.get_execution_result[:failed] == nil || script.get_execution_result[:failed] == false, script.get_execution_result[:failure_reason]
+    puts "done in #{endtime-starttime}s"
+    puts "#{script.get_execution_result().inspect}"
+  end
+
 end

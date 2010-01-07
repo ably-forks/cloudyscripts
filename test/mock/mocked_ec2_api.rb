@@ -6,15 +6,39 @@ class MockedEc2Api
     @instances = []
     @fail = false
     @next_volume_id = nil
+    @snapshots = []
+  end
+
+  def run_instances(options = {})
+    instance_id = "i-from-#{options[:image_id]}"
+    create_dummy_instance(instance_id, options[:image_id], "running",
+      "who.cares", "public.dns.name", options[:key_name], [options[:security_group]])
+    describe_instances(:instance_id => instance_id)['reservationSet']['item'][0]
   end
 
   def create_snapshot(volume_id)
     cause_failure()    
     puts("MockedEc2API: create snapshot for #{volume_id}")
     snap = "snap_#{Time.now.to_i.to_s}"
-    {"volumeId"=>"#{volume_id}", "snapshotId"=>"#{snap}", "requestId"=>"dummy-request",
+    s = {"volumeId"=>"#{volume_id}", "snapshotId"=>"#{snap}", "requestId"=>"dummy-request",
       "progress"=>nil, "startTime"=>"2009-11-11T17:06:14.000Z",
-      "status"=>"pending", "xmlns"=>"http://ec2.amazonaws.com/doc/2008-12-01/"}
+      "status"=>"completed", "xmlns"=>"http://ec2.amazonaws.com/doc/2008-12-01/"}
+    @snapshots << s
+    s
+  end
+
+  def describe_snapshots(options = {})
+    if options[:snapshot_id] == nil
+      res = @snapshots
+    else
+      res = @snapshots.select() {|s|
+        s['snapshotId'] == options[:snapshot_id]
+      }
+    end
+    ret = {}
+    ret['snapshotSet'] = {}
+    ret['snapshotSet']['item'] = res
+    ret
   end
 
   def delete_snapshot(options = {})
@@ -92,12 +116,12 @@ class MockedEc2Api
   def describe_volumes(volume_ids = nil)
     if volume_ids != nil
       #needed to adapt to the API
-      volume_ids = volume_ids[:volume_id]
+      volume_ids = [volume_ids[:volume_id]]
     else
       volume_ids = []
     end
     cause_failure()
-    puts "params = #{volume_ids.inspect} number=#{volume_ids.length}"
+    puts "describe_volumes: params = #{volume_ids.inspect} number=#{volume_ids.length}"
     if volume_ids.length == 0
       v = @volumes
     else
@@ -124,9 +148,10 @@ class MockedEc2Api
     volume[:availability_zone] = timezone
     volume[:create_time] = Time.now
     volume[:volume_id]
-    volume[:attachments] = []    
+    volume[:attachments] = []
+    volume[:state] = "available"
     @volumes << volume
-    {'volumeId'=> vid}
+    transform_volumes([get_volume(vid)])['volumeSet']['item'][0]
   end
 
   # Expects either no params or an hash {:instance_id => [ids]}
@@ -183,7 +208,7 @@ class MockedEc2Api
       instanceInfos['dnsName'] = i[:dns_name]
       instanceInfos['instanceState'] = {}
       instanceInfos['instanceState']['name'] = i[:instance_state]
-      instanceInfos['instanceState']['code'] = "11" #TODO: get those codes
+      instanceInfos['instanceState']['code'] = state_to_code(i[:instance_state])
       instanceInfos['ownerId'] = "owner-dummy-id"
       puts "mocked_ec2_api is going to add #{i[:groups].size} groups"
       i[:groups].each() {|sg|
@@ -195,6 +220,22 @@ class MockedEc2Api
       items << item
     }
     return ret
+  end
+
+  def state_to_code(state)
+    case state
+    when "running"
+      return 16
+    when "pending"
+      return 0
+    when "terminated"
+      return 48
+    when "terminating"
+      return 32
+    else
+      return -1
+    end
+
   end
 
   def transform_volumes(volumes)
@@ -226,7 +267,7 @@ class MockedEc2Api
       item['size'] = 1 #TODO make configurable?
       item['volumeId'] = v[:volume_id]
       item['snapshotId'] = nil #TODO: make configurable?
-      item['status'] = 'availabe' #TODO: nowhere
+      item['status'] = v[:state]
       item['availabilityZone'] = v[:availability_zone]
       items << item
     }
@@ -253,6 +294,7 @@ class MockedEc2Api
     att[:instance_id] = instance_id
     att[:device] = device
     puts "add #{att.inspect} to attachments = #{volume[:attachments].inspect}"
+    update_volume_state(volume_id, "in-use")
     volume[:attachments] << att
     puts "after attaching: #{@volumes.inspect}"
   end
@@ -284,6 +326,7 @@ class MockedEc2Api
     if to_remove != -1
       volume[:attachments].delete_at(to_remove)
     end
+    update_volume_state(options[:volume_id], "available")
     puts "after detaching: #{@volumes.inspect}"
   end
 
@@ -354,7 +397,22 @@ class MockedEc2Api
     @instances << instance
     instance
   end  
-    
+
+  def update_volume_state(volume_id, state)
+    puts "update_volume_state for #{volume_id} to #{state}"
+    v = get_volume(volume_id)
+    v[:state] = state
+  end
+
+  def register_image_updated(options)
+    puts "register_image for #{options[:snapshot_id]} name #{options[:name]}"
+    {:image_id => "ami-#{options[:snapshot_id]}"}
+  end
+
+  def terminate_instances(options)
+    get_instance(options[:instance_id])[:instance_state] = "terminated"
+  end
+
   private
   
   def cause_failure()

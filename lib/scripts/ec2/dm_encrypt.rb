@@ -54,8 +54,8 @@ class DmEncrypt < Ec2Script
         @result[:failed] = false
       end
     rescue Exception => e
-      puts "exception during encryption: #{e}"
-      puts e.backtrace.join("\n")
+      @logger.warn "exception during encryption: #{e}"
+      @logger.info e.backtrace.join("\n")
       err = e.to_s
       err += " (in #{current_state.end_state.to_s})" unless current_state == nil
       @result[:failed] = true
@@ -65,7 +65,6 @@ class DmEncrypt < Ec2Script
       begin
       @input_params[:remote_command_handler].disconnect
       rescue Exception => e2
-        puts "rescue disconnect: #{e2}"
       end
     end
 
@@ -99,7 +98,7 @@ class DmEncrypt < Ec2Script
     private
 
     def connect()
-      puts "InitialState.connect"
+      @logger.debug "InitialState.connect"
       if @context[:ssh_key_file] != nil
         @context[:remote_command_handler].connect(@context[:ip_address], @context[:ssh_key_file])
       elsif @context[:ssh_key_data] != nil
@@ -119,12 +118,12 @@ class DmEncrypt < Ec2Script
 
     private
     def install_tools
-      puts "ConnectedState.install_tools"
+      @logger.debug "ConnectedState.install_tools"
       if !tools_installed?
         @context[:remote_command_handler].install("dm-crypt") #TODO: constant somewhere? admin parameter?
       end
       if tools_installed?
-        puts "system says that tools are installed"
+        @logger.debug "system says that tools are installed"
         ToolInstalledState.new(@context)
       else
         FailedState.new(@context, "Installation of Tools failed", ConnectedState.new(@context))
@@ -148,7 +147,7 @@ class DmEncrypt < Ec2Script
 
     private
     def create_encrypted_volume
-      puts "ToolInstalledState.create_encrypted_volume"
+      @logger.debug "ToolInstalledState.create_encrypted_volume"
       #first check if the drive is not yet mounted by someone else
       if @context[:remote_command_handler].drive_mounted?(@context[:storage_path])
         if !@context[:remote_command_handler].drive_mounted_as?(calc_device_name(), @context[:storage_path])
@@ -176,7 +175,7 @@ class DmEncrypt < Ec2Script
 
     private
     def mount_and_activate
-      puts "VolumeCreatedState.mount_and_activate"
+      @logger.debug "VolumeCreatedState.mount_and_activate"
       @context[:remote_command_handler].activate_encrypted_volume(@context[:device_name],@context[:storage_path])
       MountedAndActivatedState.new(@context)
     end
@@ -190,7 +189,7 @@ class DmEncrypt < Ec2Script
 
     private
     def cleanup()
-      puts "MountedAndActivatedState.cleanup"
+      @logger.debug "MountedAndActivatedState.cleanup"
       @context[:remote_command_handler].disconnect()
       DoneState.new(@context)
     end

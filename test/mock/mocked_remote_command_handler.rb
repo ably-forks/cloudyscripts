@@ -9,7 +9,12 @@ class MockedRemoteCommandHandler
     @drive_mounted = false
   end
 
-  def connect(ip, key)
+  def connect(ip, user, keydata)
+    puts "mocked_ssh_api: connected to ip=#{ip} user=#{user} key_data=#{keydata}"
+    @connected = true
+  end
+
+  def connect_with_keyfile(ip, key)
     puts "mocked_ssh_api: connected to ip=#{ip} keys=#{key}"
     @connected = true
   end
@@ -74,10 +79,34 @@ class MockedRemoteCommandHandler
     puts "mocked_ssh_api: undo_encryption #{name} #{path}"
   end
 
+  def mount(device, path)
+    test_connected()
+    puts "mocked_ssh_api: mount #{device} #{path}"
+    @drive_mounted = true
+  end
+
   def umount(path)
     test_connected()
     puts "mocked_ssh_api: umount #{path}"
     @drive_mounted = false
+  end
+
+  def create_filesystem(fs_type, volume)
+    test_connected()
+    e = "mocked_ssh_api: echo y >tmp.txt; mkfs -t #{fs_type} #{volume} <tmp.txt; rm -f tmp.txt"
+    puts "#{e}"
+  end
+
+  def mkdir(path)
+    test_connected()
+    e = "mocked_ssh_api: mkdir #{path}"
+    puts "#{e}"
+  end
+
+  def rsync(source_path, dest_path)
+    test_connected()
+    e = "rsync -avHx #{source_path} #{dest_path}"
+    puts "#{e}"
   end
 
   private

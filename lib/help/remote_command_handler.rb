@@ -4,8 +4,10 @@ require 'help/dm_crypt_helper'
 
 # Provides methods to be executed via ssh to remote instances.
 class RemoteCommandHandler
+  attr_accessor :logger
   def initialize
     @crypto = DmCryptHelper.new #TODO: instantiate helpers for different tools
+    @logger = Logger.new(STDOUT)
   end
 
   # Check if the path/file specified exists
@@ -65,23 +67,25 @@ class RemoteCommandHandler
 
   def create_filesystem(fs_type, volume)
     e = "echo y >tmp.txt; mkfs -t #{fs_type} #{volume} <tmp.txt; rm -f tmp.txt"
+    @logger.debug "exec #{e}"
     @ssh_session.exec! e do |ch, stream, data|
-      puts "#{e}: output on #{stream.inspect}: #{data}"
+      @logger.debug "#{e}: output on #{stream.inspect}: #{data}"
     end
   end
 
   def mkdir(path)
     e = "mkdir #{path}"
-    puts "start #{e}"
+    @logger.debug "exec #{e}"
     @ssh_session.exec! e do |ch, stream, data|
-      puts "#{e}: output on #{stream.inspect}: #{data}"
+      @logger.debug "#{e}: output on #{stream.inspect}: #{data}"
     end
   end
 
   def mount(device, path)
     e = "mount #{device} #{path}"
+    @logger.debug "exec #{e}"
     @ssh_session.exec! e do |ch, stream, data|
-      puts "#{e}: output on #{stream.inspect}: #{data}"
+      @logger.debug "#{e}: output on #{stream.inspect}: #{data}"
     end
   end
 
@@ -91,18 +95,16 @@ class RemoteCommandHandler
     drive_found = false
     @ssh_session.exec! "mount" do |ch, stream, data|
       if stream == :stdout
-        puts "mount command produces the following data: #{data}\n---------------"
+        @logger.debug "mount command produces the following data: #{data}\n---------------"
         if data.include?("on #{path} type")
           drive_found = true
-        else
-          puts "not mounted: #{data}"
         end
       end
     end
     if drive_found
       return RemoteCommandHandler.file_exists?(@ssh_session, path)
     else
-      puts "not mounted (since #{path} non-existing)"
+      @logger.debug "not mounted (since #{path} non-existing)"
       false
     end
   end
@@ -115,8 +117,6 @@ class RemoteCommandHandler
       if stream == :stdout
         if data.include?("#{device} on #{path} type")
           drive_mounted = true
-        else
-          puts "not mounted: #{data}"
         end
       end
     end
@@ -126,16 +126,16 @@ class RemoteCommandHandler
   # Activates the encrypted volume, i.e. mounts it if not yet done.
   def activate_encrypted_volume(name, path)
     drive_mounted = drive_mounted?(path)
-    puts "drive #{path} mounted? #{drive_mounted}"
+    @logger.debug "drive #{path} mounted? #{drive_mounted}"
     if !drive_mounted
       @ssh_session.exec! "mkdir #{path}"
       exec_string = "mount /dev/vg-#{name}/lv-#{name} #{path}"
-      puts "drive not mounted; execute: #{exec_string}"
+      @logger.debug "drive not mounted; execute: #{exec_string}"
       @ssh_session.exec! "mount /dev/vg-#{name}/lv-#{name} #{path}" do |ch, stream, data|
         if stream == :stderr && data != nil
           err = "Failed during mounting encrypted device"
-          puts "#{err}: #{data}"
-          puts "mount /dev/vg-#{name}/lv-#{name} #{path}"
+          @logger.debug "#{err}: #{data}"
+          @logger.debug "mount /dev/vg-#{name}/lv-#{name} #{path}"
           raise Exception.new(err)
         end
       end
@@ -150,9 +150,9 @@ class RemoteCommandHandler
   # Unmount the specified path.
   def umount(path)
     exec_string = "umount #{path}"
-    puts "going to execute #{exec_string}"
+    @logger.debug "going to execute #{exec_string}"
     @ssh_session.exec! exec_string do |ch, stream, data|
-      puts "ssh_api.umount: returns #{data}"
+      @logger.debug "ssh_api.umount: returns #{data}"
     end
     !drive_mounted?(path)
   end
@@ -160,8 +160,9 @@ class RemoteCommandHandler
   # Copy directory using options -avHx
   def rsync(source_path, dest_path)
     e = "rsync -avHx #{source_path} #{dest_path}"
+    @logger.debug "going to execute #{e}"
     @ssh_session.exec! e do |ch, stream, data|
-      puts "#{e}: output on #{stream.inspect}: #{data}"
+      @logger.debug "#{e}: output on #{stream.inspect}: #{data}"
     end
   end
 

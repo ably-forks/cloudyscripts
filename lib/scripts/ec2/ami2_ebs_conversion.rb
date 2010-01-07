@@ -33,7 +33,10 @@ class Ami2EbsConversion < Ec2Script
   # * remote_command_handler => object that allows to connect via ssh and execute commands (optional)
   # * ec2_api_handler => object that allows to access the EC2 API (optional)
   # * ec2_api_server => server to connect to (option, default is us-east-1.ec2.amazonaws.com)
-  
+  # * name => the name of the AMI to be created
+  # * description => description on AMI to be created (optional)
+  # * temp_device_name => [default /dev/sdj] device name used to attach the temporary storage; change this only if there's already a volume attacged as /dev/sdj (optional, default is /dev/sdj)
+  # * root_device_name"=> [default /dev/sda1] device name used for the root device (optional)
   def initialize(input_params)
     super(input_params)
     @result = {:done => false}
@@ -43,7 +46,19 @@ class Ami2EbsConversion < Ec2Script
   def start_script()
     begin
       # optional parameters and initialization
-      # TODO
+      if @input_params[:name] == nil
+        @input_params[:name] = "Boot EBS (for AMI #{@input_params[:ami_id]}) at #{Time.now.strftime('%d/%m/%Y %H.%M.%S')}"
+      else
+      end
+      if @input_params[:description] == nil
+        @input_params[:description] = @input_params[:name]
+      end
+      if @input_params[:temp_device_name] == nil
+        @input_params[:temp_device_name] = "/dev/sdj"
+      end
+      if @input_params[:root_device_name] == nil
+        @input_params[:root_device_name] = "/dev/sda1"
+      end
       # start state machine
       current_state = Ami2EbsConversionState.load_state(@input_params)
       @state_change_listeners.each() {|listener|
@@ -58,8 +73,8 @@ class Ami2EbsConversion < Ec2Script
         @result[:failed] = false
       end
     rescue Exception => e
-      puts "exception during encryption: #{e}"
-      puts e.backtrace.join("\n")
+      @logger.warn "exception during encryption: #{e}"
+      @logger.warn e.backtrace.join("\n")
       err = e.to_s
       err += " (in #{current_state.end_state.to_s})" unless current_state == nil
       @result[:failed] = true
@@ -69,7 +84,6 @@ class Ami2EbsConversion < Ec2Script
       begin
       @input_params[:remote_command_handler].disconnect
       rescue Exception => e2
-        #puts "rescue disconnect: #{e2}"
       end
     end
 
@@ -89,10 +103,42 @@ class Ami2EbsConversion < Ec2Script
   # Here begins the state machine implementation
   class Ami2EbsConversionState < ScriptExecutionState
     def self.load_state(context)
-      context[:device] = "/dev/sdj" #TODO: count up? input parameter?
       state = context[:initial_state] == nil ? InitialState.new(context) : context[:initial_state]
       state
     end
+
+    def connect
+      if @context[:remote_command_handler] == nil
+        @context[:remote_command_handler] = RemoteCommandHandler.new
+      end
+      connected = false
+      remaining_trials = 3
+      while !connected && remaining_trials > 0
+        remaining_trials -= 1
+        if @context[:ssh_keyfile] != nil
+          begin
+            @context[:remote_command_handler].connect_with_keyfile(@context[:dns_name], @context[:ssh_keyfile])
+            connected = true
+          rescue Exception => e
+            @logger.info("connection failed due to #{e}")
+          end
+        elsif @context[:ssh_keydata] != nil
+          begin
+            @context[:remote_command_handler].connect(@context[:dns_name], "root", @context[:ssh_keydata])
+            connected = true
+          rescue Exception => e
+            @logger.info("connection failed due to #{e}")
+          end
+        else
+          raise Exception.new("no key information specified")
+        end
+        if !connected
+          sleep(5) #try again
+        end
+      end
+      @logger.info "connected to #{@context[:dns_name]}"
+    end
+
   end
 
   # Nothing done yet. Start by instantiating an AMI (in the right zone?)
@@ -105,19 +151,20 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def startup_ami()
+      @logger.debug "start up AMI #{@context[:ami_id]}"
       res = @context[:ec2_api_handler].run_instances(:image_id => @context[:ami_id], 
         :security_group => @context[:security_group_name], :key_name => @context[:key_name])
+      puts "res = #{res.inspect}"#TODO:remove
       instance_id = res['instancesSet']['item'][0]['instanceId']
       @context[:instance_id] = instance_id
-      puts "res = #{res.inspect}"
+      @logger.info "started instance #{instance_id}"
       #availability_zone , key_name/group_name
       started = false
       while started == false
         sleep(5)
         res = @context[:ec2_api_handler].describe_instances(:instance_id => @context[:instance_id])
-        puts "describe_instances = #{res.inspect}"
         state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
-        puts "instance in state #{state['name']} (#{state['code']})"
+        @logger.info "instance in state #{state['name']} (#{state['code']})"
         if state['code'].to_i == 16
           started = true
           @context[:dns_name] = res['reservationSet']['item'][0]['instancesSet']['item'][0]['dnsName']
@@ -142,6 +189,7 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def create_storage()
+      @logger.debug "create volume in zone #{@context[:availability_zone]}"
       res = @context[:ec2_api_handler].create_volume(:availability_zone => @context[:availability_zone], :size => "10")
       @context[:volume_id] = res['volumeId']
       started = false
@@ -149,8 +197,9 @@ class Ami2EbsConversion < Ec2Script
         sleep(5)
         #TODO: check for timeout?
         res = @context[:ec2_api_handler].describe_volumes(:volume_id => @context[:volume_id])
-        puts "res = #{res.inspect}"
-        if res['volumeSet']['item'][0]['status'] == 'available'
+        state = res['volumeSet']['item'][0]['status']
+        @logger.debug "volume state #{state}"
+        if state == 'available'
           started = true
         end
       end
@@ -168,18 +217,20 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def attach_storage()
+      @logger.debug "attach volume #{@context[:volume_id]} to instance #{@context[:instance_id]} on device #{@context[:temp_device_name]}"
       @context[:ec2_api_handler].attach_volume(:volume_id => @context[:volume_id],
         :instance_id => @context[:instance_id],
-        :device => @context[:device]
+        :device => @context[:temp_device_name]
       )
-      started = false
-      while !started
+      done = false
+      while !done
         sleep(5)
         #TODO: check for timeout?
         res = @context[:ec2_api_handler].describe_volumes(:volume_id => @context[:volume_id])
-        puts "res = #{res.inspect}"
-        if res['volumeSet']['item'][0]['status'] == 'in-use'
-          started = true
+        state = res['volumeSet']['item'][0]['status']
+        @logger.debug "storage attaching: #{state}"
+        if  state == 'in-use'
+          done = true
         end
       end
       StorageAttached.new(@context)
@@ -196,19 +247,9 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def create_fs()
-      if @context[:remote_command_handler] == nil
-        @context[:remote_command_handler] = RemoteCommandHandler.new
-      end
-      if @context[:ssh_keyfile] != nil
-        puts @context[:remote_command_handler].inspect
-        @context[:remote_command_handler].connect_with_keyfile(@context[:dns_name], @context[:ssh_keyfile])
-      elsif @context[:ssh_keydata] != nil
-        @context[:remote_command_handler].connect(@context[:dns_name], "root", @context[:ssh_keydata])
-      else
-        raise Exception.new("no key information specified")
-      end
-      puts "connected"
-      @context[:remote_command_handler].create_filesystem("ext3", @context[:device])
+      @logger.debug "create filesystem on #{@context[:dns_name]} to #{@context[:temp_device_name]}"
+      connect()
+      @context[:remote_command_handler].create_filesystem("ext3", @context[:temp_device_name])
       FileSystemCreated.new(@context)
     end
   end
@@ -223,8 +264,9 @@ class Ami2EbsConversion < Ec2Script
 
     def mount_fs()
       @context[:path] = "/mnt/tmp_#{@context[:volume_id]}"
+      @logger.debug "mount #{@context[:temp_device_name]} on #{@context[:path]}"
       @context[:remote_command_handler].mkdir(@context[:path])
-      @context[:remote_command_handler].mount(@context[:device], @context[:path])
+      @context[:remote_command_handler].mount(@context[:temp_device_name], @context[:path])
       sleep(2) #give mount some time
       if !@context[:remote_command_handler].drive_mounted?(@context[:path])
         raise Exception.new("drive #{@context[:path]} not mounted")
@@ -242,11 +284,12 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def copy()
+      @logger.debug "start copying to #{@context[:path]}"
       start = Time.new.to_i
       @context[:remote_command_handler].rsync("/", "#{@context[:path]}")
       @context[:remote_command_handler].rsync("/dev/", "#{@context[:path]}/dev/")
       endtime = Time.new.to_i
-      puts "copy took #{(endtime-start)}s"
+      @logger.info "copy took #{(endtime-start)}s"
       CopyDone.new(@context)
     end
   end
@@ -260,6 +303,7 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def unmount()
+      @logger.debug "unmount #{@context[:path]}"
       @context[:remote_command_handler].umount(@context[:path])
       sleep(2) #give umount some time
       if @context[:remote_command_handler].drive_mounted?(@context[:path])
@@ -278,6 +322,7 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def detach()
+      @logger.debug "detach volume #{@context[:volume_id]}"
       @context[:ec2_api_handler].detach_volume(:volume_id => @context[:volume_id],
         :instance_id => @context[:instance_id]
       )
@@ -286,7 +331,7 @@ class Ami2EbsConversion < Ec2Script
         sleep(3)
         #TODO: check for timeout?
         res = @context[:ec2_api_handler].describe_volumes(:volume_id => @context[:volume_id])
-        puts "res = #{res.inspect}"
+        @logger.debug "volume detaching: #{res.inspect}"
         if res['volumeSet']['item'][0]['status'] == 'available'
           done = true
         end
@@ -305,15 +350,16 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def create_snapshot()
+      @logger.debug "create snapshot for volume #{@context[:volume_id]}"
       res = @context[:ec2_api_handler].create_snapshot(:volume_id => @context[:volume_id])
       @context[:snapshot_id] = res['snapshotId']
-      puts "snapshot_id = #{@context[:snapshot_id]}"
+      @logger.info "snapshot_id = #{@context[:snapshot_id]}"
       done = false
       while !done
         sleep(5)
         #TODO: check for timeout?
         res = @context[:ec2_api_handler].describe_snapshots(:snapshot_id => @context[:snapshot_id])
-        puts "res = #{res.inspect}"
+        @logger.debug "snapshot creating: #{res.inspect}"
         if res['snapshotSet']['item'][0]['status'] == 'completed'
           done = true
         end
@@ -331,8 +377,8 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def delete_volume
+      @logger.debug "delete volume #{@context[:volume_id]}"
       res = @context[:ec2_api_handler].delete_volume(:volume_id => @context[:volume_id])
-      puts "delete volume: result = #{res}"
       VolumeDeleted.new(@context)
     end
   end
@@ -346,13 +392,16 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def register()
+      @logger.debug "register snapshot #{@context[:snapshot_id]} as #{@context[:name]}"
       res = @context[:ec2_api_handler].register_image_updated(:snapshot_id => @context[:snapshot_id],
-        :kernel_id => @context[:kernel_id], :architecture => @context[:architecture], :root_device_name => "/dev/sda1",
-        :description => "Good description!", :name => "Complete Run (#{@context[:instance_id]})", :ramdisk_id => @context[:ramdisk_id]
-      ) #TODO: name, description, root-device-name
-      puts "result of registration = #{res.inspect}"
+        :kernel_id => @context[:kernel_id], :architecture => @context[:architecture], 
+        :root_device_name => @context[:root_device_name],
+        :description => @context[:description], :name => @context[:name],
+        :ramdisk_id => @context[:ramdisk_id]
+      )
+      @logger.debug "result of registration = #{res.inspect}"
       @context[:image_id] = res['imageId']
-      puts "resulting image_id = #{@context[:image_id]}"
+      @logger.info "resulting image_id = #{@context[:image_id]}"
       SnapshotRegistered.new(@context)
     end
   end
@@ -366,14 +415,14 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def shut_down()
+      @logger.debug "shutdown instance #{@context[:instance_id]}"
       res = @context[:ec2_api_handler].terminate_instances(:instance_id => @context[:instance_id])
       done = false
       while done == false
         sleep(5)
         res = @context[:ec2_api_handler].describe_instances(:instance_id => @context[:instance_id])
-        puts "describe_instances = #{res.inspect}"
         state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
-        puts "instance in state #{state['name']} (#{state['code']})"
+        @logger.debug "instance in state #{state['name']} (#{state['code']})"
         if state['code'].to_i == 48
           done = true
         elsif state['code'].to_i != 32
@@ -390,19 +439,5 @@ class Ami2EbsConversion < Ec2Script
       true
     end
   end
-
   
-  # Use an instance in the same region as your image to do the following,
-  #    from http://coderslike.us/2009/12/07/amazon-ec2-boot-from-ebs-and-ami-conversion/
-  #    * download the image bundle to the ephemeral store: ec2-download-bundle
-  #    * unbundle the image (resulting in a single file): ec2-unbundle
-  #    * create a temporary EBS volume in the same availability zone as the instance
-  #    * attach the volume to your instance
-  #    * copy the unbundled image onto the raw EBS volume
-  #    * mount the EBS volume
-  #    * edit /etc/fstab on the volume to remove the ephemeral store mount line
-  #    * unmount and detach the volume
-  #    * create a snapshot of the EBS volume
-  #    * register the snapshot as an image, and you’re done!
-
 end

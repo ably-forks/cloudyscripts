@@ -4,6 +4,11 @@ require 'help/remote_command_handler'
 # (see #Scripts::EC2::DmEncrypt)
 
 class DmCryptHelper
+  attr_accessor :logger
+
+  def initialize
+    @logger = Logger.new(STDOUT)
+  end
 
   # Passes an remote command handler object
   # (see #Help::RemoteCommandHandler)
@@ -46,15 +51,15 @@ class DmCryptHelper
     else
       mapper_exists = false
     end
-    puts "mapper exists = #{mapper_exists}"
+    @logger.info "mapper exists = #{mapper_exists}"
     exec_string = "cryptsetup create dm-#{name} #{device}"
     if !mapper_exists
       #mapper does not exist, create it
       channel = @ssh_session.open_channel do |ch|
         ch.send_data("#{password}\n")
-        puts "execute #{exec_string}"
+        @logger.debug "execute #{exec_string}"
         ch.exec exec_string do |ch, success|
-          puts "success = #{success}"
+          @logger.debug "success = #{success}"
           if !success
             err = "Failed during creation of encrypted partition"
             #puts "#{err}: #{data}"
@@ -78,12 +83,12 @@ class DmCryptHelper
     end
     if !pv_exists
       exec_string = "pvcreate /dev/mapper/dm-#{name}"
-      puts "pv does not exist - execute: #{exec_string}"
+      @logger.info "pv does not exist - execute: #{exec_string}"
       #private volume does not exist, create it
       channel = @ssh_session.open_channel do |ch|
         ch.send_data("y\n")
         ch.exec exec_string do |ch, success|
-          puts "success = #{success}"
+          @logger.debug "success = #{success}"
           if !success
             err = "Failed during creation of physical volume"
             #puts "#{err}: #{data}"
@@ -106,26 +111,26 @@ class DmCryptHelper
     end
     if !vg_exists
       exec_string = "vgcreate vg-#{name} /dev/mapper/dm-#{name}"
-      puts "vg_exists == false; execute #{exec_string}"
+      @logger.info "vg_exists == false; execute #{exec_string}"
       @ssh_session.exec! exec_string do |ch, stream, data|
         if stream == :stderr && data != nil
           err = "Failed during creation of volume group"
-          puts "#{err}: #{data}"
+          @logger.warn "#{err}: #{data}"
           raise Exception.new(err)
         end
       end
       #exec_string = "lvcreate -n lv-#{name} -L#{size_in_mb.to_s}M vg-#{name}"
       exec_string = "lvcreate -n lv-#{name} -l100%FREE vg-#{name}"
-      puts "execute #{exec_string}"
+      @logger.info "execute #{exec_string}"
       @ssh_session.exec! exec_string do |ch, stream, data|
         if stream == :stderr && data != nil
           err = "Failed during creation of logical volume"
-          puts "#{err}: #{data}"
+          @logger.debug "#{err}: #{data}"
           raise Exception.new(err)
         end
       end
-      exec_string = "mkfs -t ext3 /dev/vg-#{name}/lv-#{name}"
-      puts "execute #{exec_string}"
+      exec_string = "mkfs -t ext3 /dev/vg-#{name}/lv-#{name}" #TODO: use method in remote_command_handler
+      @logger.info "execute #{exec_string}"
       @ssh_session.exec! exec_string #do |ch, stream, data|
         #if stream == :stderr && data != nil
         #err = "Failed during creation of file-system"
@@ -139,11 +144,11 @@ class DmCryptHelper
       end
     else
       exec_string = "/sbin/vgchange -a y vg-#{name}"
-      puts "vg_exists == true; execute #{exec_string}"
+      @logger.info "vg_exists == true; execute #{exec_string}"
       @ssh_session.exec! exec_string do |ch, stream, data| #TODO: the right size instead L2G!
         if stream == :stderr && data != nil
           err = "Failed during re-activation of volume group"
-          puts "#{err}: #{data}"
+          @logger.info "#{err}: #{data}"
           raise Exception.new(err)
         end
       end
@@ -158,29 +163,29 @@ class DmCryptHelper
   # Undo encryption for the volume specified by name and path
   def undo_encryption(name, path)
     exec_string = "umount #{path}"
-    puts "going to execute #{exec_string}"
+    @logger.debug "going to execute #{exec_string}"
     @ssh_session.exec! exec_string do |ch, stream, data|
-      puts "returns #{data}"
+      @logger.debug "returns #{data}"
     end
     exec_string = "lvremove --verbose vg-#{name} -f" #[with confirmation?]
-    puts "going to execute #{exec_string}"
+    @logger.debug "going to execute #{exec_string}"
     @ssh_session.exec! exec_string do |ch, stream, data|
-      puts "returns #{data}"
+      @logger.debug "returns #{data}"
     end
     exec_string = "vgremove vg-#{name}"
-    puts "going to execute #{exec_string}"
+    @logger.debug "going to execute #{exec_string}"
     @ssh_session.exec! exec_string do |ch, stream, data|
-      puts "returns #{data}"
+      @logger.debug "returns #{data}"
     end
     exec_string = "pvremove /dev/mapper/dm-#{name}"
-    puts "going to execute #{exec_string}"
+    @logger.debug "going to execute #{exec_string}"
     @ssh_session.exec! exec_string do |ch, stream, data|
-      puts "returns #{data}"
+      @logger.debug "returns #{data}"
     end
     exec_string = "cryptsetup remove dm-#{name}"
-    puts "going to execute #{exec_string}"
+    @logger.debug "going to execute #{exec_string}"
     @ssh_session.exec! exec_string do |ch, stream, data|
-      puts "returns #{data}"
+      @logger.debug "returns #{data}"
     end
   end
 
