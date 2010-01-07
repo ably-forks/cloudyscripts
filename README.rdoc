@@ -21,4 +21,7 @@
 # * #DmEncrypt (encrypt Amazon EBS Storage using dm-encrypt)
 #
 # =Questions and Suggestions
+# Matthias Jung
 # matthias.jung@gmail.com
+# http://elastic-security.com
+
