@@ -9,9 +9,7 @@ require 'test/unit'
 
 class TestAmi2EbsConversion < Test::Unit::TestCase
   def test_execution
-    #ec2_api = AWS::EC2::Base.new(:access_key_id => "03AD8BV6FBQHFY3MZ4G2", :secret_access_key => "D9j14KgaMIVDxWhFyc9ASQWBH/BxyLO3hl0vuwkC")
     ec2_api = MockedEc2Api.new
-    #ssh = RemoteCommandHandler.new
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
     params = {
