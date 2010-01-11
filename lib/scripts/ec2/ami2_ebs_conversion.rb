@@ -154,7 +154,6 @@ class Ami2EbsConversion < Ec2Script
       @logger.debug "start up AMI #{@context[:ami_id]}"
       res = @context[:ec2_api_handler].run_instances(:image_id => @context[:ami_id], 
         :security_group => @context[:security_group_name], :key_name => @context[:key_name])
-      puts "res = #{res.inspect}"#TODO:remove
       instance_id = res['instancesSet']['item'][0]['instanceId']
       @context[:instance_id] = instance_id
       @logger.info "started instance #{instance_id}"
