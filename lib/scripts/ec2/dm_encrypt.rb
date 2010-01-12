@@ -120,7 +120,8 @@ class DmEncrypt < Ec2Script
     def install_tools
       @logger.debug "ConnectedState.install_tools"
       if !tools_installed?
-        @context[:remote_command_handler].install("dm-crypt") #TODO: constant somewhere? admin parameter?
+        @context[:remote_command_handler].install("cryptsetup")
+        @context[:remote_command_handler].install("lvm2")
       end
       if tools_installed?
         @logger.debug "system says that tools are installed"
@@ -131,7 +132,8 @@ class DmEncrypt < Ec2Script
     end
 
     def tools_installed?
-      if @context[:remote_command_handler].tools_installed?("dm-crypt")
+      if @context[:remote_command_handler].tools_installed?("cryptsetup") &&
+          @context[:remote_command_handler].tools_installed?("lvm2")
         true
       else
         false

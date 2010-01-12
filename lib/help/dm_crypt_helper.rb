@@ -16,15 +16,9 @@ class DmCryptHelper
     @ssh_session = ssh_session
   end
 
-  # Installs the dm-crypt tools (if not yet done)
-  def install()
-    #TODO: dm-crypt seems to be installed automatically
-    true
-  end
-
   # Checks if the dm-crypt tool is installed (true/false)
   def tools_installed?()
-    @ssh_session.exec! "which dmsetup" do |ch, stream, data|
+    @ssh_session.exec! "which lvm" do |ch, stream, data|
       if stream == :stderr
         return false
       end

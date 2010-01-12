@@ -47,12 +47,23 @@ class RemoteCommandHandler
 
   # Installs the software package specified.
   def install(software_package)
-    @crypto.install()
+    e = "yum -yq install #{software_package}; apt-get -yq install #{software_package}"
+    @logger.debug "exec #{e}"
+    @ssh_session.exec! e do |ch, stream, data|
+      @logger.debug "#{e}: output on #{stream.inspect}: #{data}"
+    end
   end
 
   # Checks if the software package specified is installed.
   def tools_installed?(software_package)
     @crypto.tools_installed?
+    @ssh_session.exec! "which #{software_package}" do |ch, stream, data|
+      if data.length > 0 && stream == :stderr
+        @logger.warn("which #{software_package} returns #{data}")
+        return false
+      end
+    end
+    return true
   end
 
   # Encrypt the storage (using the crypto-helper used, e.g. #Help::DmCryptHelper)
