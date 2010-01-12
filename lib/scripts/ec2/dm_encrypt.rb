@@ -131,6 +131,7 @@ class DmEncrypt < Ec2Script
     end
 
     def tools_installed?
+      #@TODO: support yum and apt-get
       if @context[:remote_command_handler].tools_installed?("dm-crypt")
         true
       else
