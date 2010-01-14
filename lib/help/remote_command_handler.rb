@@ -168,4 +168,20 @@ class RemoteCommandHandler
     end
   end
 
+  private
+
+  def self.remote_execute(ssh_session, logger, exec_string, push_data = nil)
+    result = true
+    exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
+    output = ""
+    ssh_session.exec!(exec_string) do |ch, stream, data|
+      output += data unless data == nil
+      if stream == :stderr
+        result = false
+      end
+    end
+    logger.info output unless logger == nil
+    result
+  end
+
 end
