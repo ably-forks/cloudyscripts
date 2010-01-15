@@ -7,6 +7,9 @@ require "AWS"
 # Script to Encrypt an EC2 Storage (aka Elastic Block Storage)
 # 
 class DmEncrypt < Ec2Script
+  # dependencies: tools that need to be installed to make things work
+  TOOLS = ["cryptsetup","lvm"]
+
   # Input parameters
   # * aws_access_key => the Amazon AWS Access Key (see Your Account -> Security Credentials)
   # * aws_secret_key => the Amazon AWS Secret Key
@@ -21,6 +24,7 @@ class DmEncrypt < Ec2Script
   # * ec2_api_handler => object that allows to access the EC2 API (optional)
   # * ec2_api_server => server to connect to (option, default is us-east-1.ec2.amazonaws.com)
   #
+
   def initialize(input_params)
     super(input_params)
     @result = {:done => false}
@@ -120,8 +124,9 @@ class DmEncrypt < Ec2Script
     def install_tools
       @logger.debug "ConnectedState.install_tools"
       if !tools_installed?
-        @context[:remote_command_handler].install("cryptsetup")
-        @context[:remote_command_handler].install("lvm2")
+        TOOLS.each() {|tool|
+          @context[:remote_command_handler].install(tool)
+        }
       end
       if tools_installed?
         @logger.debug "system says that tools are installed"
@@ -132,12 +137,12 @@ class DmEncrypt < Ec2Script
     end
 
     def tools_installed?
-      if @context[:remote_command_handler].tools_installed?("cryptsetup") &&
-          @context[:remote_command_handler].tools_installed?("lvm2")
-        true
-      else
-        false
-      end
+      TOOLS.each() {|tool|
+        if !@context[:remote_command_handler].tools_installed?(tool)
+          return false
+        end
+      }
+      true
     end
   end
 
