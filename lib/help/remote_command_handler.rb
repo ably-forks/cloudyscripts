@@ -110,12 +110,13 @@ class RemoteCommandHandler
     result = true
     exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
     output = ""
-    ssh_session.exec!(exec_string) do |ch, stream, data|
+    ssh_session.exec(exec_string) do |ch, stream, data|
       output += data unless data == nil
       if stream == :stderr && data != nil
         result = false
       end
     end
+    ssh_session.loop
     logger.info output unless logger == nil
     raise Exception.new("RemoteCommandHandler: #{exec_string} lead to stderr message: #{output}") unless result == true || raise_exception == false
     result
@@ -132,7 +133,7 @@ class RemoteCommandHandler
     stdout = []
     stderr = []
     exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
-    ssh_session.exec!(exec_string) do |ch, stream, data|
+    ssh_session.exec(exec_string) do |ch, stream, data|
       if stream == :stdout && data != nil
         stdout << data
       end
@@ -140,6 +141,7 @@ class RemoteCommandHandler
         stderr << data
       end
     end
+    ssh_session.loop
     logger.info("RemoteCommandHandler: #{exec_string} lead to stderr message: #{stderr.join("\n")}") unless stderr.size == 0
     stdout.join("\n").include?(search_string)
   end
@@ -151,7 +153,7 @@ class RemoteCommandHandler
   # also written into those arrays.
   def self.get_output(ssh_session, exec_string, push_data = nil, stdout = [], stderr = [])
     exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
-    ssh_session.exec!(exec_string) do |ch, stream, data|
+    ssh_session.exec(exec_string) do |ch, stream, data|
       if stream == :stdout && data != nil
         stdout << data
       end
@@ -159,6 +161,7 @@ class RemoteCommandHandler
         stderr << data
       end
     end
+    ssh_session.loop
     stdout.join("\n")
   end
 

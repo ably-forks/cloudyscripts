@@ -166,7 +166,7 @@ class DmCryptHelper < RemoteCommandHandler
       if !file_exists?("/dev/mapper/#{name}")
         @logger.debug("mapper device #{name} not yet existing")
         #device not configured, go ahead
-        RemoteCommandHandler.remote_execute(@ssh_session, @logger, "cryptsetup luksFormat #{device} -q -t5", password)
+        RemoteCommandHandler.remote_execute(@ssh_session, @logger, "cryptsetup luksFormat  -q #{device}", password)
         @logger.debug("device #{device} formatted as #{name}")
         RemoteCommandHandler.remote_execute(@ssh_session, @logger, "cryptsetup luksOpen #{device} #{name}",password)
         @logger.debug("device #{device} / #{name} opened")
