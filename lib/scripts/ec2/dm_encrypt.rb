@@ -27,7 +27,6 @@ class DmEncrypt < Ec2Script
 
   def initialize(input_params)
     super(input_params)
-    @result = {:done => false}
   end
 
   # Executes the script.
@@ -110,6 +109,7 @@ class DmEncrypt < Ec2Script
       else
         raise Exception.new("no key information specified")
       end
+      @context[:result][:os] = @context[:remote_command_handler].retrieve_os()
       ConnectedState.new(@context)
     end
   end
@@ -155,16 +155,9 @@ class DmEncrypt < Ec2Script
     private
     def create_encrypted_volume
       @logger.debug "ToolInstalledState.create_encrypted_volume"
-      #first check if the drive is not yet mounted by someone else
-      if @context[:remote_command_handler].drive_mounted?(@context[:storage_path])
-        if !@context[:remote_command_handler].drive_mounted_as?(calc_device_name(), @context[:storage_path])
-          raise Exception.new("Drive is already used by another device")
-        end
-      end
-      #
       @context[:remote_command_handler].encrypt_storage(@context[:device_name],
       @context[:paraphrase], @context[:device], @context[:storage_path])
-      VolumeCreatedState.new(@context)
+      MountedAndActivatedState.new(@context)
     end
 
     def calc_device_name
@@ -174,21 +167,7 @@ class DmEncrypt < Ec2Script
 
   end
 
-  # The encrypted Volume is created. Going to mount it.
-  class VolumeCreatedState < DmEncryptState
-    def enter
-      mount_and_activate()
-    end
-
-    private
-    def mount_and_activate
-      @logger.debug "VolumeCreatedState.mount_and_activate"
-      @context[:remote_command_handler].activate_encrypted_volume(@context[:device_name],@context[:storage_path])
-      MountedAndActivatedState.new(@context)
-    end
-  end
-
-  # The encrypted storages is mounted. Cleanup and done.
+  # The encrypted storages is mounted and activated. Cleanup and done.
   class MountedAndActivatedState < DmEncryptState
     def enter
       cleanup()

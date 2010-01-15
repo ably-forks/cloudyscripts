@@ -14,6 +14,8 @@ class Ec2Script
       @logger .level = Logger::WARN
       input_params[:logger] = @logger
     end
+    @result = {:done => false}
+    @input_params[:result] = @result
   end
 
   def register_state_change_listener(listener)

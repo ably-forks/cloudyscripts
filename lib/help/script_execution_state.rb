@@ -32,6 +32,7 @@ class ScriptExecutionState
         @current_state = @current_state.enter()
         notify_state_change_listeners(@current_state)
       rescue Exception => e
+        @context[:details] = e
         @current_state = FailedState.new(@context, e.to_s, @current_state)
         notify_state_change_listeners(@current_state)
         @logger.warn "Exception: #{e}"

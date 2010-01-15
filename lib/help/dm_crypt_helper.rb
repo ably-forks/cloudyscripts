@@ -3,44 +3,18 @@ require 'help/remote_command_handler'
 # This class implements helper methods for Dm Encryption
 # (see #Scripts::EC2::DmEncrypt)
 
-class DmCryptHelper
-  attr_accessor :logger
-
-  def initialize
-    @logger = Logger.new(STDOUT)
-  end
-
-  # Passes an remote command handler object
-  # (see #Help::RemoteCommandHandler)
-  def set_ssh(ssh_session)
-    @ssh_session = ssh_session
-  end
-
-  # Checks if the dm-crypt tool is installed (true/false)
-  def tools_installed?()
-    @ssh_session.exec! "which lvm" do |ch, stream, data|
-      if stream == :stderr
-        return false
-      end
-    end
-    @ssh_session.exec! "which cryptsetup" do |ch, stream, data|
-      if stream == :stderr
-        return false
-      end
-    end
-    #TODO: check also that "/dev/mapper /dev/mapper/control" exist
-    true
-  end
-
-  # Encrypts the device and mounting it using dm-crypt tools.
+class DmCryptHelper < RemoteCommandHandler
+  
+  # Encrypts the device and mounting it using dm-crypt tools. Uses LVM to
+  # work with virtual devices.
   # Params
   # * name: name of the virtual volume
   # * password: paraphrase to be used for encryption
   # * device: device to be encrypted
   # * path: path to which the encrypted device is mounted
-  def encrypt_storage(name, password, device, path)
+  def encrypt_storage_lvm(name, password, device, path)
     # first: check if a file in /dev/mapper exists
-    if RemoteCommandHandler.file_exists?(@ssh_session, "/dev/mapper/dm-#{name}")
+    if file_exists?("/dev/mapper/dm-#{name}")
       mapper_exists = true
     else
       mapper_exists = false
@@ -132,7 +106,7 @@ class DmCryptHelper
         #raise Exception.new(err)
         #end
       #end
-      if !RemoteCommandHandler.file_exists?(@ssh_session,"/dev/vg-#{name}/lv-#{name}")
+      if !file_exists?("/dev/vg-#{name}/lv-#{name}")
         err = "Missing file: /dev/vg-#{name}/lv-#{name}"
         raise Exception.new(err)
       end
@@ -149,13 +123,8 @@ class DmCryptHelper
     end
   end
 
-  # Check if the storage is encrypted (not yet implemented).
-  def test_storage_encryption(password, mount_point, path)
-    raise Exception.new("not yet implemented")
-  end
-
   # Undo encryption for the volume specified by name and path
-  def undo_encryption(name, path)
+  def undo_encryption_lvm(name, path)
     exec_string = "umount #{path}"
     @logger.debug "going to execute #{exec_string}"
     @ssh_session.exec! exec_string do |ch, stream, data|
@@ -181,6 +150,51 @@ class DmCryptHelper
     @ssh_session.exec! exec_string do |ch, stream, data|
       @logger.debug "returns #{data}"
     end
+  end
+
+  # Encrypts the device and mounting it using dm-crypt tools.
+  # Params
+  # * name: name of the virtual volume
+  # * password: paraphrase to be used for encryption
+  # * device: device to be encrypted
+  # * path: path to which the encrypted device is mounted
+  def encrypt_storage(name, password, device, path)
+    if !RemoteCommandHandler.remote_execute(@ssh_session, @logger, "cryptsetup isLuks #{device}")
+      raise Exception.new("device #{device} is already used differently")
+    end
+    if file_exists?(device)
+      if !file_exists?("/dev/mapper/#{name}")
+        @logger.debug("mapper device #{name} not yet existing")
+        #device not configured, go ahead
+        RemoteCommandHandler.remote_execute(@ssh_session, @logger, "cryptsetup luksFormat #{device} -q", password)
+        @logger.debug("device #{device} formatted as #{name}")
+        RemoteCommandHandler.remote_execute(@ssh_session, @logger, "cryptsetup luksOpen #{device} #{name}",password)
+        @logger.debug("device #{device} / #{name} opened")
+        RemoteCommandHandler.create_filesystem("ext3", "/dev/mapper/#{name}")
+        @logger.debug("filesystem created on /dev/mapper/#{name}")
+        self.mkdir(path)
+        self.mount("/dev/mapper/#{name}", path)
+        #TODO: make a final check that everything worked?
+      else
+        #device already exists, just re-activate it
+        @logger.debug("mapper device #{name} is existing")
+        RemoteCommandHandler.remote_execute(@ssh_session, @logger, "cryptsetup luksOpen #{device} #{name}")
+        @logger.debug("device #{device} /dev/mapper/#{name} opened")
+        self.mkdir(path) unless file_exists?(path)
+        self.mount("/dev/mapper/#{name}", path) unless drive_mounted_as?("/dev/mapper/#{name}", path)
+      end
+    else
+      #device does not even exist
+      raise Exception.new("device #{device} does not exist")
+    end
+
+  end
+
+  # Check if the storage is encrypted (not yet implemented).
+  def test_storage_encryption(password, mount_point, path)
+  end
+
+  def undo_encryption(name, path)
   end
 
 end

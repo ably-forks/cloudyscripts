@@ -1,12 +1,10 @@
 require 'rubygems'
 require 'net/ssh'
-require 'help/dm_crypt_helper'
 
 # Provides methods to be executed via ssh to remote instances.
 class RemoteCommandHandler
   attr_accessor :logger, :ssh_session
   def initialize
-    @crypto = DmCryptHelper.new #TODO: instantiate helpers for different tools
     @logger = Logger.new(STDOUT)
   end
 
@@ -16,7 +14,6 @@ class RemoteCommandHandler
   # * keyfile: path of the keyfile to be used for authentication
   def connect_with_keyfile(ip, keyfile)
     @ssh_session = Net::SSH.start(ip, 'root', :keys => [keyfile])
-    @crypto.set_ssh(@ssh_session)
   end
 
   # Connect to the machine as root using keydata from a keyfile.
@@ -26,7 +23,6 @@ class RemoteCommandHandler
   # * key_data: key_data to be used for authentication
   def connect(ip, user, key_data)
     @ssh_session = Net::SSH.start(ip, user, :key_data => [key_data])
-    @crypto.set_ssh(@ssh_session)
   end
 
   # Disconnect the current handler
@@ -35,8 +31,13 @@ class RemoteCommandHandler
   end
 
   # Check if the path/file specified exists
-  def self.file_exists?(ssh_session, path)
-    RemoteCommandHandler.remote_execute(ssh_session, nil, "ls #{path}")
+  def file_exists?(path)
+    RemoteCommandHandler.remote_execute(@ssh_session, @logger, "ls #{path}")
+  end
+
+  # Returns the result of uname -a (Linux)
+  def retrieve_os()
+    RemoteCommandHandler.get_output(@ssh_session, "uname -r").strip
   end
   
   # Installs the software package specified.
@@ -51,19 +52,9 @@ class RemoteCommandHandler
     RemoteCommandHandler.remote_execute(@ssh_session, @logger, e)
   end
 
-  # Encrypt the storage (using the crypto-helper used, e.g. #Help::DmCryptHelper)
-  def encrypt_storage(name, password, device, path)
-    @crypto.encrypt_storage(name, password, device, path)
-  end
-
-  # Check if the storage is encrypted (using the crypto-helper used, e.g. #Help::DmCryptHelper)
-  def storage_encrypted?(password, device, path)
-    drive_mounted?(path) #TODO: must at least also check the name
-  end
-
   def create_filesystem(fs_type, volume)
     e = "mkfs -t #{fs_type} #{volume}"
-    RemoteCommandHandler.remote_execute(@ssh_session, @logger, e, "y")
+    RemoteCommandHandler.remote_execute(@ssh_session, @logger, e, "y") #TODO: quiet mode?
   end
 
   def mkdir(path)
@@ -79,17 +70,9 @@ class RemoteCommandHandler
   # Checks if the drive on path is mounted
   def drive_mounted?(path)
     #check if drive mounted
-    drive_found = false
-    @ssh_session.exec! "mount" do |ch, stream, data|
-      if stream == :stdout
-        @logger.debug "mount command produces the following data: #{data}\n---------------"
-        if data.include?("on #{path} type")
-          drive_found = true
-        end
-      end
-    end
+    drive_found = RemoteCommandHandler.stdout_contains?(@ssh_session, @logger, "mount", "on #{path} type")
     if drive_found
-      return RemoteCommandHandler.file_exists?(@ssh_session, path)
+      return file_exists?(path)
     else
       @logger.debug "not mounted (since #{path} non-existing)"
       false
@@ -99,30 +82,7 @@ class RemoteCommandHandler
   # Checks if the drive on path is mounted with the specific device
   def drive_mounted_as?(device, path)
     #check if drive mounted
-    drive_mounted = false
-    @ssh_session.exec! "mount" do |ch, stream, data|
-      if stream == :stdout
-        if data.include?("#{device} on #{path} type")
-          drive_mounted = true
-        end
-      end
-    end
-    drive_mounted
-  end
-
-  # Activates the encrypted volume, i.e. mounts it if not yet done.
-  def activate_encrypted_volume(name, path)
-    drive_mounted = drive_mounted?(path)
-    @logger.debug "drive #{path} mounted? #{drive_mounted}"
-    if !drive_mounted
-      mkdir(path)
-      mount("/dev/vg-#{name}/lv-#{name}", "#{path}")
-    end
-  end
-
-  # Unconfigure the storage (using the crypto-helper used, e.g. #Help::DmCryptHelper)
-  def undo_encryption(name, path)
-    @crypto.undo_encryption(name, path)
+    RemoteCommandHandler.stdout_contains?(@ssh_session, @logger, "mount", "#{device} on #{path} type")
   end
 
   # Unmount the specified path.
@@ -138,8 +98,6 @@ class RemoteCommandHandler
     RemoteCommandHandler.remote_execute(@ssh_session, @logger, e, nil, true)
   end
 
-  private
-
   # Executes the specified #exec_string on a remote session specified as #ssh_session
   # and logs the command-output into the specified #logger. When #push_data is
   # specified, the data will be used as input for the command and thus allows
@@ -148,6 +106,7 @@ class RemoteCommandHandler
   # When #raise_exception is set, an exception will be raised instead of
   # returning false.
   def self.remote_execute(ssh_session, logger, exec_string, push_data = nil, raise_exception = false)
+    logger.debug("RemoteCommandHandler: going to execute #{exec_string}")
     result = true
     exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
     output = ""
@@ -161,5 +120,47 @@ class RemoteCommandHandler
     raise Exception.new("RemoteCommandHandler: #{exec_string} lead to stderr message: #{output}") unless result == true || raise_exception == false
     result
   end
+
+  # Executes the specified #exec_string on a remote session specified as #ssh_session
+  # and logs the command-output into the specified #logger. When #push_data is
+  # specified, the data will be used as input for the command and thus allows
+  # to respond in advance to commands that ask the user something. If the output
+  # in stdout contains the specified #search_string, the method returns true
+  # otherwise false. Output to stderr will be logged.
+  def self.stdout_contains?(ssh_session, logger, exec_string, search_string = "", push_data = nil)
+    logger.debug("RemoteCommandHandler: going to execute #{exec_string}")
+    stdout = []
+    stderr = []
+    exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
+    ssh_session.exec!(exec_string) do |ch, stream, data|
+      if stream == :stdout && data != nil
+        stdout << data
+      end
+      if stream == :stderr && data != nil
+        stderr << data
+      end
+    end
+    logger.info("RemoteCommandHandler: #{exec_string} lead to stderr message: #{stderr.join("\n")}") unless stderr.size == 0
+    stdout.join("\n").include?(search_string)
+  end
+
+  # Executes the specified #exec_string on a remote session specified as #ssh_session.
+  # When #push_data is specified, the data will be used as input for the command and thus allows
+  # to respond in advance to commands that ask the user something. It returns
+  # stdout. When #stdout or #stderr is specified as arrays, the respective output is
+  # also written into those arrays.
+  def self.get_output(ssh_session, exec_string, push_data = nil, stdout = [], stderr = [])
+    exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
+    ssh_session.exec!(exec_string) do |ch, stream, data|
+      if stream == :stdout && data != nil
+        stdout << data
+      end
+      if stream == :stderr && data != nil
+        stderr << data
+      end
+    end
+    stdout.join("\n")
+  end
+
 
 end
