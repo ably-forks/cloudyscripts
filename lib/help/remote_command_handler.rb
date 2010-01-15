@@ -106,19 +106,13 @@ class RemoteCommandHandler
   # When #raise_exception is set, an exception will be raised instead of
   # returning false.
   def self.remote_execute(ssh_session, logger, exec_string, push_data = nil, raise_exception = false)
-    logger.debug("RemoteCommandHandler: going to execute #{exec_string}")
-    result = true
     exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
-    output = ""
-    ssh_session.exec(exec_string) do |ch, stream, data|
-      output += data unless data == nil
-      if stream == :stderr && data != nil
-        result = false
-      end
-    end
-    ssh_session.loop
-    logger.info output unless logger == nil
-    raise Exception.new("RemoteCommandHandler: #{exec_string} lead to stderr message: #{output}") unless result == true || raise_exception == false
+    stdout = []
+    stderr = []
+    result = remote_exec_helper(ssh_session, exec_string, stdout, stderr, logger)
+    em = "RemoteCommandHandler: #{exec_string} lead to stderr message: #{stderr.join().strip}"
+    logger.info(em) unless stderr.size == 0
+    raise Exception.new(em) unless result == true || raise_exception == false
     result
   end
 
@@ -129,21 +123,12 @@ class RemoteCommandHandler
   # in stdout contains the specified #search_string, the method returns true
   # otherwise false. Output to stderr will be logged.
   def self.stdout_contains?(ssh_session, logger, exec_string, search_string = "", push_data = nil)
-    logger.debug("RemoteCommandHandler: going to execute #{exec_string}")
+    exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
     stdout = []
     stderr = []
-    exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
-    ssh_session.exec(exec_string) do |ch, stream, data|
-      if stream == :stdout && data != nil
-        stdout << data
-      end
-      if stream == :stderr && data != nil
-        stderr << data
-      end
-    end
-    ssh_session.loop
-    logger.info("RemoteCommandHandler: #{exec_string} lead to stderr message: #{stderr.join("\n")}") unless stderr.size == 0
-    stdout.join("\n").include?(search_string)
+    remote_exec_helper(ssh_session, exec_string, stdout, stderr, logger)
+    logger.info("RemoteCommandHandler: #{exec_string} lead to stderr message: #{stderr.join().strip}") unless stderr.size == 0
+    stdout.join().include?(search_string)
   end
 
   # Executes the specified #exec_string on a remote session specified as #ssh_session.
@@ -153,17 +138,53 @@ class RemoteCommandHandler
   # also written into those arrays.
   def self.get_output(ssh_session, exec_string, push_data = nil, stdout = [], stderr = [])
     exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
-    ssh_session.exec(exec_string) do |ch, stream, data|
-      if stream == :stdout && data != nil
-        stdout << data
-      end
-      if stream == :stderr && data != nil
-        stderr << data
-      end
-    end
-    ssh_session.loop
-    stdout.join("\n")
+    stdout = []
+    stderr = []
+    remote_exec_helper(ssh_session, exec_string, stdout, stderr)
+    stdout.join()
   end
 
+  private
+
+  # Executes the specified #exec_string on a remote session specified as #ssh_session
+  # and logs the command-output into the specified #logger.
+  # The method will return true if nothing was written into stderr, otherwise false.
+  # All stdout-data is written into #stdout, all stderr-data is written into #stderr
+  def self.remote_exec_helper(ssh_session, exec_string, stdout = [], stderr = [], logger = nil, debug = false)
+    result = true
+    the_channel = ssh_session.open_channel do |channel|
+      channel.exec(exec_string) do |ch, success|
+        if success
+          logger.debug("RemoteCommandHandler: starts executing #{exec_string}") if logger != nil && debug
+          ch.on_data() do |ch, data|
+            stdout << data unless data == nil
+          end
+          ch.on_extended_data do |ch, type, data|
+            stderr << data unless data == nil
+            result = false
+          end
+          ch.on_eof do |ch|
+            logger.debug("RemoteCommandHandler.on_eof:remote end is done sending data") if logger != nil && debug
+          end
+          ch.on_close do |ch|
+            logger.debug("RemoteCommandHandler.on_close:remote end is closing!") if logger != nil && debug
+          end
+          ch.on_open_failed do |ch, code, desc|
+            logger.debug("RemoteCommandHandler.on_open_failed: code=#{code} desc=#{desc}") if logger != nil && debug
+          end
+          ch.on_process do |ch|
+            logger.debug("RemoteCommandHandler.on_process; send line-feed/sleep") if logger != nil && debug
+            sleep(1)
+            ch.send_data("\n")
+          end
+        else
+          stderr << "the remote command could not be invoked!"
+          result = false
+        end
+      end
+    end
+    the_channel.wait
+    result
+  end
 
 end
