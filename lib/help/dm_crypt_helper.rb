@@ -174,7 +174,7 @@ class DmCryptHelper < RemoteCommandHandler
         @logger.debug("filesystem created on /dev/mapper/#{name}")
         self.mkdir(path)
         self.mount("/dev/mapper/#{name}", path)
-        #TODO: make a final check that everything worked?
+        #TODO: make a final check that everything worked? ?
       else
         #device already exists, just re-activate it
         @logger.debug("mapper device #{name} is existing")
