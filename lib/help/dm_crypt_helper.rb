@@ -166,11 +166,11 @@ class DmCryptHelper < RemoteCommandHandler
       if !file_exists?("/dev/mapper/#{name}")
         @logger.debug("mapper device #{name} not yet existing")
         #device not configured, go ahead
-        RemoteCommandHandler.remote_execute(@ssh_session, @logger, "cryptsetup luksFormat #{device} -q", password)
+        RemoteCommandHandler.remote_execute(@ssh_session, @logger, "cryptsetup luksFormat #{device} -q -t5", password)
         @logger.debug("device #{device} formatted as #{name}")
         RemoteCommandHandler.remote_execute(@ssh_session, @logger, "cryptsetup luksOpen #{device} #{name}",password)
         @logger.debug("device #{device} / #{name} opened")
-        RemoteCommandHandler.create_filesystem("ext3", "/dev/mapper/#{name}")
+        self.create_filesystem("ext3", "/dev/mapper/#{name}")
         @logger.debug("filesystem created on /dev/mapper/#{name}")
         self.mkdir(path)
         self.mount("/dev/mapper/#{name}", path)
@@ -195,6 +195,10 @@ class DmCryptHelper < RemoteCommandHandler
   end
 
   def undo_encryption(name, path)
+    RemoteCommandHandler.remote_execute(@ssh_session, @logger, "umount #{path}", nil, true)
+    @logger.debug("drive #{path} unmounted")
+    RemoteCommandHandler.remote_execute(@ssh_session, @logger, "cryptsetup luksClose /dev/mapper/#{name}", nil, true)
+    @logger.debug("closed /dev/mapper/#{name} unmounted")
   end
 
 end
