@@ -86,7 +86,6 @@ class Ami2EbsConversion < Ec2Script
       rescue Exception => e2
       end
     end
-
     #
     @result[:done] = true
   end

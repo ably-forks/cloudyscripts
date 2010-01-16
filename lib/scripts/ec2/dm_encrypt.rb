@@ -8,7 +8,9 @@ require "AWS"
 # 
 class DmEncrypt < Ec2Script
   # dependencies: tools that need to be installed to make things work
-  TOOLS = ["cryptsetup","lvm"]
+  TOOLS = ["cryptsetup"]
+  # the parameters for which
+  CHECK = ["cryptsetup"]
 
   # Input parameters
   # * aws_access_key => the Amazon AWS Access Key (see Your Account -> Security Credentials)
@@ -70,7 +72,6 @@ class DmEncrypt < Ec2Script
       rescue Exception => e2
       end
     end
-
     #
     @result[:done] = true
   end
@@ -128,6 +129,9 @@ class DmEncrypt < Ec2Script
           @context[:remote_command_handler].install(tool)
         }
       end
+      if !@context[:remote_command_handler].remote_execute("modprobe dm_crypt")
+        raise Exception.new("dm-crypt module missing")
+      end
       if tools_installed?
         @logger.debug "system says that tools are installed"
         ToolInstalledState.new(@context)
@@ -137,7 +141,7 @@ class DmEncrypt < Ec2Script
     end
 
     def tools_installed?
-      TOOLS.each() {|tool|
+      CHECK.each() {|tool|
         if !@context[:remote_command_handler].tools_installed?(tool)
           return false
         end
