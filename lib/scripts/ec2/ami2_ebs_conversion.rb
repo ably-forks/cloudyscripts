@@ -39,7 +39,6 @@ class Ami2EbsConversion < Ec2Script
   # * root_device_name"=> [default /dev/sda1] device name used for the root device (optional)
   def initialize(input_params)
     super(input_params)
-    @result = {:done => false}
   end
 
   # Executes the script.
@@ -135,6 +134,7 @@ class Ami2EbsConversion < Ec2Script
           sleep(5) #try again
         end
       end
+      @context[:result][:os] = @context[:remote_command_handler].retrieve_os()
       @logger.info "connected to #{@context[:dns_name]}"
     end
 
@@ -284,7 +284,7 @@ class Ami2EbsConversion < Ec2Script
     def copy()
       @logger.debug "start copying to #{@context[:path]}"
       start = Time.new.to_i
-      @context[:remote_command_handler].rsync("/", "#{@context[:path]}")
+      @context[:remote_command_handler].rsync("/", "#{@context[:path]}", "/mnt/")
       @context[:remote_command_handler].rsync("/dev/", "#{@context[:path]}/dev/")
       endtime = Time.new.to_i
       @logger.info "copy took #{(endtime-start)}s"
@@ -398,8 +398,8 @@ class Ami2EbsConversion < Ec2Script
         :ramdisk_id => @context[:ramdisk_id]
       )
       @logger.debug "result of registration = #{res.inspect}"
-      @context[:image_id] = res['imageId']
-      @logger.info "resulting image_id = #{@context[:image_id]}"
+      @context[:result][:image_id] = res['imageId']
+      @logger.info "resulting image_id = #{@context[:result][:image_id]}"
       SnapshotRegistered.new(@context)
     end
   end

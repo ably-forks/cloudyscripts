@@ -25,19 +25,19 @@ class ScriptExecutionState
   # Start the state machine using this state as initial state.
   def start_state_machine
     @current_state = self
-    @logger.info "start state machine with #{@current_state.inspect}"
+    @logger.info "start state machine with #{@current_state.to_s}"
     while !@current_state.done? && !@current_state.failed?
       begin
-        @logger.info "state machine: current state = #{@current_state.inspect}"
+        @logger.info "state machine: current state = #{@current_state.to_s}"
         @current_state = @current_state.enter()
         notify_state_change_listeners(@current_state)
       rescue Exception => e
         if @context[:result] != nil
-          @context[:result][:details] = e
+          @context[:result][:details] = e.backtrace().join("\n")
         end
         @current_state = FailedState.new(@context, e.to_s, @current_state)
         notify_state_change_listeners(@current_state)
-        @logger.warn "Exception: #{e}"
+        @logger.warn "StateMachine exception during execution: #{e}"
         @logger.warn "#{e.backtrace.join("\n")}"
       end
     end

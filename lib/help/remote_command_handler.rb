@@ -100,11 +100,18 @@ class RemoteCommandHandler
     remote_execute(exec_string)
     !drive_mounted?(path)
   end
-  
+
   # Copy directory using options -avHx
-  def rsync(source_path, dest_path)
-    e = "rsync -avHx #{source_path} #{dest_path}"
-    remote_execute(e, nil, true)
+  def rsync(source_path, dest_path, exclude_path = nil)
+    exclude = ""
+    if exclude_path != nil
+      exclude = "--exclude #{exclude_path}"
+    end
+    e = "rsync -avHx #{exclude} #{source_path} #{dest_path}"
+    @logger.debug "going to execute #{e}"
+    @ssh_session.exec! e do |ch, stream, data|
+      @logger.debug "#{e}: output on #{stream.inspect}: #{data}"
+    end
   end
 
   # Executes the specified #exec_string on a remote session specified.
