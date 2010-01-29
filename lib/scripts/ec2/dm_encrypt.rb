@@ -45,6 +45,7 @@ class DmEncrypt < Ec2Script
         @input_params[:ec2_api_handler] = AWS::EC2::Base.new(:access_key_id => @input_params[:aws_access_key],
         :secret_access_key => @input_params[:aws_secret_key], :server => @input_params[:ec2_api_server])
       end
+      @input_params[:script] = self
       # start state machine
       current_state = DmEncryptState.load_state(@input_params)
       @state_change_listeners.each() {|listener|
@@ -102,6 +103,7 @@ class DmEncrypt < Ec2Script
     private
 
     def connect()
+      @context[:script].post_message("going to connect to #{@context[:ip_address]}...")
       @logger.debug "InitialState.connect"
       if @context[:ssh_key_file] != nil
         @context[:remote_command_handler].connect_with_keyfile(@context[:ip_address], @context[:ssh_key_file])
@@ -111,6 +113,7 @@ class DmEncrypt < Ec2Script
         raise Exception.new("no key information specified")
       end
       @context[:result][:os] = @context[:remote_command_handler].retrieve_os()
+      @context[:script].post_message("connection successful, OS = #{@context[:result][:os]}")
       ConnectedState.new(@context)
     end
   end
@@ -123,8 +126,10 @@ class DmEncrypt < Ec2Script
 
     private
     def install_tools
+      @context[:script].post_message("check if the system has the cryptset-package installed")
       @logger.debug "ConnectedState.install_tools"
       if !tools_installed?
+        @context[:script].post_message("cryptset-package not installed. Going to install it...")
         TOOLS.each() {|tool|
           @context[:remote_command_handler].install(tool)
         }
@@ -133,6 +138,7 @@ class DmEncrypt < Ec2Script
         raise Exception.new("dm-crypt module missing")
       end
       if tools_installed?
+        @context[:script].post_message("cryptset-package is available")
         @logger.debug "system says that tools are installed"
         ToolInstalledState.new(@context)
       else
@@ -158,9 +164,12 @@ class DmEncrypt < Ec2Script
 
     private
     def create_encrypted_volume
+      @context[:script].post_message("going to encrypt device #{@context[:device]} "+
+        "named '#{@context[:device_name]}' and mount it as #{@context[:storage_path]}...")
       @logger.debug "ToolInstalledState.create_encrypted_volume"
       @context[:remote_command_handler].encrypt_storage(@context[:device_name],
       @context[:paraphrase], @context[:device], @context[:storage_path])
+      @context[:script].post_message("device #{@context[:device]} is encrypted and mounted")
       MountedAndActivatedState.new(@context)
     end
 
@@ -179,8 +188,10 @@ class DmEncrypt < Ec2Script
 
     private
     def cleanup()
+      @context[:script].post_message("disconnecting...")
       @logger.debug "MountedAndActivatedState.cleanup"
       @context[:remote_command_handler].disconnect()
+      @context[:script].post_message("done")
       DoneState.new(@context)
     end
 

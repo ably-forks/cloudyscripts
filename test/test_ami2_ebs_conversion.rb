@@ -25,6 +25,7 @@ class TestAmi2EbsConversion < Test::Unit::TestCase
     }
     script = Ami2EbsConversion.new(params)
     script.register_state_change_listener(listener)
+    script.register_progress_message_listener(listener)
     starttime = Time.now.to_i
     script.start_script()
     endtime = Time.now.to_i

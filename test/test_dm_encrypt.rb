@@ -29,6 +29,7 @@ class TestDmEncrypt < Test::Unit::TestCase
     }
     script = DmEncrypt.new(params)
     script.register_state_change_listener(listener)
+    script.register_progress_message_listener(listener)    
     script.start_script()
     assert script.get_execution_result[:failed] == nil || script.get_execution_result[:failed] == false, script.get_execution_result[:failure_reason]
     puts "done"

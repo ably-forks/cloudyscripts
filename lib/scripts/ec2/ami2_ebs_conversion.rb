@@ -58,6 +58,7 @@ class Ami2EbsConversion < Ec2Script
       if @input_params[:root_device_name] == nil
         @input_params[:root_device_name] = "/dev/sda1"
       end
+      @input_params[:script] = self
       # start state machine
       current_state = Ami2EbsConversionState.load_state(@input_params)
       @state_change_listeners.each() {|listener|
@@ -106,6 +107,7 @@ class Ami2EbsConversion < Ec2Script
     end
 
     def connect
+      @context[:script].post_message("connecting to #{@context[:dns_name]}...")
       if @context[:remote_command_handler] == nil
         @context[:remote_command_handler] = RemoteCommandHandler.new
       end
@@ -140,6 +142,7 @@ class Ami2EbsConversion < Ec2Script
         raise Exception.new("connection attempts stopped")
       end
       @context[:result][:os] = @context[:remote_command_handler].retrieve_os()
+      @context[:script].post_message("connected to #{@context[:dns_name]}. OS installed is #{@context[:result][:os]}")
       @logger.info "connected to #{@context[:dns_name]}"
     end
 
@@ -155,28 +158,34 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def startup_ami()
+      @context[:script].post_message("starting up a new instance for AMI #{@context[:ami_id]}...")
       @logger.debug "start up AMI #{@context[:ami_id]}"
       res = @context[:ec2_api_handler].run_instances(:image_id => @context[:ami_id], 
         :security_group => @context[:security_group_name], :key_name => @context[:key_name])
       instance_id = res['instancesSet']['item'][0]['instanceId']
       @context[:instance_id] = instance_id
       @logger.info "started instance #{instance_id}"
+      @context[:script].post_message("started instance #{instance_id}. wait until it is ready...")
       #availability_zone , key_name/group_name
       started = false
       while started == false
         sleep(5)
         res = @context[:ec2_api_handler].describe_instances(:instance_id => @context[:instance_id])
         state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
-        @logger.info "instance in state #{state['name']} (#{state['code']})"
+        @logger.info "instance is in state #{state['name']} (#{state['code']})"
         if state['code'].to_i == 16
           started = true
+          @context[:script].post_message("instance is up and running")
           @context[:dns_name] = res['reservationSet']['item'][0]['instancesSet']['item'][0]['dnsName']
           @context[:availability_zone] = res['reservationSet']['item'][0]['instancesSet']['item'][0]['placement']['availabilityZone']
           @context[:kernel_id] = res['reservationSet']['item'][0]['instancesSet']['item'][0]['kernelId']
           @context[:ramdisk_id] = res['reservationSet']['item'][0]['instancesSet']['item'][0]['ramdiskId']
           @context[:architecture] = res['reservationSet']['item'][0]['instancesSet']['item'][0]['architecture']
         elsif state['code'].to_i != 0
+          @context[:script].post_message("instance in state #{state['name']}")
           raise Exception.new('instance failed to start up')
+        else
+          @context[:script].post_message("instance still starting up...")
         end
       end
       AmiStarted.new(@context)
@@ -192,6 +201,7 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def create_storage()
+      @context[:script].post_message("going to create a new EBS volume...")
       @logger.debug "create volume in zone #{@context[:availability_zone]}"
       res = @context[:ec2_api_handler].create_volume(:availability_zone => @context[:availability_zone], :size => "10")
       @context[:volume_id] = res['volumeId']
@@ -206,6 +216,7 @@ class Ami2EbsConversion < Ec2Script
           started = true
         end
       end
+      @context[:script].post_message("EBS volume #{@context[:volume_id]} is ready")
       StorageCreated.new(@context)
     end
 
@@ -220,6 +231,7 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def attach_storage()
+      @context[:script].post_message("going to attach volume #{@context[:volume_id]} to instance #{@context[:instance_id]} on device #{@context[:temp_device_name]}...")
       @logger.debug "attach volume #{@context[:volume_id]} to instance #{@context[:instance_id]} on device #{@context[:temp_device_name]}"
       @context[:ec2_api_handler].attach_volume(:volume_id => @context[:volume_id],
         :instance_id => @context[:instance_id],
@@ -236,6 +248,7 @@ class Ami2EbsConversion < Ec2Script
           done = true
         end
       end
+      @context[:script].post_message("volume successfully attached")
       StorageAttached.new(@context)
     end
 
@@ -250,9 +263,11 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def create_fs()
+      @context[:script].post_message("going to create filesystem on #{@context[:dns_name]} to #{@context[:temp_device_name]}...")
       @logger.debug "create filesystem on #{@context[:dns_name]} to #{@context[:temp_device_name]}"
       connect()
       @context[:remote_command_handler].create_filesystem("ext3", @context[:temp_device_name])
+      @context[:script].post_message("filesystem system successfully created")
       FileSystemCreated.new(@context)
     end
   end
@@ -267,6 +282,7 @@ class Ami2EbsConversion < Ec2Script
 
     def mount_fs()
       @context[:path] = "/mnt/tmp_#{@context[:volume_id]}"
+      @context[:script].post_message("going to mount #{@context[:temp_device_name]} on #{@context[:path]}...")
       @logger.debug "mount #{@context[:temp_device_name]} on #{@context[:path]}"
       @context[:remote_command_handler].mkdir(@context[:path])
       @context[:remote_command_handler].mount(@context[:temp_device_name], @context[:path])
@@ -274,6 +290,7 @@ class Ami2EbsConversion < Ec2Script
       if !@context[:remote_command_handler].drive_mounted?(@context[:path])
         raise Exception.new("drive #{@context[:path]} not mounted")
       end
+      @context[:script].post_message("mount successful")
       FileSystemMounted.new(@context)
     end
   end
@@ -287,12 +304,14 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def copy()
+      @context[:script].post_message("going to start copying files to #{@context[:path]}. This may take quite a time...")
       @logger.debug "start copying to #{@context[:path]}"
       start = Time.new.to_i
       @context[:remote_command_handler].rsync("/", "#{@context[:path]}", "/mnt/")
       @context[:remote_command_handler].rsync("/dev/", "#{@context[:path]}/dev/")
       endtime = Time.new.to_i
       @logger.info "copy took #{(endtime-start)}s"
+      @context[:script].post_message("copying is done (took #{endtime-start})s")
       CopyDone.new(@context)
     end
   end
@@ -306,12 +325,14 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def unmount()
+      @context[:script].post_message("going to clean things up. Start with unmounting ...")
       @logger.debug "unmount #{@context[:path]}"
       @context[:remote_command_handler].umount(@context[:path])
       sleep(2) #give umount some time
       if @context[:remote_command_handler].drive_mounted?(@context[:path])
         raise Exception.new("drive #{@context[:path]} not unmounted")
       end
+      @context[:script].post_message("device unmounted")
       VolumeUnmounted.new(@context)
     end
   end
@@ -325,6 +346,7 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def detach()
+      @context[:script].post_message("going to detach volume #{@context[:volume_id]}...")
       @logger.debug "detach volume #{@context[:volume_id]}"
       @context[:ec2_api_handler].detach_volume(:volume_id => @context[:volume_id],
         :instance_id => @context[:instance_id]
@@ -339,6 +361,7 @@ class Ami2EbsConversion < Ec2Script
           done = true
         end
       end
+      @context[:script].post_message("volume #{@context[:volume_id]} detached.")
       VolumeDetached.new(@context)
     end
   end
@@ -353,6 +376,7 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def create_snapshot()
+      @context[:script].post_message("going to create a snapshot...")
       @logger.debug "create snapshot for volume #{@context[:volume_id]}"
       res = @context[:ec2_api_handler].create_snapshot(:volume_id => @context[:volume_id])
       @context[:snapshot_id] = res['snapshotId']
@@ -367,6 +391,7 @@ class Ami2EbsConversion < Ec2Script
           done = true
         end
       end
+      @context[:script].post_message("snapshot is done with ID=#{@context[:snapshot_id]}")
       SnapshotCreated.new(@context)      
     end
   end
@@ -380,8 +405,10 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def delete_volume
+      @context[:script].post_message("going to delete volume #{@context[:volume_id]} (no longer needed)...")
       @logger.debug "delete volume #{@context[:volume_id]}"
       res = @context[:ec2_api_handler].delete_volume(:volume_id => @context[:volume_id])
+      @context[:script].post_message("volume #{@context[:volume_id]} deleted")
       VolumeDeleted.new(@context)
     end
   end
@@ -395,6 +422,7 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def register()
+      @context[:script].post_message("going to register snapshot #{@context[:snapshot_id]}...")
       @logger.debug "register snapshot #{@context[:snapshot_id]} as #{@context[:name]}"
       res = @context[:ec2_api_handler].register_image_updated(:snapshot_id => @context[:snapshot_id],
         :kernel_id => @context[:kernel_id], :architecture => @context[:architecture], 
@@ -405,6 +433,7 @@ class Ami2EbsConversion < Ec2Script
       @logger.debug "result of registration = #{res.inspect}"
       @context[:result][:image_id] = res['imageId']
       @logger.info "resulting image_id = #{@context[:result][:image_id]}"
+      @context[:script].post_message("snapshot #{@context[:snapshot_id]} successfully registered as AMI #{@context[:result][:image_id]} ")
       SnapshotRegistered.new(@context)
     end
   end
@@ -418,6 +447,7 @@ class Ami2EbsConversion < Ec2Script
     private
 
     def shut_down()
+      @context[:script].post_message("going to shut down the temporary instance #{@context[:instance_id]}...")
       @logger.debug "shutdown instance #{@context[:instance_id]}"
       res = @context[:ec2_api_handler].terminate_instances(:instance_id => @context[:instance_id])
       done = false
@@ -432,6 +462,7 @@ class Ami2EbsConversion < Ec2Script
           raise Exception.new('instance failed to shut down')
         end
       end
+      @context[:script].post_message("instance #{@context[:instance_id]} is terminated")
       Done.new(@context)      
     end
   end

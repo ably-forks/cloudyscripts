@@ -105,10 +105,23 @@ class MockedRemoteCommandHandler
     @logger.debug "#{e}"
   end
 
-  def rsync(source_path, dest_path)
+  def rsync(source_path, dest_path, exclude_path = nil)
     test_connected()
-    e = "rsync -avHx #{source_path} #{dest_path}"
+    ex = exclude_path == nil ? "" : "--exclude #{exclude_path}"
+    e = "rsync -avHx #{ex} #{source_path} #{dest_path}"
     @logger.debug "#{e}"
+  end
+
+  def retrieve_os()
+    "dummy-os.1.0.1"
+  end
+
+  def remote_execute(exec_string, push_data = nil, raise_exception = false)
+    @logger.debug("remote execution of #{exec_string}")
+  end
+
+  def stdout_contains?(exec_string, search_string = "", push_data = nil)
+    @logger.debug("remote execution (with stdout check) of #{exec_string}")
   end
 
   private

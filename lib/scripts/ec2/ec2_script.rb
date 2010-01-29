@@ -9,6 +9,7 @@ class Ec2Script
   def initialize(input_params)
     @input_params = input_params
     @state_change_listeners = []
+    @progress_message_listeners = []
     if input_params[:logger] == nil
       @logger = Logger.new(STDOUT)
       @logger .level = Logger::WARN
@@ -20,6 +21,10 @@ class Ec2Script
 
   def register_state_change_listener(listener)
     @state_change_listeners << listener
+  end
+
+  def register_progress_message_listener(listener)
+    @progress_message_listeners << listener
   end
 
   def start_script
@@ -37,5 +42,11 @@ class Ec2Script
     raise Exception.new("must be implemented")
   end
 
+  def post_message(message, level = Logger::DEBUG)
+    @progress_message_listeners.each() {|listener|
+      listener.new_message(message, level)
+    }
+  end
+  
 end
 
