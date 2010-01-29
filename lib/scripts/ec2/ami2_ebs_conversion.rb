@@ -119,6 +119,7 @@ class Ami2EbsConversion < Ec2Script
             connected = true
           rescue Exception => e
             @logger.info("connection failed due to #{e}")
+            @logger.debug(e.backtrace.join("\n"))
           end
         elsif @context[:ssh_keydata] != nil
           begin
@@ -126,6 +127,7 @@ class Ami2EbsConversion < Ec2Script
             connected = true
           rescue Exception => e
             @logger.info("connection failed due to #{e}")
+            @logger.debug(e.backtrace.join("\n"))
           end
         else
           raise Exception.new("no key information specified")
@@ -133,6 +135,9 @@ class Ami2EbsConversion < Ec2Script
         if !connected
           sleep(5) #try again
         end
+      end
+      if !connected
+        raise Exception.new("connection attempts stopped")
       end
       @context[:result][:os] = @context[:remote_command_handler].retrieve_os()
       @logger.info "connected to #{@context[:dns_name]}"

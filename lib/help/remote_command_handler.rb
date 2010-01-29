@@ -109,9 +109,7 @@ class RemoteCommandHandler
     end
     e = "rsync -avHx #{exclude} #{source_path} #{dest_path}"
     @logger.debug "going to execute #{e}"
-    @ssh_session.exec! e do |ch, stream, data|
-      @logger.debug "#{e}: output on #{stream.inspect}: #{data}"
-    end
+    remote_exec_helper(e, nil, nil, false)
   end
 
   # Executes the specified #exec_string on a remote session specified.
@@ -172,10 +170,10 @@ class RemoteCommandHandler
         if success
           @logger.debug("RemoteCommandHandler: starts executing #{exec_string}") if debug
           ch.on_data() do |ch, data|
-            stdout << data unless data == nil
+            stdout << data unless data == nil || stdout == nil
           end
           ch.on_extended_data do |ch, type, data|
-            stderr << data unless data == nil
+            stderr << data unless data == nil || stderr == nil
             result = false
           end
           ch.on_eof do |ch|
@@ -193,7 +191,7 @@ class RemoteCommandHandler
             ch.send_data("\n")
           end
         else
-          stderr << "the remote command could not be invoked!"
+          stderr << "the remote command could not be invoked!" unless stderr == nil
           result = false
         end
       end
