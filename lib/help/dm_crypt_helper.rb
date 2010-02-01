@@ -159,8 +159,8 @@ class DmCryptHelper < RemoteCommandHandler
   # * device: device to be encrypted
   # * path: path to which the encrypted device is mounted
   def encrypt_storage(name, password, device, path)
-    if !remote_execute("cryptsetup isLuks #{device}")
-      raise Exception.new("device #{device} is already used differently")
+    if remote_execute("cryptsetup isLuks #{device}")
+      raise Exception.new("device #{device} is already a configured device")
     end
     if file_exists?(device)
       if !file_exists?("/dev/mapper/#{name}")
