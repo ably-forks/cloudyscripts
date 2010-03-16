@@ -4,7 +4,6 @@ require 'help/remote_command_handler'
 # (see #Scripts::EC2::DmEncrypt)
 
 class DmCryptHelper < RemoteCommandHandler
-  
   # Encrypts the device and mounting it using dm-crypt tools.
   # Params
   # * name: name of the virtual volume
@@ -12,9 +11,6 @@ class DmCryptHelper < RemoteCommandHandler
   # * device: device to be encrypted
   # * path: path to which the encrypted device is mounted
   def encrypt_storage(name, password, device, path)
-    if remote_execute("cryptsetup isLuks #{device}") #remove this check?
-      raise Exception.new("device #{device} is a device already formatted with luks")
-    end
     if file_exists?(device)
       if !file_exists?("/dev/mapper/#{name}")
         @logger.debug("mapper device #{name} not yet existing")
