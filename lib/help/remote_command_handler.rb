@@ -112,7 +112,7 @@ class RemoteCommandHandler
     remote_exec_helper(e, nil, nil, false)
   end
 
-  # Zip the source path into the destination file.
+  # Zip the complete contents of the source path into the destination file.
   def zip(source_path, destination_file)
     begin
       exec = "cd #{source_path}; zip #{destination_file} *"
