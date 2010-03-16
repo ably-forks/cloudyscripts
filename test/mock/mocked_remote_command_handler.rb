@@ -112,6 +112,12 @@ class MockedRemoteCommandHandler
     @logger.debug "#{e}"
   end
 
+  def zip(source_path, destination_file)
+    test_connected()
+    e = "cd #{source_path}; zip #{destination_file}/*"
+    @logger.debug "#{e}"
+  end
+
   def retrieve_os()
     "dummy-os.1.0.1"
   end

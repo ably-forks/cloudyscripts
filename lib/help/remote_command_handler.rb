@@ -112,6 +112,16 @@ class RemoteCommandHandler
     remote_exec_helper(e, nil, nil, false)
   end
 
+  # Zip the source path into the destination file.
+  def zip(source_path, destination_file)
+    begin
+      exec = "cd #{source_path}; zip #{destination_file} *"
+      remote_execute(exec, nil, true)
+    rescue Exception => e
+      raise Exception.new("zip failed due to #{e.message}")
+    end
+  end
+
   # Executes the specified #exec_string on a remote session specified.
   # When #push_data is specified, the data will be used as input for the
   # command and thus allow to respond in advance to commands that ask the user

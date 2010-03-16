@@ -98,33 +98,11 @@ class DmEncrypt < Ec2Script
   class InitialState < DmEncryptState
     def enter
       connect()
-    end
-
-    private
-
-    def connect()
-      @context[:script].post_message("going to connect to #{@context[:ip_address]}...")
-      @logger.debug "InitialState.connect"
-      if @context[:ssh_key_file] != nil
-        @context[:remote_command_handler].connect_with_keyfile(@context[:ip_address], @context[:ssh_key_file])
-      elsif @context[:ssh_key_data] != nil
-        @context[:remote_command_handler].connect(@context[:ip_address], "root", @context[:ssh_key_data])
-      else
-        raise Exception.new("no key information specified")
-      end
-      @context[:result][:os] = @context[:remote_command_handler].retrieve_os()
-      @context[:script].post_message("connection successful, OS = #{@context[:result][:os]}")
-      ConnectedState.new(@context)
-    end
-  end
-
-  # Connected via SSH. Tries to install dm-encrypt.#TODO: depends on OS
-  class ConnectedState < DmEncryptState
-    def enter
       install_tools()
     end
 
     private
+
     def install_tools
       @context[:script].post_message("check if the system has the cryptset-package installed")
       @logger.debug "ConnectedState.install_tools"

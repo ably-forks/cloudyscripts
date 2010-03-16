@@ -1,8 +1,12 @@
+require "help/state_transition_helper"
+
 # Implements a little state-machine.
 # Usage: for every state you need, extend this class.
 # The method enter() must be implemented for every state you code and
 # return another state.
 class ScriptExecutionState
+  include StateTransitionHelper
+  
   # context information for the state (hash)
   attr_reader :context, :logger
 
@@ -69,22 +73,6 @@ class ScriptExecutionState
     s.sub(/.*\:\:/,'')
   end
 
-  # Standard state reached when an exception occurs.
-  class FailedState < ScriptExecutionState
-    attr_accessor :failure_reason, :from_state
-    def initialize(context, failure_reason, from_state)
-      super(context)
-      @failure_reason = failure_reason
-      @from_state = from_state
-    end
-    def done?
-      true
-    end
-    def failed?
-      true
-    end
-  end
-
   private
 
   # Notifies all listeners of state changes
@@ -94,4 +82,27 @@ class ScriptExecutionState
     }
   end
 
+end
+
+# Standard state reached when an exception occurs.
+class FailedState < ScriptExecutionState
+  attr_accessor :failure_reason, :from_state
+  def initialize(context, failure_reason, from_state)
+    super(context)
+    @failure_reason = failure_reason
+    @from_state = from_state
+  end
+  def done?
+    true
+  end
+  def failed?
+    true
+  end
+end
+
+# Done.
+class Done < ScriptExecutionState
+  def done?
+    true
+  end
 end
