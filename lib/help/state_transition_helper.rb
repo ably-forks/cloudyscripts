@@ -68,12 +68,25 @@ module StateTransitionHelper
   def launch_instance
     @context[:script].post_message("starting up instance to execute the script (AMI = #{@context[:ami_id]}) ...")
     @logger.debug "start up AMI #{@context[:ami_id]}"
+    # find out the image architecture first
+    image_props = @context[:ec2_api_handler].describe_images(:image_id => @context[:ami_id])
+    architecture = image_props['imagesSet']['item'][0]['architecture']
+    instance_type = "m1.small"
+    if architecture != "i386"
+      instance_type = "m1.large"
+    end
+    arch_log_msg = "Architecture of image #{@context[:ami_id]} is #{architecture}. Use instance_type #{instance_type}."
+    @logger.info arch_log_msg
+    @context[:script].post_message(arch_log_msg)
+    # now start it
     res = @context[:ec2_api_handler].run_instances(:image_id => @context[:ami_id],
-      :security_group => @context[:security_group_name], :key_name => @context[:key_name])
+      :security_group => @context[:security_group_name], :key_name => @context[:key_name],
+      :instance_type => instance_type
+    )
     instance_id = res['instancesSet']['item'][0]['instanceId']
     @context[:instance_id] = instance_id
     @logger.info "started instance #{instance_id}"
-    @context[:script].post_message("started instance #{instance_id}. wait until it is ready...")
+    @context[:script].post_message("Started instance #{instance_id}. wait until it is ready...")
     #availability_zone , key_name/group_name
     started = false
     while started == false

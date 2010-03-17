@@ -51,6 +51,15 @@ class MockedEc2Api
     res
   end
 
+  def describe_images(options = {})
+    image_id = options[:image_id]
+    if image_id == nil
+      raise Exception.new("no image_id specified")
+    end
+    res = {"imagesSet"=>{"item"=>[{"imageType"=>"machine", "blockDeviceMapping"=>nil, "ramdiskId"=>"ari-a51cf9cc", "imageState"=>"available", "kernelId"=>"aki-a71cf9ce", "imageId"=>image_id, "rootDeviceType"=>"instance-store", "isPublic"=>"true", "imageLocation"=>"jungmats_testbucket/openvpn.manifest.xml", "architecture"=>"i386", "imageOwnerId"=>"945722764978"}]}, "requestId"=>"625dd61b-53a5-4907-ab2a-a00a7dca05be", "xmlns"=>"http://ec2.amazonaws.com/doc/2009-11-30/"}
+    res
+  end
+
   def describe_keypairs(keynames = nil)
     cause_failure()    
     all_key_names = []
