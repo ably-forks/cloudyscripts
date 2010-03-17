@@ -41,60 +41,24 @@ class Ami2EbsConversion < Ec2Script
     super(input_params)
   end
 
-  # Executes the script.
-  def start_script()
-    begin
-      # optional parameters and initialization
-      if @input_params[:name] == nil
-        @input_params[:name] = "Boot EBS (for AMI #{@input_params[:ami_id]}) at #{Time.now.strftime('%d/%m/%Y %H.%M.%S')}"
-      else
-      end
-      if @input_params[:description] == nil
-        @input_params[:description] = @input_params[:name]
-      end
-      if @input_params[:temp_device_name] == nil
-        @input_params[:temp_device_name] = "/dev/sdj"
-      end
-      if @input_params[:root_device_name] == nil
-        @input_params[:root_device_name] = "/dev/sda1"
-      end
-      @input_params[:script] = self
-      # start state machine
-      current_state = Ami2EbsConversionState.load_state(@input_params)
-      @state_change_listeners.each() {|listener|
-        current_state.register_state_change_listener(listener)
-      }
-      end_state = current_state.start_state_machine()
-      if end_state.failed?
-        @result[:failed] = true
-        @result[:failure_reason] = current_state.end_state.failure_reason
-        @result[:end_state] = current_state.end_state
-      else
-        @result[:failed] = false
-      end
-    rescue Exception => e
-      @logger.warn "exception during encryption: #{e}"
-      @logger.warn e.backtrace.join("\n")
-      err = e.to_s
-      err += " (in #{current_state.end_state.to_s})" unless current_state == nil
-      @result[:failed] = true
-      @result[:failure_reason] = err
-      @result[:end_state] = current_state.end_state unless current_state == nil
-    ensure
-      begin
-      @input_params[:remote_command_handler].disconnect
-      rescue Exception => e2
-      end
+  def check_input_parameters()
+    if @input_params[:name] == nil
+      @input_params[:name] = "Boot EBS (for AMI #{@input_params[:ami_id]}) at #{Time.now.strftime('%d/%m/%Y %H.%M.%S')}"
+    else
     end
-    #
-    @result[:done] = true
+    if @input_params[:description] == nil
+      @input_params[:description] = @input_params[:name]
+    end
+    if @input_params[:temp_device_name] == nil
+      @input_params[:temp_device_name] = "/dev/sdj"
+    end
+    if @input_params[:root_device_name] == nil
+      @input_params[:root_device_name] = "/dev/sda1"
+    end
   end
 
-  # Returns a hash with the following information:
-  # :done => if execution is done
-  #
-  def get_execution_result
-    @result
+  def load_initial_state()
+    Ami2EbsConversionState.load_state(@input_params)
   end
   
   private
@@ -136,6 +100,7 @@ class Ami2EbsConversion < Ec2Script
   # Storage attached. Create a file-system and moun it
   class StorageAttached < Ami2EbsConversionState
     def enter
+      connect()
       create_fs()
       FileSystemCreated.new(@context)
     end

@@ -340,7 +340,7 @@ module StateTransitionHelper
     @context[:script].post_message("going to start copying files to #{@context[:path]}. This may take quite a time...")
     @logger.debug "start copying to #{@context[:path]}"
     start = Time.new.to_i
-    @context[:remote_command_handler].rsync("/", "#{@context[:path]}", "/mnt/")
+    @context[:remote_command_handler].rsync("/", "#{@context[:path]}", "#{@context[:path]}")
     @context[:remote_command_handler].rsync("/dev/", "#{@context[:path]}/dev/")
     endtime = Time.new.to_i
     @logger.info "copy took #{(endtime-start)}s"

@@ -31,57 +31,21 @@ class DmEncrypt < Ec2Script
     super(input_params)
   end
 
-  # Executes the script.
-  def start_script
-    begin
-      # optional parameters and initialization
-      if @input_params[:ec2_api_server] == nil
-        @input_params[:ec2_api_server] = "us-east-1.ec2.amazonaws.com"
-      end
-      if @input_params[:remote_command_handler] == nil
-        @input_params[:remote_command_handler] = RemoteCommandHandler.new
-      end
-      if @input_params[:ec2_api_handler] == nil
-        @input_params[:ec2_api_handler] = AWS::EC2::Base.new(:access_key_id => @input_params[:aws_access_key],
-        :secret_access_key => @input_params[:aws_secret_key], :server => @input_params[:ec2_api_server])
-      end
-      @input_params[:script] = self
-      # start state machine
-      current_state = DmEncryptState.load_state(@input_params)
-      @state_change_listeners.each() {|listener|
-        current_state.register_state_change_listener(listener)
-      }
-      end_state = current_state.start_state_machine()
-      if end_state.failed?
-        @result[:failed] = true
-        @result[:failure_reason] = current_state.end_state.failure_reason
-        @result[:end_state] = current_state.end_state
-      else
-        @result[:failed] = false
-      end
-    rescue Exception => e
-      @logger.warn "exception during encryption: #{e}"
-      @logger.info e.backtrace.join("\n")
-      err = e.to_s
-      err += " (in #{current_state.end_state.to_s})" unless current_state == nil
-      @result[:failed] = true
-      @result[:failure_reason] = err
-      @result[:end_state] = current_state.end_state unless current_state == nil
-    ensure
-      begin
-      @input_params[:remote_command_handler].disconnect
-      rescue Exception => e2
-      end
+  def check_input_parameters()
+    if @input_params[:ec2_api_server] == nil
+      @input_params[:ec2_api_server] = "us-east-1.ec2.amazonaws.com"
     end
-    #
-    @result[:done] = true
+    if @input_params[:remote_command_handler] == nil
+      @input_params[:remote_command_handler] = RemoteCommandHandler.new
+    end
+    if @input_params[:ec2_api_handler] == nil
+      @input_params[:ec2_api_handler] = AWS::EC2::Base.new(:access_key_id => @input_params[:aws_access_key],
+      :secret_access_key => @input_params[:aws_secret_key], :server => @input_params[:ec2_api_server])
+    end
   end
 
-  # Returns a hash with the following information:
-  # :done => if execution is done
-  #
-  def get_execution_result
-    @result
+  def load_initial_state()
+    DmEncryptState.load_state(@input_params)
   end
 
   private

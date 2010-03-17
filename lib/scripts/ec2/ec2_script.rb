@@ -27,9 +27,55 @@ class Ec2Script
     @progress_message_listeners << listener
   end
 
-  def start_script
-    raise Exception.new("must be implemented")
+  # Check input parameters (in @input_parameters object variable)
+  # and set default values.
+  # Abstract method to be implemented by extending classes.
+  def check_input_parameters()
+    raise Exception.new("check_input_parameters must be implemented")
   end
+
+  # Load the initial state for the script.
+  # Abstract method to be implemented by extending classes.
+  def load_initial_state()
+    raise Exception.new("load_initial_state must be implemented")
+  end
+
+  # Executes the script.
+  def start_script()
+    # optional parameters and initialization
+    check_input_parameters()
+    @input_params[:script] = self
+    begin
+      current_state = load_initial_state()
+      @state_change_listeners.each() {|listener|
+        current_state.register_state_change_listener(listener)
+      }
+      end_state = current_state.start_state_machine()
+      if end_state.failed?
+        @result[:failed] = true
+        @result[:failure_reason] = current_state.end_state.failure_reason
+        @result[:end_state] = current_state.end_state
+      else
+        @result[:failed] = false
+      end
+    rescue Exception => e
+      @logger.warn "exception during encryption: #{e}"
+      @logger.warn e.backtrace.join("\n")
+      err = e.to_s
+      err += " (in #{current_state.end_state.to_s})" unless current_state == nil
+      @result[:failed] = true
+      @result[:failure_reason] = err
+      @result[:end_state] = current_state.end_state unless current_state == nil
+    ensure
+      begin
+      @input_params[:remote_command_handler].disconnect
+      rescue Exception => e2
+      end
+    end
+    #
+    @result[:done] = true
+  end
+
 
   # Return a hash of results. Common values are:
   # * :done => is true when the script has terminated, otherwise false
@@ -38,8 +84,11 @@ class Ec2Script
   # * :end_state => returns the state, in which the script terminated (#Help::ScriptExecutionState)
   # Scripts may add specific key/value pairs.
   # * 
+  # Returns a hash with the following information:
+  # :done => if execution is done
+  #
   def get_execution_result
-    raise Exception.new("must be implemented")
+    @result
   end
 
   def post_message(message, level = Logger::DEBUG)

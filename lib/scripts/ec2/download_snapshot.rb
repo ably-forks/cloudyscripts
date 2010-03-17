@@ -30,14 +30,7 @@ class DownloadSnapshot < Ec2Script
     super(input_params)
   end
 
-  # Returns a hash with the following information:
-  # :done => if execution is done
-  #
-  def get_execution_result
-    @result
-  end
-
-  def start_script
+  def check_input_parameters()
     if @input_params[:temp_device_name] == nil
       @input_params[:temp_device_name] = "/dev/sdj"
     end
@@ -50,37 +43,12 @@ class DownloadSnapshot < Ec2Script
     if @input_params[:wait_time] == nil
       @input_params[:wait_time] = 300
     end
-    begin
-      @input_params[:script] = self
-      # start state machine
-      current_state = DownloadSnapshotState.load_state(@input_params)
-      @state_change_listeners.each() {|listener|
-        current_state.register_state_change_listener(listener)
-      }
-      end_state = current_state.start_state_machine()
-      if end_state.failed?
-        @result[:failed] = true
-        @result[:failure_reason] = current_state.end_state.failure_reason
-        @result[:end_state] = current_state.end_state
-      else
-        @result[:failed] = false
-      end
-    rescue Exception => e
-      @logger.warn "exception during encryption: #{e}"
-      @logger.warn e.backtrace.join("\n")
-      err = e.to_s
-      err += " (in #{current_state.end_state.to_s})" unless current_state == nil
-      @result[:failed] = true
-      @result[:failure_reason] = err
-      @result[:end_state] = current_state.end_state unless current_state == nil
-    ensure
-      begin
-      @input_params[:remote_command_handler].disconnect
-      rescue Exception => e2
-      end
-    end
-    #
-    @result[:done] = true
+  end
+
+  # Load the initial state for the script.
+  # Abstract method to be implemented by extending classes.
+  def load_initial_state()
+    DownloadSnapshotState.load_state(@input_params)
   end
 
   private
@@ -122,6 +90,7 @@ class DownloadSnapshot < Ec2Script
   # Volume attached. Create a file-system and mount it.
   class VolumeAttached < DownloadSnapshotState
     def enter
+      connect()
       create_fs()
       FileSystemCreated.new(@context)
     end
@@ -130,7 +99,6 @@ class DownloadSnapshot < Ec2Script
   # File system created. Mount it.
   class FileSystemCreated < DownloadSnapshotState
     def enter
-      connect()
       mount_fs()
       FileSystemMounted.new(@context)
     end
