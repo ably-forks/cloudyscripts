@@ -2,6 +2,7 @@ require "help/script_execution_state"
 require "scripts/ec2/ec2_script"
 require "help/remote_command_handler"
 require "help/dm_crypt_helper"
+require "help/ec2_helper"
 require "AWS"
 
 # Script to download a specific snapshot as ZIP
@@ -31,11 +32,14 @@ class DownloadSnapshot < Ec2Script
   end
 
   def check_input_parameters()
-    if @input_params[:temp_device_name] == nil
-      @input_params[:temp_device_name] = "/dev/sdj"
+    if @input_params[:source_device] == nil
+      @input_params[:source_device] = "/dev/sdj1"
+    end
+    if @input_params[:dest_device] == nil
+      @input_params[:dest_device] = "/dev/sdj2"
     end
     if @input_params[:zip_file_dest] == nil
-      @input_params[:zip_file_dest] = "/var/www/html/"
+      @input_params[:zip_file_dest] = "/var/www/html"
     end
     if @input_params[:zip_file_name] == nil
       @input_params[:zip_file_name] = "download"
@@ -61,12 +65,13 @@ class DownloadSnapshot < Ec2Script
     end
   end
 
-  #Connected.
   # Start state. First thing to do is to launch the instance.
   class InitialState < DownloadSnapshotState
     def enter
-      @context[:instance_id] =
-        launch_instance(@context[:ami_id], @context[:key_name], @context[:security_group_name]).first
+      result = launch_instance(@context[:ami_id], @context[:key_name], @context[:security_group_name])
+      @context[:instance_id] = result.first
+      @context[:dns_name] = result[1]
+      @context[:availability_zone] = result[2]
       InstanceLaunchedState.new(context)
     end
   end
@@ -74,35 +79,45 @@ class DownloadSnapshot < Ec2Script
   # Instance Launched. Create a volume based on the snapshot.
   class InstanceLaunchedState < DownloadSnapshotState
     def enter
-      @context[:volume_id] = create_volume_from_snapshot(@context[:snapshot_id], @context[:availabililty_zone])
-      VolumeCreated.new(@context)
+      @context[:source_volume_id] = create_volume_from_snapshot(@context[:snapshot_id], @context[:availability_zone])
+      ec2_helper = Ec2Helper.new(@context[:ec2_api_handler])
+      size = ec2_helper.volume_prop(@context[:source_volume_id], :size).to_i
+      puts "retrieved volume size of #{size}"
+      @context[:dest_volume_id] = create_volume(@context[:availability_zone], size)
+      VolumesCreated.new(@context)
     end
 
   end
 
-  # Volume created. Attach it.
-  class VolumeCreated < DownloadSnapshotState
+  # Volumes created. Attach it.
+  class VolumesCreated < DownloadSnapshotState
     def enter
-      attach_volume(@context[:volume_id], @context[:instance_id], @context[:temp_device_name])
-      VolumeAttached.new(@context)
+      @context[:script].post_message("Going to create two volumes. One with the snapshot data, one to store the zipped data for download.")
+      attach_volume(@context[:source_volume_id], @context[:instance_id], @context[:source_device])
+      attach_volume(@context[:dest_volume_id], @context[:instance_id], @context[:dest_device])
+      VolumesAttached.new(@context)
     end
   end
 
-  # Volume attached. Create a file-system and mount it.
-  class VolumeAttached < DownloadSnapshotState
+  # Volumes attached. Create a file-system for the destination one, and mount both.
+  class VolumesAttached < DownloadSnapshotState
     def enter
+      @context[:script].post_message("Going to prepare the two volumes for the zip-operation.")
       @context[:result][:os] =
         connect(@context[:dns_name], @context[:ssh_keyfile], @context[:ssh_keydata])
-      mount_point = "/mnt/tmp_#{@context[:volume_id]}"
-      mount_fs(mount_point, @context[:temp_device_name])
-      FileSystemMounted.new(@context)
+      source_dir = "/mnt/tmp_#{@context[:source_volume_id]}"
+      dest_dir = @context[:zip_file_dest]
+      create_fs(@context[:dns_name], @context[:dest_device])
+      mount_fs(source_dir, @context[:source_device])
+      mount_fs(dest_dir, @context[:dest_device])
+      FileSystemsReady.new(@context)
     end
   end
 
   # File System mounted. Zip the complete directory on the EBS.
-  class FileSystemMounted < DownloadSnapshotState
+  class FileSystemsReady < DownloadSnapshotState
     def enter
-      mount_point = "/mnt/tmp_#{@context[:volume_id]}"
+      mount_point = "/mnt/tmp_#{@context[:source_volume_id]}"
       zip_volume(mount_point, @context[:zip_file_dest], @context[:zip_file_name])
       VolumeZippedAndDownloadableState.new(@context)
     end
@@ -140,7 +155,8 @@ class DownloadSnapshot < Ec2Script
   # Instance is shut down. Delete the volume created.
   class InstanceShutDown < DownloadSnapshotState
     def enter
-      delete_volume(@context[:volume_id])
+      delete_volume(@context[:source_volume_id])
+      delete_volume(@context[:dest_volume_id])
       Done.new(@context)
     end
   end

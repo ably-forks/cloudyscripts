@@ -142,7 +142,7 @@ module StateTransitionHelper
   # Returns
   # * volume_id => EC2 EBS Volume ID
   def create_volume(availability_zone, size = "10")
-    post_message("going to create a new EBS volume...")
+    post_message("going to create a new EBS volume of size #{size}GB...")
     @logger.debug "create volume in zone #{availability_zone}"
     res = ec2_handler().create_volume(:availability_zone => availability_zone, :size => size.to_s)
     volume_id = res['volumeId']
@@ -168,10 +168,10 @@ module StateTransitionHelper
   # * snapshot_id => EC2 Snapshot ID used to create the volume
   # Returns
   # * volume_id => EC2 EBS Volume ID created
-  def create_volume_from_snapshot(snapshot_id, availability_zone, size = "10")
+  def create_volume_from_snapshot(snapshot_id, availability_zone)
     post_message("going to create a new EBS volume from the specified snapshot...")
     @logger.debug "create volume in zone #{availability_zone}"
-    res = ec2_handler().create_volume(:snapshot_id => snapshot_id, :availability_zone => availability_zone, :size => size.to_s)
+    res = ec2_handler().create_volume(:snapshot_id => snapshot_id, :availability_zone => availability_zone)
     volume_id = res['volumeId']
     started = false
     while !started
@@ -317,10 +317,21 @@ module StateTransitionHelper
   def mount_fs(mount_point, device)
     post_message("going to mount #{device} on #{mount_point}...")
     @logger.debug "mount #{device} on #{mount_point}"
-    remote_handler().mkdir(mount_point)
+    if !remote_handler.file_exists?(mount_point)
+      remote_handler().mkdir(mount_point)
+    end
     remote_handler().mount(device, mount_point)
-    sleep(2) #give mount some time
-    if !remote_handler().drive_mounted?(mount_point)
+    trials = 3
+    mounted = false
+    while trials > 0
+      sleep(5) #give mount some time
+      if remote_handler().drive_mounted?(mount_point)
+        mounted = true
+        break
+      end
+      trials -= trials
+    end
+    if !mounted
       raise Exception.new("drive #{mount_point} not mounted")
     end
     post_message("mount successful")
@@ -361,7 +372,7 @@ module StateTransitionHelper
   # # zip_file_name => name of the zip file (without .zip suffix)
   def zip_volume(source_dir, zip_file_dest, zip_file_name)
     post_message("going to zip the EBS volume")
-    remote_handler().zip(source_dir, zip_file_dest+zip_file_name)
+    remote_handler().zip(source_dir, zip_file_dest+"/"+zip_file_name)
     post_message("EBS volume successfully zipped")
   end
 

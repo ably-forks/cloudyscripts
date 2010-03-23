@@ -12,11 +12,17 @@ class MockedRemoteCommandHandler
   end
 
   def connect(ip, user, keydata)
+    if ip == nil || ip.strip.size == 0
+      raise Exception.new("IP is empty")
+    end
     @logger.debug "mocked_ssh_api: connected to ip=#{ip} user=#{user} key_data=#{keydata}"
     @connected = true
   end
 
   def connect_with_keyfile(ip, key)
+    if ip == nil || ip.strip.size == 0
+      raise Exception.new("IP is empty")
+    end
     @logger.debug "mocked_ssh_api: connected to ip=#{ip} keys=#{key}"
     @connected = true
   end
@@ -128,6 +134,11 @@ class MockedRemoteCommandHandler
 
   def stdout_contains?(exec_string, search_string = "", push_data = nil)
     @logger.debug("remote execution (with stdout check) of #{exec_string}")
+  end
+
+  def file_exists?(path)
+    test_connected()
+    true
   end
 
   private

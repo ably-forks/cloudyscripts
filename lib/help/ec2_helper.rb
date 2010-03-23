@@ -51,4 +51,12 @@ class Ec2Helper
     }
     return false
   end
+
+  def volume_prop(volume_id, prop)
+    vols = @ec2_api.describe_volumes(:volume_id => volume_id)
+    if vols['volumeSet']['item'].size == 0
+      raise Exception.new("volume #{volume_id} not found")
+    end
+    return vols['volumeSet']['item'][0][prop.to_s]
+  end
 end

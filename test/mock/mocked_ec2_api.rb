@@ -145,8 +145,11 @@ class MockedEc2Api
     transform_volumes(v)
   end
 
-  def create_volume(timezone)
+  def create_volume(params)
     cause_failure()
+    if params[:availability_zone] == nil || params[:availability_zone].strip.size == 0
+      raise Exception.new("must specify availability zone")
+    end
     @logger.debug "GOING TO CREATE VOLUME!"
     volume = {}
     vid = "vol-#{Time.now.to_i.to_s}"
@@ -156,7 +159,7 @@ class MockedEc2Api
     @next_volume_id = nil
     volume[:volume_id] = vid
     @logger.debug "create volume with id = #{volume[:volume_id]}"
-    volume[:availability_zone] = timezone
+    volume[:availability_zone] = params[:availability_zone]
     volume[:create_time] = Time.now
     volume[:volume_id]
     volume[:attachments] = []
