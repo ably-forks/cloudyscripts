@@ -54,6 +54,7 @@ class TestAmi2EbsConversion < Test::Unit::TestCase
     ec2_api.create_dummy_volume("vol-d461a6bd", "timezone")
     params[:dns_name] = "ec2-75-101-244-35.compute-1.amazonaws.com"
     params[:path] = "/mnt/tmp_vol-d461a6bd"
+    params[:availability_zone] = "whatever"
     params[:initial_state] = Ami2EbsConversion::StorageAttached.new(params)
 
     script = Ami2EbsConversion.new(params)

@@ -353,7 +353,7 @@ class MockedEc2Api
 
   def create_dummy_volume(id, timezone)
     self.next_volume_id = id
-    return create_volume(timezone)
+    return create_volume({:availability_zone => timezone})
   end
   
   def remove_dummy_volume(id)

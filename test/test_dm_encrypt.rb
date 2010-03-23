@@ -20,7 +20,7 @@ class TestDmEncrypt < Test::Unit::TestCase
       :remote_command_handler => rch,
       :ec2_api_handler => ec2,
       :paraphrase => "paraphrase",
-      :ip_address => "127.0.0.1",
+      :dns_name => "127.0.0.1",
       :ssh_keyfile => "/Users/mats/.ssh/jungmats.pem",
       :device => "/dev/sdh",
       :device_name => "device-vol-i-12345",
