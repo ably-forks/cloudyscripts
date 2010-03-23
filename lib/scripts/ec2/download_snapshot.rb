@@ -91,7 +91,8 @@ class DownloadSnapshot < Ec2Script
   # Volume attached. Create a file-system and mount it.
   class VolumeAttached < DownloadSnapshotState
     def enter
-      connect(@context[:dns_name], @context[:ssh_keyfile], @context[:ssh_keydata])
+      @context[:result][:os] =
+        connect(@context[:dns_name], @context[:ssh_keyfile], @context[:ssh_keydata])
       mount_point = "/mnt/tmp_#{@context[:volume_id]}"
       mount_fs(mount_point, @context[:temp_device_name])
       FileSystemMounted.new(@context)

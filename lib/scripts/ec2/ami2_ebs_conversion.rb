@@ -102,7 +102,8 @@ class Ami2EbsConversion < Ec2Script
   # Storage attached. Create a file-system and moun it
   class StorageAttached < Ami2EbsConversionState
     def enter
-      connect(@context[:dns_name], @context[:ssh_keyfile], @context[:ssh_keydata])
+      @context[:result][:os] =
+        connect(@context[:dns_name], @context[:ssh_keyfile], @context[:ssh_keydata])
       create_fs(@context[:dns_name], @context[:temp_device_name])
       FileSystemCreated.new(@context)
     end
