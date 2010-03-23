@@ -61,7 +61,7 @@ class DmEncrypt < Ec2Script
   # Starting state. Tries to connect via ssh.
   class InitialState < DmEncryptState
     def enter
-      connect()
+      connect(@context[:dns_name], @context[:ssh_keyfile], @context[:ssh_keydata])
       install_tools()
     end
 

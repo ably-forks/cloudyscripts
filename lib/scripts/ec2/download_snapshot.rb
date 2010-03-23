@@ -65,7 +65,8 @@ class DownloadSnapshot < Ec2Script
   # Start state. First thing to do is to launch the instance.
   class InitialState < DownloadSnapshotState
     def enter
-      launch_instance()
+      @context[:instance_id] =
+        launch_instance(@context[:ami_id], @context[:key_name], @context[:security_group_name]).first
       InstanceLaunchedState.new(context)
     end
   end
@@ -73,7 +74,7 @@ class DownloadSnapshot < Ec2Script
   # Instance Launched. Create a volume based on the snapshot.
   class InstanceLaunchedState < DownloadSnapshotState
     def enter
-      create_volume_from_snapshot()
+      @context[:volume_id] = create_volume_from_snapshot(@context[:snapshot_id], @context[:availabililty_zone])
       VolumeCreated.new(@context)
     end
 
@@ -82,7 +83,7 @@ class DownloadSnapshot < Ec2Script
   # Volume created. Attach it.
   class VolumeCreated < DownloadSnapshotState
     def enter
-      attach_volume()
+      attach_volume(@context[:volume_id], @context[:instance_id], @context[:temp_device_name])
       VolumeAttached.new(@context)
     end
   end
@@ -90,25 +91,18 @@ class DownloadSnapshot < Ec2Script
   # Volume attached. Create a file-system and mount it.
   class VolumeAttached < DownloadSnapshotState
     def enter
-      connect()
-      create_fs()
-      FileSystemCreated.new(@context)
-    end
-  end
-
-  # File system created. Mount it.
-  class FileSystemCreated < DownloadSnapshotState
-    def enter
-      mount_fs()
+      connect(@context[:dns_name], @context[:ssh_keyfile], @context[:ssh_keydata])
+      mount_point = "/mnt/tmp_#{@context[:volume_id]}"
+      mount_fs(mount_point, @context[:temp_device_name])
       FileSystemMounted.new(@context)
     end
-
   end
 
   # File System mounted. Zip the complete directory on the EBS.
   class FileSystemMounted < DownloadSnapshotState
     def enter
-      zip_volume()
+      mount_point = "/mnt/tmp_#{@context[:volume_id]}"
+      zip_volume(mount_point, @context[:zip_file_dest], @context[:zip_file_name])
       VolumeZippedAndDownloadableState.new(@context)
     end
 
@@ -136,7 +130,7 @@ class DownloadSnapshot < Ec2Script
   # Snapshot can no longer be downloaded. Shut down the instance.
   class DownloadStoppedState < DownloadSnapshotState
     def enter
-      shut_down_instance()
+      shut_down_instance(@context[:instance_id])
       InstanceShutDown.new(@context)
     end
     
@@ -145,7 +139,7 @@ class DownloadSnapshot < Ec2Script
   # Instance is shut down. Delete the volume created.
   class InstanceShutDown < DownloadSnapshotState
     def enter
-      delete_volume()
+      delete_volume(@context[:volume_id])
       Done.new(@context)
     end
   end

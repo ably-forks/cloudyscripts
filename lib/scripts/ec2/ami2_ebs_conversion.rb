@@ -76,7 +76,9 @@ class Ami2EbsConversion < Ec2Script
   # which serves to create 
   class InitialState < Ami2EbsConversionState
     def enter
-      launch_instance()
+      @context[:instance_id], @context[:dns_name], @context[:availability_zone], 
+        @context[:kernel_id], @context[:ramdisk_id], @context[:architecture] =
+        launch_instance(@context[:ami_id], @context[:key_name], @context[:security_group_name])
       AmiStarted.new(@context)
     end
   end
@@ -84,7 +86,7 @@ class Ami2EbsConversion < Ec2Script
   # Ami started. Create a storage
   class AmiStarted < Ami2EbsConversionState
     def enter
-      create_volume()
+      @context[:volume_id] = create_volume(@context[:availability_zone], "10")
       StorageCreated.new(@context)
     end
   end
@@ -92,7 +94,7 @@ class Ami2EbsConversion < Ec2Script
   # Storage created. Attach it.
   class StorageCreated < Ami2EbsConversionState
     def enter
-      attach_volume()
+      attach_volume(@context[:volume_id], @context[:instance_id], @context[:temp_device_name])
       StorageAttached.new(@context)
     end
   end
@@ -100,8 +102,8 @@ class Ami2EbsConversion < Ec2Script
   # Storage attached. Create a file-system and moun it
   class StorageAttached < Ami2EbsConversionState
     def enter
-      connect()
-      create_fs()
+      connect(@context[:dns_name], @context[:ssh_keyfile], @context[:ssh_keydata])
+      create_fs(@context[:dns_name], @context[:temp_device_name])
       FileSystemCreated.new(@context)
     end
   end
@@ -109,7 +111,8 @@ class Ami2EbsConversion < Ec2Script
   # File system created. Mount it.
   class FileSystemCreated < Ami2EbsConversionState
     def enter
-      mount_fs()
+      @context[:mount_dir] = "/mnt/tmp_#{@context[:volume_id]}"
+      mount_fs(@context[:mount_dir], @context[:temp_device_name])
       FileSystemMounted.new(@context)
     end
   end
@@ -117,7 +120,7 @@ class Ami2EbsConversion < Ec2Script
   # File system created and mounted. Copy the root partition.
   class FileSystemMounted < Ami2EbsConversionState
     def enter
-      copy()
+      copy_distribution(@context[:mount_dir])
       CopyDone.new(@context)
     end
   end
@@ -125,7 +128,7 @@ class Ami2EbsConversion < Ec2Script
   # Copy operation done. Unmount volume.
   class CopyDone < Ami2EbsConversionState
     def enter
-      unmount_fs()
+      unmount_fs(@context[:mount_dir])
       VolumeUnmounted.new(@context)
     end
   end
@@ -133,7 +136,7 @@ class Ami2EbsConversion < Ec2Script
   # Volume unmounted. Detach it.
   class VolumeUnmounted < Ami2EbsConversionState
     def enter
-      detach_volume()
+      detach_volume(@context[:volume_id], @context[:instance_id])
       VolumeDetached.new(@context)
     end
   end
@@ -141,7 +144,7 @@ class Ami2EbsConversion < Ec2Script
   # VolumeDetached. Create snaphot
   class VolumeDetached < Ami2EbsConversionState
     def enter
-      create_snapshot()
+      @context[:snapshot_id] = create_snapshot(@context[:volume_id])
       SnapshotCreated.new(@context)
     end
   end
@@ -149,7 +152,7 @@ class Ami2EbsConversion < Ec2Script
   # Snapshot created. Delete volume.
   class SnapshotCreated < Ami2EbsConversionState
     def enter
-      delete_volume()
+      delete_volume(@context[:volume_id])
       VolumeDeleted.new(@context)
     end
   end
@@ -157,7 +160,9 @@ class Ami2EbsConversion < Ec2Script
   # Volume deleted. Register snapshot.
   class VolumeDeleted < Ami2EbsConversionState
     def enter
-      register_snapshot()
+      @context[:result][:image_id] = register_snapshot(@context[:snapshot_id], @context[:name],
+        @context[:root_device_name], @context[:description], @context[:kernel_id],
+        @context[:ramdisk_id], @context[:architecture])
       SnapshotRegistered.new(@context)
     end
   end
@@ -165,7 +170,7 @@ class Ami2EbsConversion < Ec2Script
   # Snapshot registered. Shutdown instance.
   class SnapshotRegistered < Ami2EbsConversionState
     def enter
-      shut_down_instance()
+      shut_down_instance(@context[:instance_id])
       Done.new(@context)      
     end
   end
