@@ -12,8 +12,8 @@ class RemoteCommandHandler
   # Params:
   # * ip: ip address of the machine to connect to
   # * keyfile: path of the keyfile to be used for authentication
-  def connect_with_keyfile(ip, keyfile)
-    @ssh_session = Net::SSH.start(ip, 'root', :keys => [keyfile])
+  def connect_with_keyfile(ip, keyfile, timeout = 30)
+    @ssh_session = Net::SSH.start(ip, 'root', {:keys => [keyfile], :timeout => timeout})
   end
 
   # Connect to the machine as root using keydata from a keyfile.
@@ -21,8 +21,8 @@ class RemoteCommandHandler
   # * ip: ip address of the machine to connect to
   # * user: user name
   # * key_data: key_data to be used for authentication
-  def connect(ip, user, key_data)
-    @ssh_session = Net::SSH.start(ip, user, :key_data => [key_data])
+  def connect(ip, user, key_data, timeout = 30)
+    @ssh_session = Net::SSH.start(ip, user, {:key_data => [key_data], :timeout => timeout})
   end
 
   # Disconnect the current handler
