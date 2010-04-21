@@ -1,6 +1,6 @@
 # Contains methods that are used by the scripts in the state-machines. Since
 # they are reused by different scripts, they are factored into this module.
-# 
+#
 # Note: it is supposed that a hash named @context exists @context[:script]
 # must be set to a script object to pass information and messages
 # to listeners.
@@ -55,6 +55,15 @@ module StateTransitionHelper
     return os
   end
 
+  # If a remote command handler is connected, disconnect him silently.
+  def disconnect
+    begin
+      remote_handler().disconnect()
+    rescue
+    end
+    self.remote_handler= nil
+  end
+
   # Launch an instance based on an AMI ID
   # Input Parameters:
   # * ami_id => ID of the AMI to be launched
@@ -67,11 +76,12 @@ module StateTransitionHelper
   # * kernel_id => EC2 Kernel ID of the started instance
   # * ramdisk_id => EC2 Ramdisk ID of the started instance
   # * architecture => architecture (e.g. 386i, 64x) of the started instance
-  def launch_instance(ami_id, key_name, security_group_name)
+  def launch_instance(ami_id, key_name, security_group_name, ec2_handler = nil)
+    ec2_handler = ec2_handler() if ec2_handler == nil
     post_message("starting up instance to execute the script (AMI = #{ami_id}) ...")
     @logger.debug "start up AMI #{ami_id}"
     # find out the image architecture first
-    image_props = ec2_handler().describe_images(:image_id => ami_id)
+    image_props = ec2_handler.describe_images(:image_id => ami_id)
     architecture = image_props['imagesSet']['item'][0]['architecture']
     instance_type = "m1.small"
     if architecture != "i386"
@@ -81,7 +91,7 @@ module StateTransitionHelper
     @logger.info arch_log_msg
     post_message(arch_log_msg)
     # now start it
-    res = ec2_handler().run_instances(:image_id => ami_id,
+    res = ec2_handler.run_instances(:image_id => ami_id,
       :security_group => security_group_name, :key_name => key_name,
       :instance_type => instance_type
     )
@@ -92,7 +102,7 @@ module StateTransitionHelper
     started = false
     while started == false
       sleep(5)
-      res = ec2_handler().describe_instances(:instance_id => instance_id)
+      res = ec2_handler.describe_instances(:instance_id => instance_id)
       state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
       @logger.info "instance is in state #{state['name']} (#{state['code']})"
       if state['code'].to_i == 16
@@ -376,23 +386,51 @@ module StateTransitionHelper
     post_message("EBS volume successfully zipped")
   end
 
+  def create_key(keyname, keydata, directory)
+    remote_handler().echo(keydata, "#{directory}/#{keyname}.pem")
+  end
+
+  def rsynch(keyname, source_dir, dest_machine, dest_dir)
+    exec =  'sync -PHAXaz --rsh "ssh -i /root/.ssh/#{keyname}"'
+    exec += '--rsync-path "sudo rsync" #{source_dir}/ root@#{dest_machine}:#{dest_dir}'
+    remote_handler().remote_exec_helper(exec, nil, nil, false)
+  end
+
+  #setting/retrieving handlers
+
+  def remote_handler()
+    if @remote_handler == nil
+      if @context[:remote_command_handler] == nil
+        @context[:remote_command_handler] = RemoteCommandHandler.new
+      else
+        @remote_handler = @context[:remote_command_handler]
+      end
+    end
+    @remote_handler
+  end
+
+  def remote_handler=(remote_handler)
+    @remote_handler = remote_handler
+  end
+
+  def ec2_handler()
+    if @ec2_handler == nil
+      @ec2_handler = @context[:ec2_api_handler]
+    end
+    @ec2_handler
+  end
+
+  def ec2_handler=(ec2_handler)
+    @ec2_handler = ec2_handler
+  end
+
+
   protected
 
   def post_message(msg)
     if @context[:script] != nil
       @context[:script].post_message(msg)
     end
-  end
-
-  def remote_handler()
-    if @context[:remote_command_handler] == nil
-      @context[:remote_command_handler] = RemoteCommandHandler.new
-    end
-    @context[:remote_command_handler]
-  end
-
-  def ec2_handler()
-    @context[:ec2_api_handler]
   end
 
 end

@@ -141,6 +141,14 @@ class MockedRemoteCommandHandler
     true
   end
 
+  def echo(data, file)
+    test_connected()
+    @logger.debug("echo #{data} > file")
+  end
+
+  def remote_exec_helper(exec_string, stdout = [], stderr = [], debug = false)
+  end
+
   private
 
   def test_connected()

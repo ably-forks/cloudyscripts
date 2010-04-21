@@ -21,6 +21,7 @@ class DownloadSnapshot < Ec2Script
   # * the EC2 credentials (see #Ec2Script)
   # * ami_id: the ID of the AMI to be started to perform the operations and to run the web-server for download
   # * security_group_name => name of the security group used to start the AMI (should open ports for SSH and HTTP)
+  # * key_name => Name of the key to be used to access the instance providing the download
   # * ssh_key_data => Key information for the security group that starts the AMI [if not set, use ssh_key_files]
   # * ssh_key_files => Key information for the security group that starts the AMI
   # * snapshot_id => The ID of the snapshot to be downloaded

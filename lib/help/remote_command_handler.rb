@@ -122,6 +122,14 @@ class RemoteCommandHandler
     end
   end
 
+  def echo(data, file)
+    exec = "echo #{data} > #{file}"
+    remote_execute(exec, nil, true)
+    if !file_exists?(file)
+      raise Exception.new("file #{file} could not be created")
+    end
+  end
+
   # Executes the specified #exec_string on a remote session specified.
   # When #push_data is specified, the data will be used as input for the
   # command and thus allow to respond in advance to commands that ask the user

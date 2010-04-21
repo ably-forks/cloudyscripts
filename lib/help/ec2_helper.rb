@@ -59,4 +59,12 @@ class Ec2Helper
     end
     return vols['volumeSet']['item'][0][prop.to_s]
   end
+
+  def snapshot_prop(snapshot_id, prop)
+    snaps = @ec2_api.describe_snapshots(:snapshot_id => snapshot_id)
+    if snaps['snapshotSet']['item'].size == 0
+      raise Exception.new("snapshot #{snapshot_id} not found")
+    end
+    return snaps['snapshotSet']['item'][0][prop.to_s]
+  end
 end
