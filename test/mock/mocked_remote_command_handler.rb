@@ -111,11 +111,16 @@ class MockedRemoteCommandHandler
     @logger.debug "#{e}"
   end
 
-  def rsync(source_path, dest_path, exclude_path = nil)
+  def local_rsync(source_path, dest_path, exclude_path = nil)
     test_connected()
     ex = exclude_path == nil ? "" : "--exclude #{exclude_path}"
     e = "rsync -avHx #{ex} #{source_path} #{dest_path}"
     @logger.debug "#{e}"
+  end
+
+  def remote_rsync(keyfile, source_path, dest_ip, dest_path)
+    e = "rsync -rlpgoDzq -e "+'"'+"ssh -o stricthostkeychecking=no -i #{keyfile}"+'"'+" #{source_path} root@#{dest_ip}:#{dest_path}"
+    @logger.debug "going to execute #{e}"
   end
 
   def zip(source_path, destination_file)
