@@ -1,5 +1,6 @@
 require 'rubygems'
 require 'net/ssh'
+require 'net/scp'
 
 # Provides methods to be executed via ssh to remote instances.
 class RemoteCommandHandler
@@ -102,14 +103,21 @@ class RemoteCommandHandler
   end
 
   # Copy directory using options -avHx
-  def rsync(source_path, dest_path, exclude_path = nil)
+  def local_rsync(source_path, dest_path, exclude_path = nil)
     exclude = ""
     if exclude_path != nil
       exclude = "--exclude #{exclude_path}"
     end
     e = "rsync -avHx #{exclude} #{source_path} #{dest_path}"
     @logger.debug "going to execute #{e}"
-    remote_exec_helper(e, nil, nil, false)
+    remote_exec_helper(e, nil, nil, false) #TODO: handle output in stderr?
+  end
+
+  # Copy directory via an ssh-tunnel.
+  def remote_rsync(keyfile, source_path, dest_ip, dest_path)
+    e = "rsync -rlpgoDzq -e "+'"'+"ssh -o stricthostkeychecking=no -i #{keyfile}"+'"'+" #{source_path} root@#{dest_ip}:#{dest_path}"
+    @logger.debug "going to execute #{e}"
+    remote_exec_helper(e, nil, nil, false) #TODO: handle output in stderr?
   end
 
   # Zip the complete contents of the source path into the destination file.
@@ -124,6 +132,7 @@ class RemoteCommandHandler
 
   def echo(data, file)
     exec = "echo #{data} > #{file}"
+    @logger.debug "going to execute #{exec}"
     remote_execute(exec, nil, true)
     if !file_exists?(file)
       raise Exception.new("file #{file} could not be created")
@@ -174,6 +183,12 @@ class RemoteCommandHandler
     stderr = []
     remote_exec_helper(exec_string, stdout, stderr)
     stdout.join()
+  end
+
+  def upload(ip, user, key_data, local_file, destination_file, timeout = 30)
+    Net::SCP.start(ip, user, {:key_data => [key_data]}) do |scp|
+      scp.upload!(local_file, destination_file)
+    end
   end
 
   private

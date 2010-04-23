@@ -146,9 +146,10 @@ class MockedRemoteCommandHandler
     @logger.debug("echo #{data} > file")
   end
 
-  def remote_exec_helper(exec_string, stdout = [], stderr = [], debug = false)
+  def upload(ip, user, key_data, local_file, destination_file, timeout = 30)
+    @logger.debug("upload file #{local_file} to #{user}@#{ip}:#{destination_file} [key_length = #{key_data.size}")
   end
-
+  
   private
 
   def test_connected()

@@ -1,3 +1,5 @@
+require 'net/scp'
+
 # Contains methods that are used by the scripts in the state-machines. Since
 # they are reused by different scripts, they are factored into this module.
 #
@@ -20,7 +22,7 @@ module StateTransitionHelper
   def connect(dns_name, ssh_keyfile = nil, ssh_keydata = nil)
     post_message("connecting to #{dns_name}...")
     connected = false
-    remaining_trials = 3
+    remaining_trials = 5
     while !connected && remaining_trials > 0
       remaining_trials -= 1
       if ssh_keyfile != nil
@@ -29,7 +31,7 @@ module StateTransitionHelper
           connected = true
         rescue Exception => e
           @logger.info("connection failed due to #{e}")
-          @logger.debug(e.backtrace.join("\n"))
+          #@logger.debug(e.backtrace.join("\n"))
         end
       elsif ssh_keydata != nil
         begin
@@ -37,13 +39,13 @@ module StateTransitionHelper
           connected = true
         rescue Exception => e
           @logger.info("connection failed due to #{e}")
-          @logger.debug(e.backtrace.join("\n"))
+          #@logger.debug(e.backtrace.join("\n"))
         end
       else
         raise Exception.new("no key information specified")
       end
       if !connected
-        sleep(5) #try again
+        sleep(20) #try again
       end
     end
     if !connected
@@ -368,8 +370,8 @@ module StateTransitionHelper
     post_message("going to start copying files to #{destination_path}. This may take quite a time...")
     @logger.debug "start copying to #{destination_path}"
     start = Time.new.to_i
-    remote_handler().rsync("/", "#{destination_path}", "#{destination_path}")
-    remote_handler().rsync("/dev/", "#{destination_path}/dev/")
+    remote_handler().local_rsync("/", "#{destination_path}", "#{destination_path}")
+    remote_handler().local_rsync("/dev/", "#{destination_path}/dev/")
     endtime = Time.new.to_i
     @logger.info "copy took #{(endtime-start)}s"
     post_message("copying is done (took #{endtime-start})s")
@@ -386,14 +388,14 @@ module StateTransitionHelper
     post_message("EBS volume successfully zipped")
   end
 
-  def create_key(keyname, keydata, directory)
-    remote_handler().echo(keydata, "#{directory}/#{keyname}.pem")
+  def remote_copy(keyname, source_dir, dest_machine, dest_dir)
+    post_message("going to remote copy all files from volume. This may take some time...")
+    remote_handler().remote_rsync("/root/.ssh/#{keyname}.pem", source_dir, dest_machine, dest_dir)
+    post_message("remote copy operation done")
   end
 
-  def rsynch(keyname, source_dir, dest_machine, dest_dir)
-    exec =  'sync -PHAXaz --rsh "ssh -i /root/.ssh/#{keyname}"'
-    exec += '--rsync-path "sudo rsync" #{source_dir}/ root@#{dest_machine}:#{dest_dir}'
-    remote_handler().remote_exec_helper(exec, nil, nil, false)
+  def upload_file(ip, user, key_data, file, target_file)
+    remote_handler().upload(ip, user, key_data, file, target_file)
   end
 
   #setting/retrieving handlers

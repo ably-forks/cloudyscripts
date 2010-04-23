@@ -123,9 +123,10 @@ class CopySnapshot< Ec2Script
   # a remote copy.
   class TargetVolumeReadyState < CopySnapshotState
     def enter()
-      connect(@context[:source_dns_name], @context[:source_ssh_keyfile], @context[:source_ssh_keydata])
-      create_key(@context[:target_key_name], @context[:target_key_data], "/root/.ssh")
-      disconnect()
+      post_message("upload key of target-instance to source-instance...")
+      upload_file(@context[:source_dns_name], "root", @context[:source_ssh_keydata],
+        @context[:target_ssh_keyfile], "/root/.ssh/#{@context[:target_key_name]}.pem")
+      post_message("credentials are in place to connect source and target.")
       KeyInPlaceState.new(@context)
     end
   end
@@ -134,9 +135,9 @@ class CopySnapshot< Ec2Script
   class KeyInPlaceState < CopySnapshotState
     def enter()
       connect(@context[:source_dns_name], @context[:source_ssh_keyfile], @context[:source_ssh_keydata])
-      source_dir = "/mnt/tmp_#{@context[:source_volume_id]}"
+      source_dir = "/mnt/tmp_#{@context[:source_volume_id]}/"
       dest_dir = "/mnt/tmp_#{@context[:target_volume_id]}"
-      rsynch(@context[:target_key_name], source_dir, @context[:target_dns_name], dest_dir)
+      remote_copy(@context[:target_key_name], source_dir, @context[:target_dns_name], dest_dir)
       disconnect()
       DataCopiedState.new(@context)
     end
@@ -147,7 +148,7 @@ class CopySnapshot< Ec2Script
   class DataCopiedState < CopySnapshotState
     def enter()
       remote_region()
-      @context[:new_snapshot_id] = create_snapshot(@context[:source_volume_id])
+      @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id])
       @context[:result][:snapshot_id] = @context[:new_snapshot_id]
       SnapshotCreatedState.new(@context)
     end
