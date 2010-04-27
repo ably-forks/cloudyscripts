@@ -78,7 +78,7 @@ class CopySnapshot< Ec2Script
       device = "/dev/sdj"  #TODO: make device configurable
       mount_point = "/mnt/tmp_#{@context[:source_volume_id]}"
       attach_volume(@context[:source_volume_id], @context[:source_instance_id], device)
-      connect(@context[:source_dns_name], @context[:source_ssh_keyfile], @context[:source_ssh_keydata])
+      connect(@context[:source_dns_name], nil, @context[:source_ssh_keydata])
       mount_fs(mount_point, device)
       disconnect()
       SourceVolumeReadyState.new(@context)
@@ -110,7 +110,7 @@ class CopySnapshot< Ec2Script
       device = "/dev/sdj"  #TODO: make device configurable
       mount_point = "/mnt/tmp_#{@context[:target_volume_id]}"
       attach_volume(@context[:target_volume_id], @context[:target_instance_id], device)
-      connect(@context[:target_dns_name], @context[:target_ssh_keyfile], @context[:target_ssh_keydata])
+      connect(@context[:target_dns_name], nil, @context[:target_ssh_keydata])
       create_fs(@context[:target_dns_name], device)
       mount_fs(mount_point, device)
       disconnect()
@@ -134,7 +134,7 @@ class CopySnapshot< Ec2Script
   # Now we can copy.
   class KeyInPlaceState < CopySnapshotState
     def enter()
-      connect(@context[:source_dns_name], @context[:source_ssh_keyfile], @context[:source_ssh_keydata])
+      connect(@context[:source_dns_name], nil, @context[:source_ssh_keydata])
       source_dir = "/mnt/tmp_#{@context[:source_volume_id]}/"
       dest_dir = "/mnt/tmp_#{@context[:target_volume_id]}"
       remote_copy(@context[:target_key_name], source_dir, @context[:target_dns_name], dest_dir)
@@ -148,7 +148,7 @@ class CopySnapshot< Ec2Script
   class DataCopiedState < CopySnapshotState
     def enter()
       remote_region()
-      @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id])
+      @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], "Created by Cloudy_Scripts - copy_snapshot")
       @context[:result][:snapshot_id] = @context[:new_snapshot_id]
       SnapshotCreatedState.new(@context)
     end

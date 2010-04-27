@@ -22,24 +22,29 @@ module StateTransitionHelper
   def connect(dns_name, ssh_keyfile = nil, ssh_keydata = nil)
     post_message("connecting to #{dns_name}...")
     connected = false
+    last_connection_problem = ""
     remaining_trials = 5
     while !connected && remaining_trials > 0
       remaining_trials -= 1
       if ssh_keyfile != nil
         begin
+          @logger.info("connecting using keyfile")
           remote_handler().connect_with_keyfile(dns_name, ssh_keyfile)
           connected = true
         rescue Exception => e
           @logger.info("connection failed due to #{e}")
-          #@logger.debug(e.backtrace.join("\n"))
+          last_connection_problem = "#{e}"
+          @logger.debug(e.backtrace.select(){|line| line.include?("state_transition_helper")}.join("\n"))
         end
       elsif ssh_keydata != nil
         begin
+          @logger.info("connecting using keydata")
           remote_handler().connect(dns_name, "root", ssh_keydata)
           connected = true
         rescue Exception => e
           @logger.info("connection failed due to #{e}")
-          #@logger.debug(e.backtrace.join("\n"))
+          last_connection_problem = "#{e}"
+          @logger.debug(e.backtrace.select(){|line| line.include?("state_transition_helper")}.join("\n"))
         end
       else
         raise Exception.new("no key information specified")
@@ -49,7 +54,7 @@ module StateTransitionHelper
       end
     end
     if !connected
-      raise Exception.new("connection attempts stopped")
+      raise Exception.new("connection attempts stopped (#{last_connection_problem})")
     end
     os = remote_handler().retrieve_os()
     post_message("connected to #{dns_name}. OS installed is #{os}")
@@ -264,10 +269,11 @@ module StateTransitionHelper
   # * volume_id => EC2 ID for the EBS volume to be snapshotted
   # Returns:
   # * snapshot_id => EC2 ID for the snapshot created
-  def create_snapshot(volume_id)
+  def create_snapshot(volume_id, description = "")
     post_message("going to create a snapshot for volume #{volume_id}...")
     @logger.debug "create snapshot for volume #{volume_id}"
-    res = ec2_handler().create_snapshot(:volume_id => volume_id)
+    res = ec2_handler().create_snapshot(:volume_id => volume_id,
+      :description => description)
     snapshot_id = res['snapshotId']
     @logger.info "snapshot_id = #{snapshot_id}"
     done = false
@@ -395,6 +401,7 @@ module StateTransitionHelper
   end
 
   def upload_file(ip, user, key_data, file, target_file)
+    post_message("going to upload #{file} to #{ip}:/#{target_file}")
     remote_handler().upload(ip, user, key_data, file, target_file)
   end
 

@@ -62,9 +62,38 @@ class Ec2Helper
 
   def snapshot_prop(snapshot_id, prop)
     snaps = @ec2_api.describe_snapshots(:snapshot_id => snapshot_id)
-    if snaps['snapshotSet']['item'].size == 0
+    begin
+      if snaps['snapshotSet']['item'].size == 0
+        raise Exception.new("snapshot #{snapshot_id} not found")
+      end
+      return snaps['snapshotSet']['item'][0][prop.to_s]
+    rescue
       raise Exception.new("snapshot #{snapshot_id} not found")
     end
-    return snaps['snapshotSet']['item'][0][prop.to_s]
   end
+
+  def ami_prop(ami_id, prop)
+    amis = @ec2_api.describe_images(:image_id => ami_id)
+    begin
+      if amis['imagesSet']['item'].size == 0
+        raise Exception.new("image #{ami_id} not found")
+      end
+      return amis['imagesSet']['item'][0][prop.to_s]
+    rescue
+        raise Exception.new("image #{ami_id} not found")
+    end
+  end
+
+  def instance_prop(instance_id, prop)
+    instances = @ec2_api.describe_instances(:instance_id => instance_id)
+    begin
+      if instances['reservationSet']['item'][0]['instancesSet']['item'].size == 0
+        raise Exception.new("instance #{instance_id} not found")
+      end
+      return instances['reservationSet']['item'][0]['instancesSet']['item'][prop.to_s]
+    rescue
+      raise Exception.new("instance #{instance_id} not found")
+    end
+  end
+
 end

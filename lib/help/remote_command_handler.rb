@@ -1,6 +1,7 @@
 require 'rubygems'
 require 'net/ssh'
 require 'net/scp'
+require 'timeout'
 
 # Provides methods to be executed via ssh to remote instances.
 class RemoteCommandHandler
@@ -185,10 +186,12 @@ class RemoteCommandHandler
     stdout.join()
   end
 
-  def upload(ip, user, key_data, local_file, destination_file, timeout = 30)
-    Net::SCP.start(ip, user, {:key_data => [key_data]}) do |scp|
-      scp.upload!(local_file, destination_file)
-    end
+  def upload(ip, user, key_data, local_file, destination_file, timeout = 60)
+    Timeout::timeout(timeout) {
+      Net::SCP.start(ip, user, {:key_data => [key_data], :timeout => timeout}) do |scp|
+        scp.upload!(local_file, destination_file)
+      end
+    }
   end
 
   private
