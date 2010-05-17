@@ -15,6 +15,9 @@ class MockedRemoteCommandHandler
     if ip == nil || ip.strip.size == 0
       raise Exception.new("IP is empty")
     end
+    if user == nil || user.strip.size == 0
+      raise Exception.new("no username specified for ssh")
+    end
     @logger.debug "mocked_ssh_api: connected to ip=#{ip} user=#{user} key_data=#{keydata}"
     @connected = true
   end

@@ -4,21 +4,6 @@ require "help/remote_command_handler"
 #require "help/dm_crypt_helper"
 require "AWS"
 
-class AWS::EC2::Base
-  def register_image_updated(options)
-    params = {}
-    params["Name"] = options[:name].to_s
-    params["BlockDeviceMapping.1.Ebs.SnapshotId"] = options[:snapshot_id].to_s
-    params["BlockDeviceMapping.1.DeviceName"] = options[:root_device_name].to_s
-    params["Description"] = options[:description].to_s
-    params["KernelId"] = options[:kernel_id].to_s
-    params["RamdiskId"] = options[:ramdisk_id].to_s
-    params["Architecture"] = options[:architecture].to_s
-    params["RootDeviceName"] = options[:root_device_name].to_s
-    return response_generator(:action => "RegisterImage", :params => params)
-  end
-end
-
 # Creates a bootable EBS storage from an existing AMI.
 #
 
@@ -28,6 +13,7 @@ class Ami2EbsConversion < Ec2Script
   # * aws_secret_key => the Amazon AWS Secret Key
   # * ami_id => the ID of the AMI to be converted
   # * security_group_name => name of the security group to start
+  # * ssh_username => name of the ssh-user (default = root)
   # * ssh_key_data => Key information for the security group that starts the AMI [if not set, use ssh_key_files]
   # * ssh_key_files => Key information for the security group that starts the AMI
   # * remote_command_handler => object that allows to connect via ssh and execute commands (optional)
@@ -54,6 +40,9 @@ class Ami2EbsConversion < Ec2Script
     end
     if @input_params[:root_device_name] == nil
       @input_params[:root_device_name] = "/dev/sda1"
+    end
+    if @input_params[:ssh_username] == nil
+      @input_params[:ssh_username] = "root"
     end
   end
 
@@ -103,7 +92,7 @@ class Ami2EbsConversion < Ec2Script
   class StorageAttached < Ami2EbsConversionState
     def enter
       @context[:result][:os] =
-        connect(@context[:dns_name], @context[:ssh_keyfile], @context[:ssh_keydata])
+        connect(@context[:dns_name], @context[:ssh_username], @context[:ssh_keyfile], @context[:ssh_keydata])
       create_fs(@context[:dns_name], @context[:temp_device_name])
       FileSystemCreated.new(@context)
     end

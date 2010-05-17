@@ -1,5 +1,5 @@
 class MockedEc2Api
-  attr_accessor :volumes, :next_volume_id, :fail, :logger
+  attr_accessor :volumes, :next_volume_id, :fail, :logger, :rootDeviceType
 
   def initialize
     @volumes = []
@@ -9,12 +9,19 @@ class MockedEc2Api
     @snapshots = []
     @logger = Logger.new(STDOUT)
     @logger.level = Logger::ERROR
+    @rootDeviceType = "instance-store"
   end
 
   def run_instances(options = {})
     instance_id = "i-from-#{options[:image_id]}"
     create_dummy_instance(instance_id, options[:image_id], "running",
       "who.cares", "public.dns.name", options[:key_name], [options[:security_group]])
+    if @rootDeviceType == "ebs"
+      vol_id = create_dummy_volume("vol-ebs-for-#{instance_id}", "timezone")['volumeId']
+      attach_volume(:volume_id => vol_id, :instance_id =>instance_id)
+      puts "instances now #{describe_instances(:instance_id => instance_id).inspect}"
+      puts "volumes now #{describe_volumes(:volume_id => vol_id).inspect}"
+    end
     describe_instances(:instance_id => instance_id)['reservationSet']['item'][0]
   end
 
@@ -56,7 +63,7 @@ class MockedEc2Api
     if image_id == nil
       raise Exception.new("no image_id specified")
     end
-    res = {"imagesSet"=>{"item"=>[{"imageType"=>"machine", "blockDeviceMapping"=>nil, "ramdiskId"=>"ari-a51cf9cc", "imageState"=>"available", "kernelId"=>"aki-a71cf9ce", "imageId"=>image_id, "rootDeviceType"=>"instance-store", "isPublic"=>"true", "imageLocation"=>"jungmats_testbucket/openvpn.manifest.xml", "architecture"=>"i386", "imageOwnerId"=>"945722764978"}]}, "requestId"=>"625dd61b-53a5-4907-ab2a-a00a7dca05be", "xmlns"=>"http://ec2.amazonaws.com/doc/2009-11-30/"}
+    res = {"imagesSet"=>{"item"=>[{"imageType"=>"machine", "blockDeviceMapping"=>nil, "ramdiskId"=>"ari-a51cf9cc", "imageState"=>"available", "kernelId"=>"aki-a71cf9ce", "imageId"=>image_id, "rootDeviceType"=> @rootDeviceType, "isPublic"=>"true", "imageLocation"=>"jungmats_testbucket/openvpn.manifest.xml", "architecture"=>"i386", "imageOwnerId"=>"945722764978"}]}, "requestId"=>"625dd61b-53a5-4907-ab2a-a00a7dca05be", "xmlns"=>"http://ec2.amazonaws.com/doc/2009-11-30/"}
     res
   end
 
@@ -224,6 +231,17 @@ class MockedEc2Api
       instanceInfos['instanceState']['name'] = i[:instance_state]
       instanceInfos['instanceState']['code'] = state_to_code(i[:instance_state])
       instanceInfos['ownerId'] = "owner-dummy-id"
+      blockDeviceMapping = []
+      instanceInfos['blockDeviceMapping'] = {}
+      instanceInfos['blockDeviceMapping']['item'] = blockDeviceMapping
+      i[:volumes].each() {|vol|
+        elem = {}
+        elem['ebs'] = {}
+        elem['ebs']['volumeId'] = vol[:volume_id]
+        #TODO: more info
+        blockDeviceMapping << elem
+      }
+      
       @logger.debug "mocked_ec2_api is going to add #{i[:groups].size} groups"
       i[:groups].each() {|sg|
         elem = {}
@@ -310,6 +328,7 @@ class MockedEc2Api
     @logger.debug "add #{att.inspect} to attachments = #{volume[:attachments].inspect}"
     update_volume_state(volume_id, "in-use")
     volume[:attachments] << att
+    instance[:volumes] << volume
     @logger.debug "after attaching: #{@volumes.inspect}"
   end
 
@@ -341,6 +360,11 @@ class MockedEc2Api
       volume[:attachments].delete_at(to_remove)
     end
     update_volume_state(options[:volume_id], "available")
+    #remove from instance
+    instance[:volumes].delete_if() {|vol|
+      puts "delete volum #{vol.inspect} from instance #{instance.inspect}?"
+      vol[:volume_id] == options[:volume_id]
+    }
     @logger.debug "after detaching: #{@volumes.inspect}"
   end
 
@@ -392,6 +416,7 @@ class MockedEc2Api
     instance = {}
     instance[:instance_id] = instance_id
     instance[:image_id] = "dummy image"
+    instance[:volumes] = []
     #TODO
     @instances << instance
     instance
@@ -407,6 +432,7 @@ class MockedEc2Api
     instance[:key_name] = key_name
     instance[:groups] = groups
     instance[:availability_zone] = "us-east-1a" #TODO: make configurable
+    instance[:volumes] = []#
     #TODO
     @instances << instance
     instance
@@ -420,7 +446,7 @@ class MockedEc2Api
 
   def register_image_updated(options)
     @logger.debug "register_image for #{options[:snapshot_id]} name #{options[:name]}"
-    {:image_id => "ami-#{options[:snapshot_id]}"}
+    {'imageId' => "ami-#{options[:snapshot_id]}"}
   end
 
   def terminate_instances(options)

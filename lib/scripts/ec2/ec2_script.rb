@@ -14,6 +14,8 @@ class Ec2Script
       @logger = Logger.new(STDOUT)
       @logger .level = Logger::WARN
       input_params[:logger] = @logger
+    else
+      @logger = input_params[:logger]
     end
     @result = {:done => false, :failed => false}
     @input_params[:result] = @result

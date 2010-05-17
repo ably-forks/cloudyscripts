@@ -6,53 +6,67 @@ require "help/ec2_helper"
 require "AWS"
 
 # Copy a given snapshot to another region
-# * start up instance in source-region, create volume from snapshot, attach volume, and mount it
+# * start up instance in source-region, create a snapshot from the mounted EBS
+# * then create volume from snapshot, attach volume, and mount it
 # * start up instance in destination-region, create empty volume of same size, attache volume, and mount it
 # * copy the destination key to the source instance
 # * perform an rsynch
 #   sync -PHAXaz --rsh "ssh -i /home/${src_user}/.ssh/id_${dst_keypair}" --rsync-path "sudo rsync" ${src_dir}/ ${dst_user}@${dst_public_fqdn}:${dst_dir}/
 # * create a snapshot of the volume
+# * register the snapshot as AMI
 # * clean-up everything
 
-class CopySnapshot< Ec2Script
+class CopyAmi < Ec2Script
   # context information needed
   # * the EC2 credentials (see #Ec2Script)
-  # * snapshot_id => The ID of the snapshot to be downloaded
+  # * ami_id => the ID of the AMI to be copied in another region
   # * target_ec2_handler => The EC2 handler connected to the region where the snapshot is being copied to
-  # * source_ssh_username => user name to connect to the source instance (default = root)
+  # * source_ssh_username => The username for ssh for source-instance (default = root)
   # * source_key_name => Key name of the instance that manages the snaphot-volume in the source region
   # * source_ssh_key_data => Key information for the security group that starts the AMI [if not set, use ssh_key_files]
   # * source_ssh_key_files => Key information for the security group that starts the AMI
-  # * target_ssh_username => user name to connect to the target instance (default = root)
+  # * target_ssh_username => The username for ssh for target-instance (default = root)
   # * target_key_name => Key name of the instance that manages the snaphot-volume in the target region
   # * target_ssh_key_data => Key information for the security group that starts the AMI [if not set, use ssh_key_files]
   # * target_ssh_key_files => Key information for the security group that starts the AMI
-  # * source_ami_id => ID of the AMI to start in the source region
   # * target_ami_id => ID of the AMI to start in the target region
+  # * name => name of new AMI to be created
+  # * description => description of new AMI to be created
   
   def initialize(input_params)
     super(input_params)
   end
 
   def check_input_parameters()
+    ec2_helper = Ec2Helper.new(@input_params[:ec2_api_handler])
+    if ec2_helper.ami_prop(@input_params[:ami_id], 'rootDeviceType') != "ebs"
+      raise Exception.new("must be an EBS type image")
+    end
+    if @input_params[:root_device_name] == nil
+      @input_params[:root_device_name] = "/dev/sda1"
+    end
+    if @input_params[:temp_device_name] == nil
+      @input_params[:temp_device_name] = "/dev/sdj"
+    end
     if @input_params[:source_ssh_username] == nil
       @input_params[:source_ssh_username] = "root"
     end
     if @input_params[:target_ssh_username] == nil
       @input_params[:target_ssh_username] = "root"
     end
+
   end
 
   # Load the initial state for the script.
   # Abstract method to be implemented by extending classes.
   def load_initial_state()
-    CopySnapshotState.load_state(@input_params)
+    CopyAmiState.load_state(@input_params)
   end
 
   private
 
   # Here begins the state machine implementation
-  class CopySnapshotState < ScriptExecutionState
+  class CopyAmiState < ScriptExecutionState
 
     def self.load_state(context)
       InitialState.new(context)
@@ -68,22 +82,32 @@ class CopySnapshot< Ec2Script
   end
 
   # Initial state: start up AMI in source region
-  class InitialState < CopySnapshotState
+  class InitialState < CopyAmiState
     def enter()
-      result = launch_instance(@context[:source_ami_id], @context[:source_key_name], "default")
-      @context[:source_instance_id] = result.first
-      @context[:source_dns_name] = result[1]
-      @context[:source_availability_zone] = result[2]
+      @context[:source_instance_id], @context[:source_dns_name], @context[:source_availability_zone], 
+        @context[:kernel_id], @context[:ramdisk_id], @context[:architecture] =
+        launch_instance(@context[:ami_id], @context[:source_key_name], "default")
+      ec2_helper = Ec2Helper.new(@context[:ec2_api_handler])
+      puts "get_attached returns: #{ec2_helper.get_attached_volumes(@context[:source_instance_id]).inspect}"
+      @context[:ebs_volume_id] = ec2_helper.get_attached_volumes(@context[:source_instance_id])[0]['volumeId']#TODO: what when more root devices?
       SourceInstanceLaunchedState.new(@context)
     end
   end
 
-  # Source is started. Create a volume from the snapshot, attach and mount the volume
-  class SourceInstanceLaunchedState < CopySnapshotState
+ # Source is started. Create a snapshot on the volume that is linked to the instance.
+  class SourceInstanceLaunchedState < CopyAmiState
+    def enter()
+      @context[:snapshot_id] = create_snapshot(@context[:ebs_volume_id], "Cloudy_Scripts Snapshot for copying AMIs")
+      AmiSnapshotCreatedState.new(@context)
+    end
+  end
+
+  # Snapshot is created from the AMI. Create a volume from the snapshot, attach and mount the volume as second device.
+  class AmiSnapshotCreatedState < CopyAmiState
     def enter()
       @context[:source_volume_id] = create_volume_from_snapshot(@context[:snapshot_id],
         @context[:source_availability_zone])
-      device = "/dev/sdj"  #TODO: make device configurable
+      device = @context[:temp_device_name]
       mount_point = "/mnt/tmp_#{@context[:source_volume_id]}"
       attach_volume(@context[:source_volume_id], @context[:source_instance_id], device)
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
@@ -94,7 +118,7 @@ class CopySnapshot< Ec2Script
   end
 
   # Source is ready. Now start instance in the target region
-  class SourceVolumeReadyState < CopySnapshotState
+  class SourceVolumeReadyState < CopyAmiState
     def enter()
       remote_region()
       result = launch_instance(@context[:target_ami_id], @context[:target_key_name], 
@@ -107,7 +131,7 @@ class CopySnapshot< Ec2Script
   end
 
   # Destination instance is started. Now configure storage.
-  class TargetInstanceLaunchedState < CopySnapshotState
+  class TargetInstanceLaunchedState < CopyAmiState
     def enter()
       local_region()
       ec2_helper = Ec2Helper.new(@context[:ec2_api_handler])
@@ -115,7 +139,7 @@ class CopySnapshot< Ec2Script
       #
       remote_region()
       @context[:target_volume_id] = create_volume(@context[:target_availability_zone], volume_size)
-      device = "/dev/sdj"  #TODO: make device configurable
+      device = @context[:temp_device_name]
       mount_point = "/mnt/tmp_#{@context[:target_volume_id]}"
       attach_volume(@context[:target_volume_id], @context[:target_instance_id], device)
       connect(@context[:target_dns_name], @context[:target_ssh_username], nil, @context[:target_ssh_keydata])
@@ -129,7 +153,7 @@ class CopySnapshot< Ec2Script
   # Storages are ready. Only thing missing: the key of the target region
   # must be available on the instance in the source region to be able to perform
   # a remote copy.
-  class TargetVolumeReadyState < CopySnapshotState
+  class TargetVolumeReadyState < CopyAmiState
     def enter()
       post_message("upload key of target-instance to source-instance...")
       upload_file(@context[:source_dns_name], "root", @context[:source_ssh_keydata],
@@ -140,7 +164,7 @@ class CopySnapshot< Ec2Script
   end
 
   # Now we can copy.
-  class KeyInPlaceState < CopySnapshotState
+  class KeyInPlaceState < CopyAmiState
     def enter()
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
       source_dir = "/mnt/tmp_#{@context[:source_volume_id]}/"
@@ -153,29 +177,40 @@ class CopySnapshot< Ec2Script
 
   # Data of snapshot now copied to the new volume. Create a snapshot of the
   # new volume.
-  class DataCopiedState < CopySnapshotState
+  class DataCopiedState < CopyAmiState
     def enter()
       remote_region()
       @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], "Created by Cloudy_Scripts - copy_snapshot")
-      @context[:result][:snapshot_id] = @context[:new_snapshot_id]
-      SnapshotCreatedState.new(@context)
+      TargetSnapshotCreatedState.new(@context)
     end
   end
 
-  # Operation done. Now only cleanup is missing, i.e. shut down instances and
+  # Snapshot Operation done. Now this snapshot must be registered as AMI
+  class TargetSnapshotCreatedState < CopyAmiState
+    def enter()
+      remote_region()
+      @context[:result][:image_id] = register_snapshot(@context[:new_snapshot_id], @context[:name],
+        @context[:root_device_name], @context[:description], nil,
+        nil, @context[:architecture])
+      AmiRegisteredState.new(@context)
+    end
+  end
+
+  # AMI is registered. Now only cleanup is missing, i.e. shut down instances and
   # remote the volumes that were created. Start with cleaning the ressources
   # in the local region.
-  class SnapshotCreatedState < CopySnapshotState
+  class AmiRegisteredState < CopyAmiState
     def enter()
       local_region()
       shut_down_instance(@context[:source_instance_id])
       delete_volume(@context[:source_volume_id])
+      #TODO: delete snapshots?!
       SourceCleanedUpState.new(@context)
     end
   end
 
   # Cleanup the resources in the target region.
-  class SourceCleanedUpState < CopySnapshotState
+  class SourceCleanedUpState < CopyAmiState
     def enter()
       remote_region()
       shut_down_instance(@context[:target_instance_id])
@@ -185,12 +220,3 @@ class CopySnapshot< Ec2Script
   end
 
 end
-
-#Cloudy_Script: copy snapshots between regions
-#start up instance in source-region, create volume from snapshot, attach volume, and mount it
-#start up instance in destination-region, create empty volume of same size, attache volume, and mount it
-#copy the destination key to the source instance
-#perform an rsynch
-#sync -PHAXaz --rsh "ssh -i /home/${src_user}/.ssh/id_${dst_keypair}" --rsync-path "sudo rsync" ${src_dir}/ ${dst_user}@${dst_public_fqdn}:${dst_dir}/
-#create a snapshot of the volume
-#clean-up everything

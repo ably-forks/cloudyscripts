@@ -1,4 +1,5 @@
 require 'net/scp'
+require "AWS"
 
 # Contains methods that are used by the scripts in the state-machines. Since
 # they are reused by different scripts, they are factored into this module.
@@ -10,16 +11,33 @@ require 'net/scp'
 # * :remote_command_handler => ssh wrapper object
 # * :ec2_api_handler => wrapper object around EC2 API access
 
+class AWS::EC2::Base
+  def register_image_updated(options)
+    puts "register_iamge_updated: #{options.inspect}"
+    params = {}
+    params["Name"] = options[:name].to_s
+    params["BlockDeviceMapping.1.Ebs.SnapshotId"] = options[:snapshot_id].to_s
+    params["BlockDeviceMapping.1.DeviceName"] = options[:root_device_name].to_s
+    params["Description"] = options[:description].to_s
+    params["KernelId"] = options[:kernel_id].to_s unless options[:kernel_id] == nil
+    params["RamdiskId"] = options[:ramdisk_id].to_s unless options[:ramdisk_id] == nil
+    params["Architecture"] = options[:architecture].to_s
+    params["RootDeviceName"] = options[:root_device_name].to_s
+    return response_generator(:action => "RegisterImage", :params => params)
+  end
+end
+
 module StateTransitionHelper
 
   # Connects to the remote host via SSH.
   # Params:
   # * dns_name => machine to connect to
+  # * user_name => name to be used for connection
   # * ssh_keyfile => key-file used for ssh
   # * ssh_keydata => contents of key-file (either use ssh_keyfile or ssh_keydata)
   # Returns:
   # * OS of the connected machine
-  def connect(dns_name, ssh_keyfile = nil, ssh_keydata = nil)
+  def connect(dns_name, user_name, ssh_keyfile = nil, ssh_keydata = nil)
     post_message("connecting to #{dns_name}...")
     connected = false
     last_connection_problem = ""
@@ -39,7 +57,7 @@ module StateTransitionHelper
       elsif ssh_keydata != nil
         begin
           @logger.info("connecting using keydata")
-          remote_handler().connect(dns_name, "root", ssh_keydata)
+          remote_handler().connect(dns_name, user_name, ssh_keydata)
           connected = true
         rescue Exception => e
           @logger.info("connection failed due to #{e}")

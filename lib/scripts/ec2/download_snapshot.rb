@@ -22,6 +22,7 @@ class DownloadSnapshot < Ec2Script
   # * ami_id: the ID of the AMI to be started to perform the operations and to run the web-server for download
   # * security_group_name => name of the security group used to start the AMI (should open ports for SSH and HTTP)
   # * key_name => Name of the key to be used to access the instance providing the download
+  # * ssh_username => name of the ssh-user (default = root)
   # * ssh_key_data => Key information for the security group that starts the AMI [if not set, use ssh_key_files]
   # * ssh_key_files => Key information for the security group that starts the AMI
   # * snapshot_id => The ID of the snapshot to be downloaded
@@ -47,6 +48,9 @@ class DownloadSnapshot < Ec2Script
     end
     if @input_params[:wait_time] == nil
       @input_params[:wait_time] = 300
+    end
+    if @input_params[:ssh_username] == nil
+      @input_params[:ssh_username] = "root"
     end
   end
 
@@ -105,7 +109,7 @@ class DownloadSnapshot < Ec2Script
     def enter
       @context[:script].post_message("Going to prepare the two volumes for the zip-operation.")
       @context[:result][:os] =
-        connect(@context[:dns_name], @context[:ssh_keyfile], @context[:ssh_keydata])
+        connect(@context[:dns_name], @context[:ssh_username], @context[:ssh_keyfile], @context[:ssh_keydata])
       source_dir = "/mnt/tmp_#{@context[:source_volume_id]}"
       dest_dir = @context[:zip_file_dest]
       create_fs(@context[:dns_name], @context[:dest_device])

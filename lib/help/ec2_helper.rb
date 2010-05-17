@@ -52,6 +52,28 @@ class Ec2Helper
     return false
   end
 
+  def get_attached_volumes(instance_id)
+    instances = @ec2_api.describe_instances(:instance_id => instance_id)
+    begin
+      if instances['reservationSet']['item'][0]['instancesSet']['item'].size == 0
+        raise Exception.new("instance #{instance_id} not found")
+      end
+      puts "instances = #{instances.inspect}"
+      puts "attachments: #{instances['reservationSet']['item'][0]['instancesSet']['item'][0]['blockDeviceMapping']['item'].inspect}"
+      attached = instances['reservationSet']['item'][0]['instancesSet']['item'][0]['blockDeviceMapping']['item'].collect() { |item|
+        #
+        puts "item = #{item['ebs'].inspect}"
+        item['ebs']
+      }
+      puts "going to return #{attached.size.to_s}"
+      return attached
+    rescue Exception => e
+      puts "exception: #{e.inspect}"
+      puts e.backtrace.join("\n")
+      raise Exception.new("error during retrieving attachments from instance #{instance_id} not found")
+    end
+  end
+
   def volume_prop(volume_id, prop)
     vols = @ec2_api.describe_volumes(:volume_id => volume_id)
     if vols['volumeSet']['item'].size == 0

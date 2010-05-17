@@ -16,6 +16,7 @@ class DmEncrypt < Ec2Script
   # * aws_access_key => the Amazon AWS Access Key (see Your Account -> Security Credentials)
   # * aws_secret_key => the Amazon AWS Secret Key
   # * ip_address => IP Address of the machine to connect to
+  # * ssh_username => name of the ssh-user (default = root)
   # * ssh_key_file => Path of the keyfile used to connect to the machine (optional, otherwise: ssh_key_data)
   # * ssh_key_data => Key information (optional, otherwise: ssh_key_file)
   # * device => Path of the device to encrypt
@@ -42,6 +43,9 @@ class DmEncrypt < Ec2Script
       @input_params[:ec2_api_handler] = AWS::EC2::Base.new(:access_key_id => @input_params[:aws_access_key],
       :secret_access_key => @input_params[:aws_secret_key], :server => @input_params[:ec2_api_server])
     end
+    if @input_params[:ssh_username] == nil
+      @input_params[:ssh_username] = "root"
+    end
   end
 
   def load_initial_state()
@@ -62,7 +66,7 @@ class DmEncrypt < Ec2Script
   class InitialState < DmEncryptState
     def enter
       @context[:result][:os] =
-        connect(@context[:dns_name], @context[:ssh_keyfile], @context[:ssh_keydata])
+        connect(@context[:dns_name], @context[:ssh_username], @context[:ssh_keyfile], @context[:ssh_keydata])
       install_tools()
     end
 
