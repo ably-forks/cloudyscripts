@@ -112,7 +112,7 @@ class Ec2Helper
       if instances['reservationSet']['item'][0]['instancesSet']['item'].size == 0
         raise Exception.new("instance #{instance_id} not found")
       end
-      return instances['reservationSet']['item'][0]['instancesSet']['item'][prop.to_s]
+      return instances['reservationSet']['item'][0]['instancesSet']['item'][0][prop.to_s]
     rescue
       raise Exception.new("instance #{instance_id} not found")
     end

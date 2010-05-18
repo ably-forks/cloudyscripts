@@ -22,11 +22,11 @@ class CopySnapshot< Ec2Script
   # * source_ssh_username => user name to connect to the source instance (default = root)
   # * source_key_name => Key name of the instance that manages the snaphot-volume in the source region
   # * source_ssh_key_data => Key information for the security group that starts the AMI [if not set, use ssh_key_files]
-  # * source_ssh_key_files => Key information for the security group that starts the AMI
+  # * source_ssh_key_file => Key information for the security group that starts the AMI
   # * target_ssh_username => user name to connect to the target instance (default = root)
   # * target_key_name => Key name of the instance that manages the snaphot-volume in the target region
   # * target_ssh_key_data => Key information for the security group that starts the AMI [if not set, use ssh_key_files]
-  # * target_ssh_key_files => Key information for the security group that starts the AMI
+  # * target_ssh_key_file => Key information for the security group that starts the AMI
   # * source_ami_id => ID of the AMI to start in the source region
   # * target_ami_id => ID of the AMI to start in the target region
   
