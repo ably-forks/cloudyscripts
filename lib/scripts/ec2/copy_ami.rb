@@ -204,7 +204,7 @@ class CopyAmi < Ec2Script
       local_region()
       shut_down_instance(@context[:source_instance_id])
       delete_volume(@context[:source_volume_id])
-      #TODO: delete snapshots?!
+      delete_snapshot(@context[:snapshot_id])
       SourceCleanedUpState.new(@context)
     end
   end

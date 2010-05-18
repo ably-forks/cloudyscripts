@@ -308,6 +308,15 @@ module StateTransitionHelper
     return snapshot_id
   end
 
+  # Deletes a snapshot.
+  def delete_snapshot(snapshot_id)
+    post_message("going to delete snapshot #{snapshot_id}...")
+    @logger.info("going to delete snapshot #{snapshot_id}...")
+    ec2_handler().delete_snapshot(:snapshot_id => snapshot_id)
+    @logger.info("snapshot #{snapshot_id} deleted")
+    post_message("snapshot #{snapshot_id} deleted")
+  end
+
   # Registers a snapshot as EBS-booted AMI.
   # Input Parameters:
   # * snapshot_id => EC2 Snapshot ID used to be used
