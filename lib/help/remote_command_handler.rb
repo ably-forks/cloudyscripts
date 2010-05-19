@@ -122,10 +122,13 @@ class RemoteCommandHandler
   end
 
   # Zip the complete contents of the source path into the destination file.
+  # Returns the an array with stderr output messages.
   def zip(source_path, destination_file)
     begin
-      exec = "cd #{source_path}; zip -ry #{destination_file} *"
-      remote_execute(exec, nil, true)
+      exec = "cd #{source_path}; zip -ryq #{destination_file} *"
+      stderr = []
+      get_output(exec, nil, nil, stderr)
+      return stderr
     rescue Exception => e
       raise Exception.new("zip failed due to #{e.message}")
     end

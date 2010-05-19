@@ -1,5 +1,7 @@
+require 'logger'
+
 class MockedEc2Api
-  attr_accessor :volumes, :next_volume_id, :fail, :logger, :rootDeviceType
+  attr_accessor :volumes, :next_volume_id, :fail, :logger, :rootDeviceType, :security_groups
 
   def initialize
     @volumes = []
@@ -10,6 +12,7 @@ class MockedEc2Api
     @logger = Logger.new(STDOUT)
     @logger.level = Logger::ERROR
     @rootDeviceType = "instance-store"
+    @security_groups = ["default"]
   end
 
   def run_instances(options = {})
@@ -97,9 +100,17 @@ class MockedEc2Api
     res
   end
 
-  def describe_security_groups(*security_group_names)
+  def describe_security_groups(options)
     cause_failure()    
     groups = identify_security_groups()
+    groups = groups + @security_groups
+    puts "groups found = #{groups.inspect}"
+    if options[:group_name] != nil
+      groups = groups.select() {|g|
+        g == options[:group_name]
+      }
+      puts "groups selected = #{groups.inspect}"
+    end
     @logger.debug "mocked_ec2_api.describe_security_groups identified #{groups.inspect}"
     res = transform_secgroups(groups)
     res
@@ -125,7 +136,19 @@ class MockedEc2Api
       group = {}
       group['groupName'] = sg
       ret['securityGroupInfo']['item'] << group
-      #TODO: missing stuff ownerId, ipPermissions, etc
+      group['ownerId'] = "945722764978"
+      group['ipPermissions'] = {}
+      group['ipPermissions']['item'] = []
+      perm = {}
+      perm['groups'] = nil
+      perm['fromPort'] = 22
+      perm['toPort'] = 22
+      perm['ipProtocol'] = "tcp"
+      perm['ipRanges'] = {}
+      perm['ipRanges']['item'] = []
+      perm['ipRanges']['item'][0] = {}
+      perm['ipRanges']['item'][0]['cidrIp'] = "0.0.0.0/0"
+      group['ipPermissions']['item'] << perm
     }
     ret
   end

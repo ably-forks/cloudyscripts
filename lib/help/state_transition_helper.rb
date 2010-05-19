@@ -417,7 +417,11 @@ module StateTransitionHelper
   # # zip_file_name => name of the zip file (without .zip suffix)
   def zip_volume(source_dir, zip_file_dest, zip_file_name)
     post_message("going to zip the EBS volume")
-    remote_handler().zip(source_dir, zip_file_dest+"/"+zip_file_name)
+    stderr = remote_handler().zip(source_dir, zip_file_dest+"/"+zip_file_name)
+    if stderr.size > 0
+      @logger.info("zip operation generated error and might not be complete. output: #{stderr.join("\n")}")
+      post_message("zip operation generated error and might not be complete. output: #{stderr.join("\n")}")
+    end
     post_message("EBS volume successfully zipped")
   end
 

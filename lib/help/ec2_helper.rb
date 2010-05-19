@@ -118,4 +118,38 @@ class Ec2Helper
     end
   end
 
+  # Checks if all ports are opened for the security group on range "0.0.0.0/0".
+  # If an additional range is specified in the parameter, a check returns
+  # true if a port is opened for either range 0.0.0.0/0 or the additional
+  # range specified.
+  # Returns true or false.
+  def check_open_port(security_group, port, range = "0.0.0.0/0")
+    res = @ec2_api.describe_security_groups(:group_name => security_group)
+    puts "describe_security_groups = #{res.inspect} on #{@ec2_api.inspect}"
+    groups = res['securityGroupInfo']['item']
+    if groups.size == 0
+      raise Exception.new("security group #{security_group} not found")
+    end
+    permissions = groups[0]['ipPermissions']['item']
+    if permissions.size == 0
+      # no permissions at all
+      return false
+    end
+    permissions.each() {|permission|
+      from_port = permission['fromPort'].to_i
+      to_port = permission['toPort'].to_i
+      prot = permission['ipProtocol']
+      if port >= from_port && port <= to_port && prot == "tcp"
+        permission['ipRanges']['item'].each() {|ipRange|
+          if ipRange['cidrIp'] != "0.0.0.0/0" && ipRange['cidrIp'] != range
+            next
+          else
+            return true
+          end
+        }
+      end
+    }
+    false
+  end
+
 end
