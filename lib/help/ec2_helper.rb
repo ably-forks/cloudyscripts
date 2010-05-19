@@ -125,7 +125,6 @@ class Ec2Helper
   # Returns true or false.
   def check_open_port(security_group, port, range = "0.0.0.0/0")
     res = @ec2_api.describe_security_groups(:group_name => security_group)
-    puts "describe_security_groups = #{res.inspect} on #{@ec2_api.inspect}"
     groups = res['securityGroupInfo']['item']
     if groups.size == 0
       raise Exception.new("security group #{security_group} not found")
