@@ -34,6 +34,13 @@ class DownloadSnapshot < Ec2Script
   end
 
   def check_input_parameters()
+    if @input_params[:security_group_name] == nil
+      @input_params[:security_group_name] = "default"
+    end
+    ec2_helper = Ec2Helper.new(@input_params[:ec2_api_handler])
+    if !ec2_helper.check_open_port(@input_params[:security_group_name], 22)
+      raise Exception.new("Port 22 must be opened for security group #{@input_params[:security_group_name]} to connect via SSH")
+    end
     if @input_params[:source_device] == nil
       @input_params[:source_device] = "/dev/sdj1"
     end

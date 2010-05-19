@@ -125,9 +125,10 @@ class Ec2Helper
   # Returns true or false.
   def check_open_port(security_group, port, range = "0.0.0.0/0")
     res = @ec2_api.describe_security_groups(:group_name => security_group)
+    #puts "res = #{res.inspect}"
     groups = res['securityGroupInfo']['item']
     if groups.size == 0
-      raise Exception.new("security group #{security_group} not found")
+      raise Exception.new("security group '#{security_group}' not found")
     end
     permissions = groups[0]['ipPermissions']['item']
     if permissions.size == 0
@@ -135,6 +136,11 @@ class Ec2Helper
       return false
     end
     permissions.each() {|permission|
+      #puts "permission: #{permission.inspect}"
+      if permission['ipRanges'] == nil
+        #no IP-Ranges defined (group based mode): ignore
+        next
+      end
       from_port = permission['fromPort'].to_i
       to_port = permission['toPort'].to_i
       prot = permission['ipProtocol']

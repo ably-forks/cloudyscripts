@@ -42,6 +42,14 @@ class CopyAmi < Ec2Script
     if ec2_helper.ami_prop(@input_params[:ami_id], 'rootDeviceType') != "ebs"
       raise Exception.new("must be an EBS type image")
     end
+    local_ec2_helper = ec2_helper
+    if !local_ec2_helper.check_open_port('default', 22)
+      raise Exception.new("Port 22 must be opened for security group 'default' to connect via SSH in source-region")
+    end
+    remote_ec2_helper = Ec2Helper.new(@input_params[:target_ec2_handler])
+    if !remote_ec2_helper.check_open_port('default', 22)
+      raise Exception.new("Port 22 must be opened for security group 'default' to connect via SSH in target-region")
+    end
     if @input_params[:root_device_name] == nil
       @input_params[:root_device_name] = "/dev/sda1"
     end

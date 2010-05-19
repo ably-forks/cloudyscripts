@@ -35,6 +35,14 @@ class CopySnapshot< Ec2Script
   end
 
   def check_input_parameters()
+    local_ec2_helper = Ec2Helper.new(@input_params[:ec2_api_handler])
+    if !local_ec2_helper.check_open_port('default', 22)
+      raise Exception.new("Port 22 must be opened for security group 'default' to connect via SSH in source-region")
+    end
+    remote_ec2_helper = Ec2Helper.new(@input_params[:target_ec2_handler])
+    if !remote_ec2_helper.check_open_port('default', 22)
+      raise Exception.new("Port 22 must be opened for security group 'default' to connect via SSH in target-region")
+    end
     if @input_params[:source_ssh_username] == nil
       @input_params[:source_ssh_username] = "root"
     end
