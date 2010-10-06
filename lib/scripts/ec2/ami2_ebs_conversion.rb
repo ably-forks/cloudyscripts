@@ -2,6 +2,7 @@ require "help/script_execution_state"
 require "scripts/ec2/ec2_script"
 require "help/remote_command_handler"
 #require "help/dm_crypt_helper"
+require "help/ec2_helper"
 require "AWS"
 
 # Creates a bootable EBS storage from an existing AMI.
@@ -108,7 +109,8 @@ class Ami2EbsConversion < Ec2Script
   # File system created. Mount it.
   class FileSystemCreated < Ami2EbsConversionState
     def enter
-      @context[:mount_dir] = "/mnt/tmp_#{@context[:volume_id]}"
+      #@context[:mount_dir] = "/mnt/tmp_#{@context[:volume_id]}"
+      @context[:mount_dir] = "/ebs_#{@context[:volume_id]}"
       mount_fs(@context[:mount_dir], @context[:temp_device_name])
       FileSystemMounted.new(@context)
     end

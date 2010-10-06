@@ -103,6 +103,21 @@ class RemoteCommandHandler
     !drive_mounted?(path)
   end
 
+  # Copy directory using basic cp
+  # exclude_path: a space separated list of directory
+  def local_rcopy(source_path, dest_path, exclude_path = nil)
+    e = ""
+    if exclude_path.nil? || exclude_path.empty? 
+      e = "cp -Rpv #{source_path} #{dest_path}"
+    else
+      # only one level of exclusion
+      exclusion_regexp = exclude_path.gsub(' ', '|')
+      e = "for dir in $(ls -d #{source_path}* | grep -E -v '#{exclusion_regexp}'); do cp -Rpv $dir #{dest_path}; done;"
+    end
+    @logger.debug "going to execute #{e}"
+    remote_exec_helper(e, nil, nil, false)
+  end
+
   # Copy directory using options -avHx
   def local_rsync(source_path, dest_path, exclude_path = nil)
     exclude = ""
@@ -151,6 +166,7 @@ class RemoteCommandHandler
   # When #raise_exception is set, an exception will be raised instead of
   # returning false.
   def remote_execute(exec_string, push_data = nil, raise_exception = false)
+    #XXX: command line: echo -e 'y' | mkfs -t ext3 /dev/sdf
     exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
     stdout = []
     stderr = []
@@ -213,13 +229,13 @@ class RemoteCommandHandler
           end
           ch.on_extended_data do |ch, type, data|
             stderr << data unless data == nil || stderr == nil
-            result = false
+            #result = false
           end
           ch.on_eof do |ch|
-            @logger.debug("RemoteCommandHandler.on_eof:remote end is done sending data") if debug
+            @logger.debug("RemoteCommandHandler.on_eof: remote end is done sending data") if debug
           end
           ch.on_close do |ch|
-            @logger.debug("RemoteCommandHandler.on_close:remote end is closing!") if debug
+            @logger.debug("RemoteCommandHandler.on_close: remote end is closing!") if debug
           end
           ch.on_open_failed do |ch, code, desc|
             @logger.debug("RemoteCommandHandler.on_open_failed: code=#{code} desc=#{desc}") if debug
@@ -229,6 +245,17 @@ class RemoteCommandHandler
             sleep(1)
             ch.send_data("\n")
           end
+          ch.on_request "exit-status" do |ch, data|
+            returned_code = data.read_long
+            @logger.debug("process terminated with exit-status: #{returned_code}")
+            if returned_code != 0
+              @logger.error("Remote command execution failed with code: #{returned_code}")
+              result = false
+            end
+          end
+          ch.on_request "exit-signal" do |ch, data|
+            @logger.debug("process terminated with exit-signal: #{data.read_string}")
+          end       
         else
           stderr << "the remote command could not be invoked!" unless stderr == nil
           result = false

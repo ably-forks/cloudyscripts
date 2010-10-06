@@ -242,7 +242,7 @@ module StateTransitionHelper
       res = ec2_handler().describe_volumes(:volume_id => volume_id)
       state = res['volumeSet']['item'][0]['status']
       @logger.debug "storage attaching: #{state}"
-      if  state == 'in-use'
+      if state == 'in-use'
         done = true
       end
     end
@@ -351,7 +351,10 @@ module StateTransitionHelper
   def create_fs(dns_name, device)
     post_message("going to create filesystem on #{dns_name} to #{device}...")
     @logger.debug "create filesystem on #{dns_name} to #{device}"
-    remote_handler().create_filesystem("ext3", device)
+    status = remote_handler().create_filesystem("ext3", device)
+    if status == false
+      raise Exception.new("failed to create ext3 filesystem on #{device} device on #{dns_name}")
+    end
     post_message("filesystem system successfully created")
   end
 
@@ -403,8 +406,24 @@ module StateTransitionHelper
     post_message("going to start copying files to #{destination_path}. This may take quite a time...")
     @logger.debug "start copying to #{destination_path}"
     start = Time.new.to_i
-    remote_handler().local_rsync("/", "#{destination_path}", "#{destination_path}")
-    remote_handler().local_rsync("/dev/", "#{destination_path}/dev/")
+    if remote_handler().tools_installed?("rsync")
+      @logger.debug "use rsync command line"
+      status = remote_handler().local_rsync("/", "#{destination_path}", "#{destination_path}")
+      status = remote_handler().local_rsync("/dev/", "#{destination_path}/dev/")
+      if status == false
+        raise Exception.new("failed to copy distribution remotely using rsync")
+      end
+    else
+      @logger.debug "use cp command line"
+      status = remote_handler().local_rcopy("/", "#{destination_path}", "/proc /sys /dev /mnt")
+      if status == false
+        raise Exception.new("failed to copy distribution remotely using cp")
+      end
+      status = remote_handler().mkdir("#{destination_path}/proc")
+      status = remote_handler().mkdir("#{destination_path}/sys")
+      status = remote_handler().mkdir("#{destination_path}/mnt")
+      status = remote_handler().mkdir("#{destination_path}/dev")
+    end
     endtime = Time.new.to_i
     @logger.info "copy took #{(endtime-start)}s"
     post_message("copying is done (took #{endtime-start})s")

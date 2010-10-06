@@ -114,6 +114,20 @@ class MockedRemoteCommandHandler
     @logger.debug "#{e}"
   end
 
+  def local_rcopy(source_path, dest_path, exclude_path = nil)
+    test_connected()
+    if exclude_path.nil? || exclude_path.empty? 
+      e = "cp -Rpv #{source_path} #{dest_path}"
+    else
+      # only one level of exlusion
+      #e = "for dir in $(ls #{source_path} | grep -v #{dest_path.split('/')[1]}); do cp -Rpv #{source_path}/$dir #{dest_path}/$dir; done"
+      exclusion_regexp = exclude_path.gsub(' ', '|')
+      e = "for dir in $(ls -d #{source_path}* | grep -E -v '#{exclusion_regexp}'); do cp -Rpv $dir #{dest_path}; done"
+    end
+    puts "DEBUG: mocked_ssh_api: local_rcopy: #{e}"
+    @logger.debug "#{e}"
+  end
+
   def local_rsync(source_path, dest_path, exclude_path = nil)
     test_connected()
     ex = exclude_path == nil ? "" : "--exclude #{exclude_path}"

@@ -8,8 +8,9 @@ require "scripts/ec2/ami2_ebs_conversion"
 require 'test/unit'
 
 class TestAmi2EbsConversion < Test::Unit::TestCase
-  def test_execution
+  def test_the_execution
     ec2_api = MockedEc2Api.new
+    ec2_api.security_groups = ["default","MatsGroup"]
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
     logger = Logger.new(STDOUT)
