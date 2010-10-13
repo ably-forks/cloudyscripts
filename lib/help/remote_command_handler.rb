@@ -136,6 +136,13 @@ class RemoteCommandHandler
     remote_exec_helper(e, nil, nil, false) #TODO: handle output in stderr?
   end
 
+  # Copy directory via an ssh-tunnel.
+  def scp(keyfile, source_path, dest_ip, dest_path)
+    e = "scp -Cpqr -o stricthostkeychecking=no -i #{keyfile} #{source_path} root@#{dest_ip}:#{dest_path}"
+    @logger.debug "going to execute #{e}"
+    remote_exec_helper(e, nil, nil, false) #TODO: handle output in stderr?
+  end
+
   # Zip the complete contents of the source path into the destination file.
   # Returns the an array with stderr output messages.
   def zip(source_path, destination_file)

@@ -446,7 +446,13 @@ module StateTransitionHelper
 
   def remote_copy(keyname, source_dir, dest_machine, dest_dir)
     post_message("going to remote copy all files from volume. This may take some time...")
-    remote_handler().remote_rsync("/root/.ssh/#{keyname}.pem", source_dir, dest_machine, dest_dir)
+    if remote_handler().tools_installed?("rsync")
+      @logger.debug "use rsync command"
+      remote_handler().remote_rsync("/root/.ssh/#{keyname}.pem", source_dir, dest_machine, dest_dir)
+    else
+      @logger.debug "use scp command"
+      remote_handler().scp("/root/.ssh/#{keyname}.pem", source_dir, dest_machine, dest_dir)
+    end
     post_message("remote copy operation done")
   end
 
