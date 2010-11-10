@@ -164,8 +164,11 @@ class CopyAmi < Ec2Script
   class TargetVolumeReadyState < CopyAmiState
     def enter()
       post_message("upload key of target-instance to source-instance...")
-      upload_file(@context[:source_dns_name], "root", @context[:source_ssh_keydata],
-        @context[:target_ssh_keyfile], "/root/.ssh/#{@context[:target_key_name]}.pem")
+      path_candidates = ["/#{@context[:source_ssh_username]}/.ssh/",
+        "/home/#{@context[:source_ssh_username]}/.ssh/"]
+      key_path = determine_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata], path_candidates)
+      upload_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata],
+        @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name]}.pem")
       post_message("credentials are in place to connect source and target.")
       KeyInPlaceState.new(@context)
     end
@@ -177,7 +180,7 @@ class CopyAmi < Ec2Script
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
       source_dir = "/mnt/tmp_#{@context[:source_volume_id]}/"
       dest_dir = "/mnt/tmp_#{@context[:target_volume_id]}"
-      remote_copy(@context[:target_key_name], source_dir, @context[:target_dns_name], dest_dir)
+      remote_copy(@context[:source_ssh_username], @context[:target_key_name], source_dir, @context[:target_dns_name], dest_dir)
       disconnect()
       DataCopiedState.new(@context)
     end

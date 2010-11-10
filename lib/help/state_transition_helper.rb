@@ -445,21 +445,45 @@ module StateTransitionHelper
     post_message("EBS volume successfully zipped")
   end
 
-  def remote_copy(keyname, source_dir, dest_machine, dest_dir)
+  def remote_copy(user_name, keyname, source_dir, dest_machine, dest_dir)
     post_message("going to remote copy all files from volume. This may take some time...")
-    if remote_handler().tools_installed?("rsync")
-      @logger.debug "use rsync command"
-      remote_handler().remote_rsync("/root/.ssh/#{keyname}.pem", source_dir, dest_machine, dest_dir)
-    else
-      @logger.debug "use scp command"
-      remote_handler().scp("/root/.ssh/#{keyname}.pem", source_dir, dest_machine, dest_dir)
-    end
+    key_path_candidates = ["/#{user_name}/.ssh/", "/home/#{user_name}/.ssh/"]
+    key_path_candidates.each() {|key_path|
+      key_file = "#{key_path}#{keyname}.pem"
+      if remote_handler().file_exists?(key_path)
+        if remote_handler().tools_installed?("rsync")
+          @logger.debug "use rsync command on #{key_file}"
+          remote_handler().remote_rsync(key_file, source_dir, dest_machine, dest_dir)
+        else
+          @logger.debug "use scp command #{key_file}"
+          remote_handler().scp(key_file, source_dir, dest_machine, dest_dir)
+        end
+        break
+      end
+    }
     post_message("remote copy operation done")
   end
 
   def upload_file(ip, user, key_data, file, target_file)
-    post_message("going to upload #{file} to #{ip}:/#{target_file}")
+    post_message("going to upload #{file} to #{user}@#{ip}:#{target_file}")
     remote_handler().upload(ip, user, key_data, file, target_file)
+  end
+
+  # From a list of existing files, return the first that exists
+  def determine_file(ip, user_name, ssh_keydata, file_candidates)
+    connect(ip, user_name, nil, ssh_keydata)
+    begin
+      file_candidates.each() {|file_path|
+        if remote_handler().file_exists?(file_path)
+          return file_path
+        end
+      }
+      return nil
+    rescue
+      raise
+    ensure
+      disconnect()
+    end
   end
 
   #setting/retrieving handlers
