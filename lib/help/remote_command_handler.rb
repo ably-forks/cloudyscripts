@@ -228,9 +228,9 @@ class RemoteCommandHandler
   def remote_exec_helper(exec_string, stdout = [], stderr = [], debug = false)
     result = true
     the_channel = @ssh_session.open_channel do |channel|
-      channel.exec(exec_string) do |ch, success|
+      channel.exec("sudo #{exec_string}") do |ch, success|
         if success
-          @logger.debug("RemoteCommandHandler: starts executing #{exec_string}") if debug
+          @logger.debug("RemoteCommandHandler: starts executing sudo #{exec_string}") if debug
           ch.on_data() do |ch, data|
             stdout << data unless data == nil || stdout == nil
           end

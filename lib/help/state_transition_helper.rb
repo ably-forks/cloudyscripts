@@ -38,7 +38,7 @@ module StateTransitionHelper
   # Returns:
   # * OS of the connected machine
   def connect(dns_name, user_name, ssh_keyfile = nil, ssh_keydata = nil)
-    post_message("connecting to #{dns_name}...")
+    post_message("connecting '#{user_name}' to #{dns_name}...")
     connected = false
     last_connection_problem = ""
     remaining_trials = 5
