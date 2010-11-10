@@ -5,9 +5,10 @@ require 'timeout'
 
 # Provides methods to be executed via ssh to remote instances.
 class RemoteCommandHandler
-  attr_accessor :logger, :ssh_session
-  def initialize
+  attr_accessor :logger, :ssh_session, :use_sudo
+  def initialize()
     @logger = Logger.new(STDOUT)
+    @use_sudo = false
   end
 
   # Connect to the machine as root using a keyfile.
@@ -16,6 +17,7 @@ class RemoteCommandHandler
   # * keyfile: path of the keyfile to be used for authentication
   def connect_with_keyfile(ip, user_name, keyfile, timeout = 30)
     @ssh_session = Net::SSH.start(ip, user_name, {:keys => [keyfile], :timeout => timeout})
+    @use_sudo = true unless user_name.strip == 'root'
   end
 
   # Connect to the machine as root using keydata from a keyfile.
@@ -25,6 +27,7 @@ class RemoteCommandHandler
   # * key_data: key_data to be used for authentication
   def connect(ip, user, key_data, timeout = 30)
     @ssh_session = Net::SSH.start(ip, user, {:key_data => [key_data], :timeout => timeout})
+    @use_sudo = true unless user.strip == 'root'
   end
 
   # Disconnect the current handler
@@ -227,10 +230,11 @@ class RemoteCommandHandler
   # All stdout-data is written into #stdout, all stderr-data is written into #stderr
   def remote_exec_helper(exec_string, stdout = [], stderr = [], debug = false)
     result = true
+    sudo = (@use_sudo ? "sudo " : "")
     the_channel = @ssh_session.open_channel do |channel|
-      channel.exec("sudo #{exec_string}") do |ch, success|
+      channel.exec("#{sudo}#{exec_string}") do |ch, success|
         if success
-          @logger.debug("RemoteCommandHandler: starts executing sudo #{exec_string}") if debug
+          @logger.debug("RemoteCommandHandler: starts executing #{sudo}#{exec_string}") if debug
           ch.on_data() do |ch, data|
             stdout << data unless data == nil || stdout == nil
           end
