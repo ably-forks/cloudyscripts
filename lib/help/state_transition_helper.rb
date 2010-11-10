@@ -75,8 +75,9 @@ module StateTransitionHelper
       raise Exception.new("connection attempts stopped (#{last_connection_problem})")
     end
     os = remote_handler().retrieve_os()
-    post_message("connected to #{dns_name}. OS installed is #{os}")
-    @logger.info "connected to #{dns_name}"
+    sudo = remote_handler().use_sudo ? " [sudo]" : ""
+    post_message("connected to #{dns_name}#{sudo}. OS installed is #{os}")
+    @logger.info "connected to #{dns_name}#{sudo}"
     return os
   end
 
