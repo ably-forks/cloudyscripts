@@ -24,6 +24,8 @@ class Ami2EbsConversion < Ec2Script
   # * description => description on AMI to be created (optional)
   # * temp_device_name => [default /dev/sdj] device name used to attach the temporary storage; change this only if there's already a volume attacged as /dev/sdj (optional, default is /dev/sdj)
   # * root_device_name"=> [default /dev/sda1] device name used for the root device (optional)
+  # * connect_trials => number of trials during ssh connect to machine
+  # * connect_interval => seconds between two ssh connect trials
   def initialize(input_params)
     super(input_params)
   end
@@ -51,6 +53,12 @@ class Ami2EbsConversion < Ec2Script
     end
     if @input_params[:ssh_username] == nil
       @input_params[:ssh_username] = "root"
+    end
+    if @input_params[:connect_trials] == nil
+      @input_params[:connect_trials] = 6
+    end
+    if @input_params[:connect_interval] == nil
+      @input_params[:connect_interval] = 20
     end
   end
 
@@ -100,7 +108,10 @@ class Ami2EbsConversion < Ec2Script
   class StorageAttached < Ami2EbsConversionState
     def enter
       @context[:result][:os] =
-        connect(@context[:dns_name], @context[:ssh_username], @context[:ssh_keyfile], @context[:ssh_keydata])
+        connect(@context[:dns_name], @context[:ssh_username],
+        @context[:ssh_keyfile], @context[:ssh_keydata],
+        @context[:connect_trials], @context[:connect_interval]
+      )
       create_fs(@context[:dns_name], @context[:temp_device_name])
       FileSystemCreated.new(@context)
     end

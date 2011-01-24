@@ -37,11 +37,12 @@ module StateTransitionHelper
   # * ssh_keydata => contents of key-file (either use ssh_keyfile or ssh_keydata)
   # Returns:
   # * OS of the connected machine
-  def connect(dns_name, user_name, ssh_keyfile = nil, ssh_keydata = nil)
+  def connect(dns_name, user_name, ssh_keyfile = nil, ssh_keydata = nil,
+      trials = 5, wait_between_trials = 20)
     post_message("connecting '#{user_name}' to #{dns_name}...")
     connected = false
     last_connection_problem = ""
-    remaining_trials = 5
+    remaining_trials = trials-1
     while !connected && remaining_trials > 0
       remaining_trials -= 1
       if ssh_keyfile != nil
@@ -68,7 +69,7 @@ module StateTransitionHelper
         raise Exception.new("no key information specified")
       end
       if !connected
-        sleep(20) #try again
+        sleep(wait_between_trials) #try again
       end
     end
     if !connected
