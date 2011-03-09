@@ -232,23 +232,34 @@ module StateTransitionHelper
   # * temp_device_name => device name to be used for attaching (e.g. /dev/sdj1)
   def attach_volume(volume_id, instance_id, temp_device_name)
     post_message("going to attach volume #{volume_id} to instance #{instance_id} on device #{temp_device_name}...")
-    @logger.debug "attach volume #{volume_id} to instance #{instance_id} on device #{temp_device_name}"
+    @logger.info "attach volume #{volume_id} to instance #{instance_id} on device #{temp_device_name}"
     ec2_handler().attach_volume(:volume_id => volume_id,
       :instance_id => instance_id,
       :device => temp_device_name
     )
     done = false
-    while !done
-      sleep(5)
-      #TODO: check for timeout?
+    timeout = 120
+    while timeout > 0
       res = ec2_handler().describe_volumes(:volume_id => volume_id)
-      state = res['volumeSet']['item'][0]['status']
-      @logger.debug "storage attaching: #{state}"
-      if state == 'in-use'
+      vol_state = res['volumeSet']['item'][0]['status']
+      attachment_state = res['volumeSet']['item'][0]['attachmentSet']['item'][0]['status']
+      @logger.debug "storage attaching: volume state: #{vol_state}, attachment state: #{attachment_state}"
+      if vol_state == 'in-use' && attachment_state == 'attached' 
         done = true
+        timeout = 0
       end
+      sleep(5)
+      timeout -= 5
     end
-    post_message("volume successfully attached")
+    msg = ""
+    if !done
+      msg = "Failed to attach volume '#{volume_id}' to instance '#{instance_id}"
+      raise Exception.new("volume #{mount_point} not attached")
+    else
+      msg = "volume #{volume_id} successfully attached" 
+    end
+    @logger.error "#{msg}"
+    post_message("#{msg}")
   end
 
   # Detach an EBS volume from an instance.
@@ -256,22 +267,33 @@ module StateTransitionHelper
   # * volume_id => EC2 ID for the EBS Volume to be detached
   # * instance_id => EC2 ID for the instance to detach from
   def detach_volume(volume_id, instance_id)
-    post_message("going to detach volume #{volume_id}...")
-    @logger.debug "detach volume #{volume_id}"
+    post_message("going to detach volume #{volume_id} from instance #{instance_id}...")
+    @logger.info "detach volume #{volume_id} from instance #{instance_id}"
     ec2_handler().detach_volume(:volume_id => volume_id,
       :instance_id => instance_id
     )
     done = false
-    while !done
+    timeout = 120
+    while timeout > 0
       sleep(3)
-      #TODO: check for timeout?
       res = ec2_handler().describe_volumes(:volume_id => volume_id)
       @logger.debug "volume detaching: #{res.inspect}"
       if res['volumeSet']['item'][0]['status'] == 'available'
         done = true
+        timeout = 0
       end
+      sleep(5)
+      timeout -= 5
     end
-    post_message("volume #{volume_id} detached.")
+    msg = ""
+    if !done
+      msg = "Failed to detach volume '#{volume_id}' from instance '#{instance_id}"
+      raise Exception.new("volume #{mount_point} not detached")
+    else
+      msg = "volume #{volume_id} successfully detached" 
+    end
+    @logger.error "#{msg}"
+    post_message("#{msg}")
   end
 
   # Delete an EBS volume.
