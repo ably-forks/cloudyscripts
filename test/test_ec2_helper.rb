@@ -1,7 +1,7 @@
 #require "RubyGems"
 require "AWS"
 
-require "help/ec2_helper"
+require 'help/ec2_helper'
 require 'test/unit'
 require 'test/mock/mocked_ec2_api'
 
