@@ -172,6 +172,14 @@ module StateTransitionHelper
     post_message("instance #{instance_id} is terminated")
   end
 
+  def retrieve_security_groups()
+    @context[:script].post_message("going to retrieve security groups...")
+    sgs = @context[:ec2_api_handler].describe_security_groups()
+    @context[:script].post_message("found #{sgs.size} security groups")
+    @logger.info("found #{sgs.size} security groups")
+    @context[:security_groups] = sgs
+  end
+  
   # Creates a new EBS volume.
   # Input Parameters:
   # * availability_zone => availability zone for the volume

@@ -1,7 +1,13 @@
 require 'logger'
 
+# Already uses groupId in groups and instances, but still uses group_names for permissions
+
 class MockedEc2Api
-  attr_accessor :volumes, :next_volume_id, :fail, :logger, :rootDeviceType, :security_groups
+  attr_accessor :volumes, :next_volume_id, :fail, :logger, :rootDeviceType, :provoke_authfailure
+
+  def drop(a)
+    
+  end
 
   def initialize
     @volumes = []
@@ -12,7 +18,82 @@ class MockedEc2Api
     @logger = Logger.new(STDOUT)
     @logger.level = Logger::ERROR
     @rootDeviceType = "instance-store"
-    @security_groups = ["default"]
+    @security_groups = []
+    @permissions = {}
+    #create_security_group(:group_name => "default")
+  end
+
+  def delete_security_group(options)
+    found = lookup_group(options)
+    drop "-- mock_ec2_api: delete_security_group #{found.inspect}"
+    @security_groups.delete(found)
+    @permissions.delete(found[:group_name])
+  end
+
+  #:instance_id, :key, :value
+  def create_tag(options)
+    drop "create_tag: #{options.inspect}"
+    instance = get_instance(options[:instance_id])
+    instance[:tagSet] << {:key => options[:key], :value => options[:value]}
+  end
+
+  def create_security_group(options)
+    if options[:group_name] == nil
+      raise Exception.new("must specify :group_name option")
+    end
+    return unless lookup_group(options) == nil
+    group_name = options[:group_name]
+    group_id = "sg-#{rand(999999)}"
+    drop "-- mock_ec2_api: create_security_group #{options.inspect} group_id = #{group_id}"
+    @security_groups << {:group_name => group_name, :group_id => group_id}
+    @permissions[group_name] = []
+    if options[:empty] == nil
+      options = {:group_name => group_name, :ip_protocol => "tcp", :to_port => 22,
+        :from_port => 22, :cidr_ip => "0.0.0.0/0"}
+      authorize_security_group_ingress(options)
+    end
+  end
+
+  def revoke_security_group_ingress(options)
+    group_name = options[:group_name]
+    protocol = options[:ip_protocol]
+    from_port = options[:from_port]
+    to_port = options[:to_port]
+    cidr_ip = options[:cidr_ip]
+    drop "@security_groups[group_name]: #{@permissions[group_name].inspect}"
+    @permissions[group_name].each do |perm|
+        drop "perm[:from_port] == from_port: #{perm[:from_port]} == #{from_port}?"
+        drop "perm[:to_port] == to_port: #{perm[:to_port]} == #{to_port}?"
+        drop "perm[:cidr_ip] == cidr_ip : #{perm[:cidr_ip].inspect} == #{cidr_ip.inspect}?"
+        drop "perm[:ip_protocol] == protocol: #{perm[:ip_protocol]} == #{protocol}?"
+    end
+    @permissions[group_name].delete_if do |perm|
+      perm[:from_port] == from_port &&
+        perm[:to_port] == to_port &&
+        perm[:cidr_ip] == cidr_ip &&
+        perm[:ip_protocol] == protocol
+    end
+  end
+
+  def authorize_security_group_ingress(options)
+    drop "-- mock_ec2_api: authorize_security_group_ingress #{options.inspect}"
+    group_name = options[:group_name]
+    protocol = options[:ip_protocol]
+    from_port = options[:from_port]
+    to_port = options[:to_port]
+    ip_ranges = options[:cidr_ip]
+    #TODO: handling of groups
+    permissions = @permissions[group_name]
+    if permissions == nil
+      permissions = []
+      @permissions[group_name] = permissions
+    end
+    perm = {}
+    perm[:from_port] = from_port
+    perm[:to_port] = to_port
+    perm[:ip_protocol] = protocol
+    perm[:cidr_ip] = ip_ranges
+    permissions << perm
   end
 
   def run_instances(options = {})
@@ -22,14 +103,274 @@ class MockedEc2Api
     if @rootDeviceType == "ebs"
       vol_id = create_dummy_volume("vol-ebs-for-#{instance_id}", "timezone")['volumeId']
       attach_volume(:volume_id => vol_id, :instance_id =>instance_id)
-      puts "instances now #{describe_instances(:instance_id => instance_id).inspect}"
-      puts "volumes now #{describe_volumes(:volume_id => vol_id).inspect}"
+      drop "instances now #{describe_instances(:instance_id => instance_id).inspect}"
+      drop "volumes now #{describe_volumes(:volume_id => vol_id).inspect}"
     end
     describe_instances(:instance_id => instance_id)['reservationSet']['item'][0]
   end
 
+  def describe_security_groups(options = {})
+    cause_failure()
+    groups = @security_groups
+    group_name = options[:group_name] || "XXX"
+    group_id = options[:group_id] || "XXX"
+    drop "- mockgroups found = #{groups.inspect}"
+    if options[:group_name] != nil
+      groups = groups.select() {|g|
+        g[:group_name] == group_name || g[:group_id] == group_id
+      }
+      drop "groups selected = #{groups.inspect}"
+    end
+    drop "mocked_ec2_api.describe_security_groups identified #{groups.inspect}"
+    @logger.debug "mocked_ec2_api.describe_security_groups identified #{groups.inspect}"
+    res = transform_secgroups(groups)
+    res
+  end
+
+  def transform_secgroups(secgroups)
+    drop "-- mock_ec2_api: format security group permissions #{secgroups.inspect}"
+    ret = {}
+    ret['securityGroupInfo'] = {}
+    ret['securityGroupInfo']['item'] = []
+    secgroups.each() {|sg|
+      group_name = sg[:group_name]
+      group_id = sg[:group_id]
+      #
+      group = {}
+      group['groupName'] = group_name
+      group['groupId'] = group_id
+      ret['securityGroupInfo']['item'] << group
+      group['ownerId'] = "945722764978"
+      group['ipPermissions'] = {}
+      group['ipPermissions']['item'] = []
+      @permissions[group_name].each() {|p|
+        perm = {}
+        perm['groups'] = nil
+        perm['fromPort'] = p[:from_port]
+        perm['toPort'] = p[:to_port]
+        perm['ipProtocol'] = p[:ip_protocol]
+        perm['ipRanges'] = {}
+        perm['ipRanges']['item'] = []
+        p[:cidr_ip].each() {|range|
+          ranges = {}
+          perm['ipRanges']['item'] << ranges
+          ranges['cidrIp'] = range
+        }
+        group['ipPermissions']['item'] << perm
+      }
+    }
+    ret
+  end
+
+  # Expects either no params or an hash {:instance_id => [ids]}
+  def describe_instances(instance_ids = nil)
+    if instance_ids != nil
+      #needed to adapt to the API
+      instance_ids = instance_ids[:instance_id]
+    else
+      instance_ids = []
+    end
+    @logger.debug "instance_ids = #{instance_ids.inspect} number=#{instance_ids.length}"
+    if instance_ids == nil || instance_ids.length == 0
+      return transform_instances(@instances)
+    else
+      return transform_instances(@instances.select() {|i|
+        instance_ids.include?(i[:instance_id])
+      })
+    end
+  end
+
+  def transform_instances(instances)
+    @logger.debug "found #{instances.size} instances to transform"
+    ret = {}
+    ret['requestId'] = "request-id-dummy"
+    ret['reservationSet'] = {}
+    items = []
+    ret['reservationSet']['item'] = items
+    instances.each() {|i|
+      @logger.debug "start transforming #{i.inspect}"
+      item = {}
+      groupSet = []
+      instancesSet = {}
+      item['reservationId'] = "r-"+i[:instance_id]
+      item['ownerId'] = "owner-dummy-id"
+      item['requesterId'] = 'dummy-requester-id'
+      item['groupSet'] = {}
+      item['groupSet']['item'] = groupSet
+      item['instancesSet'] = instancesSet
+      instancesSet['item'] = []
+      instanceInfos = {}
+      instancesSet['item'] << instanceInfos
+      instanceInfos['keyName'] = i[:key_name]
+      instanceInfos['ramdiskId'] = 'dummy-ramdisk-id'
+      instanceInfos['productCodes'] = nil #TODO: must be a set
+      instanceInfos['kernelId'] = 'aki-'+i[:instance_id]
+      instanceInfos['launchTime'] = DateTime.new
+      instanceInfos['amiLaunchIndex'] = 0 #TODO: count instances?
+      instanceInfos['imageId'] = i[:image_id]
+      instanceInfos['instanceType'] = "m1.small" #TODO: must be configurable
+      instanceInfos['reason'] = nil #TODO: have a closer look at this
+      instanceInfos['placement'] = {}
+      instanceInfos['placement']['availabilityZone'] = i[:availability_zone]
+      instanceInfos['instanceId'] = i[:instance_id]
+      instanceInfos['privateDnsName'] = i[:private_dns_name]
+      instanceInfos['dnsName'] = i[:dns_name]
+      instanceInfos['instanceState'] = {}
+      instanceInfos['instanceState']['name'] = i[:instance_state]
+      instanceInfos['instanceState']['code'] = state_to_code(i[:instance_state])
+      instanceInfos['architecture'] = "i386"
+      instanceInfos['instanceType'] = "m1.small"
+      instanceInfos['virtualizationType'] = "paravirtual"
+      instanceInfos['rootDeviceType'] = "ebs"
+      blockDeviceMapping = []
+      instanceInfos['blockDeviceMapping'] = {}
+      instanceInfos['blockDeviceMapping']['item'] = blockDeviceMapping
+      tagSet = []
+      instanceInfos['tagSet'] = {}
+      instanceInfos['tagSet']['item'] = tagSet
+      i[:tagSet].each() {|key_value|
+        tagSet << {'key' => key_value[:key], 'value' => key_value[:value]}
+      }
+      i[:volumes].each() {|vol|
+        elem = {}
+        elem['ebs'] = {}
+        elem['ebs']['volumeId'] = vol[:volume_id]
+        #TODO: more info
+        blockDeviceMapping << elem
+      }
+      unless i[:groups] == nil
+        @logger.debug "mocked_ec2_api is going to add #{i[:groups].size} groups" unless i[:groups] == nil
+        i[:groups].each() {|group_name|
+          sg = lookup_group(:group_name => group_name)
+          if sg == nil
+            next
+            raise Exception.new("could not find group with name #{group_name}")
+          end
+          elem = {}
+          elem['groupId'] = sg[:group_id]
+          elem['groupName'] = sg[:group_name]
+          groupSet << elem
+        }
+      else
+        item['groupSet'] = nil
+      end
+      @logger.debug "going to add item = #{item.inspect}"
+      items << item
+    }
+    return ret
+  end
+
+  def state_to_code(state)
+    case state
+    when "running"
+      return 16
+    when "pending"
+      return 0
+    when "terminated"
+      return 48
+    when "terminating"
+      return 32
+    else
+      return -1
+    end
+
+  end
+
+  def get_instance(id)
+    @instances.each() {|i|
+      if i[:instance_id] == id
+        @logger.debug "get_instance: #{i.inspect}"
+        return i
+      end
+    }
+    @logger.debug "no instance found"
+    return nil
+  end
+
+  #result of describe_instances:
+  #{"requestId"=>"9286df07-8937-4233-954a-e26b13780c2f", "reservationSet"=>{"item"=>[{"reservationId"=>"r-66d2260e", "requesterId"=>"058890971305", "groupSet"=>{"item"=>[{"groupId"=>"Rails Starter"}]}, "instancesSet"=>{"item"=>[{"keyName"=>"jungmats", "ramdiskId"=>"ari-dbc121b2", "productCodes"=>nil, "kernelId"=>"aki-f5c1219c", "launchTime"=>"2009-10-22T14:26:12.000Z", "amiLaunchIndex"=>"0", "imageId"=>"ami-22b0534b", "instanceType"=>"m1.small", "reason"=>nil, "placement"=>{"availabilityZone"=>"us-east-1d"}, "instanceId"=>"i-0071c968", "privateDnsName"=>"ip-10-244-159-112.ec2.internal", "dnsName"=>"ec2-174-129-149-1.compute-1.amazonaws.com", "instanceState"=>{"name"=>"running", "code"=>"16"}}]}, "ownerId"=>"945722764978"}, {"reservationId"=>"r-0e13e166", "requesterId"=>"058890971305", "groupSet"=>{"item"=>[{"groupId"=>"EU"}, {"groupId"=>"cloudkick"}]}, "instancesSet"=>{"item"=>[{"keyName"=>"jungmats", "ramdiskId"=>"ari-dbc121b2", "productCodes"=>nil, "kernelId"=>"aki-f5c1219c", "launchTime"=>"2009-10-27T18:05:03.000Z", "amiLaunchIndex"=>"0", "imageId"=>"ami-2cb05345", "instanceType"=>"m1.small", "reason"=>nil, "placement"=>{"availabilityZone"=>"us-east-1d"}, "instanceId"=>"i-16e8687e", "privateDnsName"=>"ip-10-245-206-177.ec2.internal", "dnsName"=>"ec2-67-202-11-96.compute-1.amazonaws.com", "instanceState"=>{"name"=>"running", "code"=>"16"}}]}, "ownerId"=>"945722764978"}]}, "xmlns"=>"http://ec2.amazonaws.com/doc/2008-12-01/"}
+
+
+  def create_instance(instance_id, groups, tag_set = ['tag-set'])
+    instance = {}
+    instance[:instance_id] = instance_id
+    instance[:image_id] = "dummy image"
+    instance[:volumes] = []
+    instance[:tagSet] = tag_set
+    instance[:instance_state] = "running"
+    instance[:groups] = groups
+    #TODO
+    @instances << instance
+    groups.each() {|group|
+      unless @security_groups.include?(group)
+        create_security_group({:group_name => group})
+      end
+    }
+    instance
+  end
+
+  def create_dummy_instance(instance_id, image_id, instance_state, private_dns_name, dns_name, key_name, groups = [])
+    instance = {}
+    instance[:instance_id] = instance_id
+    instance[:image_id] = image_id
+    instance[:instance_state] = instance_state
+    instance[:private_dns_name] = private_dns_name
+    instance[:dns_name] = dns_name
+    instance[:key_name] = key_name
+    instance[:groups] = groups
+    instance[:availability_zone] = "us-east-1a" #TODO: make configurable
+    instance[:volumes] = []#
+    instance[:tagSet] = ["dummy"]
+    #
+    #TODO
+    @instances << instance
+    unless groups == nil
+      groups.each() {|group|
+        unless @security_groups.include?(group)
+          create_security_group({:group_name => group})
+        end
+      }
+    end
+    instance
+  end
+
+  def lookup_group(options)
+    #either use group_name or group_id
+    group_id = options[:group_id] || "XXXX"
+    group_name = options[:group_name] || "XXXX"
+    @security_groups.each() {|sg|
+      return sg if sg[:group_name] == group_name || sg[:group_id] == group_id
+    }
+    nil
+  end
+
+  def terminate_instances(options)
+    get_instance(options[:instance_id])[:instance_state] = "terminated"
+  end
+
+  def stop_instances(options)
+    get_instance(options[:instance_id])[:instance_state] = "stopped"
+  end
+
+  def start_instances(options)
+    get_instance(options[:instance_id])[:instance_state] = "running"
+  end
+
+  private
+
+  def cause_failure()
+    if @fail
+      @logger.debug "mocked_ec2 API is in failure mode"
+      raise Exception.new("mocked_ec2 API is in failure mode")
+    end
+    if @provoke_authfailure
+      @logger.debug "mocked_ec2 API to provode auth-failures"
+      raise AWS::AuthFailure.new("mocked_ec2 API is in failure mode")
+    end
+  end
+
   def create_snapshot(volume_id)
-    cause_failure()    
+    cause_failure()
     @logger.debug("MockedEc2API: create snapshot for #{volume_id}")
     snap = "snap_#{Time.now.to_i.to_s}"
     s = {"volumeId"=>"#{volume_id}", "snapshotId"=>"#{snap}", "requestId"=>"dummy-request",
@@ -71,7 +412,7 @@ class MockedEc2Api
   end
 
   def describe_keypairs(keynames = nil)
-    cause_failure()    
+    cause_failure()
     all_key_names = []
     if keynames == nil
       keynames = []
@@ -98,59 +439,6 @@ class MockedEc2Api
       res['keySet']['item'] << key
     }
     res
-  end
-
-  def describe_security_groups(options)
-    cause_failure()    
-    groups = identify_security_groups()
-    groups = groups + @security_groups
-    puts "groups found = #{groups.inspect}"
-    if options[:group_name] != nil
-      groups = groups.select() {|g|
-        g == options[:group_name]
-      }
-      puts "groups selected = #{groups.inspect}"
-    end
-    @logger.debug "mocked_ec2_api.describe_security_groups identified #{groups.inspect}"
-    res = transform_secgroups(groups)
-    res
-  end
-
-  def identify_security_groups
-    sec_groups = []
-    @instances.each() {|i|
-      i.groups.each() {|group|
-        if !sec_groups.include?(group)
-          sec_groups << group
-        end
-      }
-    }
-    sec_groups
-  end
-
-  def transform_secgroups(secgroups)
-    ret = {}
-    ret['securityGroupInfo'] = {}
-    ret['securityGroupInfo']['item'] = []
-    secgroups.each() {|sg|
-      group = {}
-      group['groupName'] = sg
-      ret['securityGroupInfo']['item'] << group
-      group['ownerId'] = "945722764978"
-      group['ipPermissions'] = {}
-      group['ipPermissions']['item'] = []
-      perm = {}
-      perm['groups'] = nil
-      perm['fromPort'] = 22
-      perm['toPort'] = 22
-      perm['ipProtocol'] = "tcp"
-      perm['ipRanges'] = {}
-      perm['ipRanges']['item'] = []
-      perm['ipRanges']['item'][0] = {}
-      perm['ipRanges']['item'][0]['cidrIp'] = "0.0.0.0/0"
-      group['ipPermissions']['item'] << perm
-    }
-    ret
   end
 
   # Expects eiter an empty value or an hash {:volume_id => [bla]}
@@ -196,101 +484,6 @@ class MockedEc2Api
     volume[:state] = "available"
     @volumes << volume
     transform_volumes([get_volume(vid)])['volumeSet']['item'][0]
-  end
-
-  # Expects either no params or an hash {:instance_id => [ids]}
-  def describe_instances(instance_ids = nil)
-    if instance_ids != nil
-      #needed to adapt to the API
-      instance_ids = instance_ids[:instance_id]
-    else
-      instance_ids = []
-    end
-    @logger.debug "instance_ids = #{instance_ids.inspect} number=#{instance_ids.length}"
-    if instance_ids == nil || instance_ids.length == 0
-      return transform_instances(@instances)
-    else
-      return transform_instances(@instances.select() {|i|
-        instance_ids.include?(i[:instance_id])
-      })
-    end
-  end
-
-  def transform_instances(instances)
-    @logger.debug "found #{instances.size} instances to transform"
-    ret = {}
-    ret['requestId'] = "request-id-dummy"
-    ret['reservationSet'] = {}
-    items = []
-    ret['reservationSet']['item'] = items
-    instances.each() {|i|
-      @logger.debug "start transforming #{i.inspect}"
-      item = {}
-      groupSet = []
-      instancesSet = {}
-      item['reservationId'] = "r-"+i[:instance_id]
-      item['requesterId'] = 'dummy-requester-id'
-      item['groupSet'] = {}
-      item['groupSet']['item'] = groupSet
-      item['instancesSet'] = instancesSet
-      instancesSet['item'] = []
-      instanceInfos = {}
-      instancesSet['item'] << instanceInfos
-      instanceInfos['keyName'] = i[:key_name]
-      instanceInfos['ramdiskId'] = 'dummy-ramdisk-id'
-      instanceInfos['productCodes'] = nil #TODO: must be a set
-      instanceInfos['kernelId'] = 'aki-'+i[:instance_id]
-      instanceInfos['launchTime'] = DateTime.new
-      instanceInfos['amiLaunchIndex'] = 0 #TODO: count instances?
-      instanceInfos['imageId'] = i[:image_id]
-      instanceInfos['instanceType'] = "m1.small" #TODO: must be configurable
-      instanceInfos['reason'] = nil #TODO: have a closer look at this
-      instanceInfos['placement'] = {}
-      instanceInfos['placement']['availabilityZone'] = i[:availability_zone]
-      instanceInfos['instanceId'] = i[:instance_id]
-      instanceInfos['privateDnsName'] = i[:private_dns_name]
-      instanceInfos['dnsName'] = i[:dns_name]
-      instanceInfos['instanceState'] = {}
-      instanceInfos['instanceState']['name'] = i[:instance_state]
-      instanceInfos['instanceState']['code'] = state_to_code(i[:instance_state])
-      instanceInfos['ownerId'] = "owner-dummy-id"
-      blockDeviceMapping = []
-      instanceInfos['blockDeviceMapping'] = {}
-      instanceInfos['blockDeviceMapping']['item'] = blockDeviceMapping
-      i[:volumes].each() {|vol|
-        elem = {}
-        elem['ebs'] = {}
-        elem['ebs']['volumeId'] = vol[:volume_id]
-        #TODO: more info
-        blockDeviceMapping << elem
-      }
-      
-      @logger.debug "mocked_ec2_api is going to add #{i[:groups].size} groups"
-      i[:groups].each() {|sg|
-        elem = {}
-        elem['groupId'] = sg
-        groupSet << elem
-      }
-      @logger.debug "going to add item = #{item.inspect}"
-      items << item
-    }
-    return ret
-  end
-
-  def state_to_code(state)
-    case state
-    when "running"
-      return 16
-    when "pending"
-      return 0
-    when "terminated"
-      return 48
-    when "terminating"
-      return 32
-    else
-      return -1
-    end
-
   end
 
   def transform_volumes(volumes)
@@ -343,7 +536,7 @@ class MockedEc2Api
       raise Exception.new("volume #{volume_id} does not exist")
     end
     if instance == nil
-      raise Exception.new("instance #{instance_id} does not exist")      
+      raise Exception.new("instance #{instance_id} does not exist")
     end
     att = {}
     att[:instance_id] = instance_id
@@ -385,7 +578,7 @@ class MockedEc2Api
     update_volume_state(options[:volume_id], "available")
     #remove from instance
     instance[:volumes].delete_if() {|vol|
-      puts "delete volum #{vol.inspect} from instance #{instance.inspect}?"
+      drop "delete volum #{vol.inspect} from instance #{instance.inspect}?"
       vol[:volume_id] == options[:volume_id]
     }
     @logger.debug "after detaching: #{@volumes.inspect}"
@@ -402,7 +595,7 @@ class MockedEc2Api
     self.next_volume_id = id
     return create_volume({:availability_zone => timezone})
   end
-  
+
   def remove_dummy_volume(id)
     @volumes = @volumes.select() {|v|
       v[:volume_id] != id
@@ -419,47 +612,12 @@ class MockedEc2Api
     @logger.debug "no volume found"
     return nil
   end
-  
-  def get_instance(id)
-    @instances.each() {|i|
-      if i[:instance_id] == id
-        @logger.debug "get_instance: #{i.inspect}"
-        return i
-      end
-    }
-    @logger.debug "no instance found"
-    return nil
+
+  def change_group_id(group_id, value)
+    sg = lookup_group({:group_id => group_id})
+    drop "-- mock_ec2_api: change_group_id to #{value} for #{sg.inspect}"
+    sg[:group_id] = value
   end
-
-  #result of describe_instances:
-  #{"requestId"=>"9286df07-8937-4233-954a-e26b13780c2f", "reservationSet"=>{"item"=>[{"reservationId"=>"r-66d2260e", "requesterId"=>"058890971305", "groupSet"=>{"item"=>[{"groupId"=>"Rails Starter"}]}, "instancesSet"=>{"item"=>[{"keyName"=>"jungmats", "ramdiskId"=>"ari-dbc121b2", "productCodes"=>nil, "kernelId"=>"aki-f5c1219c", "launchTime"=>"2009-10-22T14:26:12.000Z", "amiLaunchIndex"=>"0", "imageId"=>"ami-22b0534b", "instanceType"=>"m1.small", "reason"=>nil, "placement"=>{"availabilityZone"=>"us-east-1d"}, "instanceId"=>"i-0071c968", "privateDnsName"=>"ip-10-244-159-112.ec2.internal", "dnsName"=>"ec2-174-129-149-1.compute-1.amazonaws.com", "instanceState"=>{"name"=>"running", "code"=>"16"}}]}, "ownerId"=>"945722764978"}, {"reservationId"=>"r-0e13e166", "requesterId"=>"058890971305", "groupSet"=>{"item"=>[{"groupId"=>"EU"}, {"groupId"=>"cloudkick"}]}, "instancesSet"=>{"item"=>[{"keyName"=>"jungmats", "ramdiskId"=>"ari-dbc121b2", "productCodes"=>nil, "kernelId"=>"aki-f5c1219c", "launchTime"=>"2009-10-27T18:05:03.000Z", "amiLaunchIndex"=>"0", "imageId"=>"ami-2cb05345", "instanceType"=>"m1.small", "reason"=>nil, "placement"=>{"availabilityZone"=>"us-east-1d"}, "instanceId"=>"i-16e8687e", "privateDnsName"=>"ip-10-245-206-177.ec2.internal", "dnsName"=>"ec2-67-202-11-96.compute-1.amazonaws.com", "instanceState"=>{"name"=>"running", "code"=>"16"}}]}, "ownerId"=>"945722764978"}]}, "xmlns"=>"http://ec2.amazonaws.com/doc/2008-12-01/"}
-
-
-  def create_instance(instance_id)
-    instance = {}
-    instance[:instance_id] = instance_id
-    instance[:image_id] = "dummy image"
-    instance[:volumes] = []
-    #TODO
-    @instances << instance
-    instance
-  end
-  
-  def create_dummy_instance(instance_id, image_id, instance_state, private_dns_name, dns_name, key_name, groups = [])
-    instance = {}
-    instance[:instance_id] = instance_id
-    instance[:image_id] = image_id
-    instance[:instance_state] = instance_state
-    instance[:private_dns_name] = private_dns_name
-    instance[:dns_name] = dns_name
-    instance[:key_name] = key_name
-    instance[:groups] = groups
-    instance[:availability_zone] = "us-east-1a" #TODO: make configurable
-    instance[:volumes] = []#
-    #TODO
-    @instances << instance
-    instance
-  end  
 
   def update_volume_state(volume_id, state)
     @logger.debug "update_volume_state for #{volume_id} to #{state}"
@@ -472,17 +630,4 @@ class MockedEc2Api
     {'imageId' => "ami-#{options[:snapshot_id]}"}
   end
 
-  def terminate_instances(options)
-    get_instance(options[:instance_id])[:instance_state] = "terminated"
-  end
-
-  private
-  
-  def cause_failure()
-    if @fail
-      @logger.debug "mocked_ec2 API is in failure mode"
-      raise Exception.new("mocked_ec2 API is in failure mode")
-    end
-  end
-  
 end
