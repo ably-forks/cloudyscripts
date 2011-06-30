@@ -50,7 +50,10 @@ class PortRangeDetector < Ec2Script
       @context[:result][:affected_groups] = []
       @context[:security_groups]['securityGroupInfo']['item'].each() do |group_info|
         post_message("checking group '#{group_info['groupName']}'...")
+        next if group_info['ipPermissions'] == nil || group_info['ipPermissions']['item'] == nil
         group_info['ipPermissions']['item'].each() do |permission_info|
+          logger.debug("permission_info = #{permission_info.inspect}")
+          next unless permission_info['groups'] == nil #ignore access rights to other groups          
           if permission_info['toPort'] != permission_info['fromPort']
             if permission_info['ipRanges']['item'][0]['cidrIp'] == "0.0.0.0/0"
               @context[:result][:affected_groups] << {:name => group_info['groupName'],
