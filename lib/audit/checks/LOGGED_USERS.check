@@ -1,0 +1,28 @@
+ID: LOGGED_USERS
+Name: List logged-in users
+Depends: [HAS_AWK, HAS_WHO, HAS_BASE]
+Imports: [AWK, WHO, SED]
+Description: List all users that are currently logged in using who.
+Script: |
+   IFS=$( printf "\n+" ); IFS=${IFS%+}
+   TMP_OUTPUT=$( ${WHO} -u -p )
+
+   for TMP_LINE in ${TMP_OUTPUT}
+   do
+      TMP_USER=$( echo ${TMP_LINE} | ${AWK} '{ print $1 }' )
+      TMP_TERMINAL=$( echo ${TMP_LINE} | ${AWK} '{ print $2 }' )
+      TMP_DATE=$( echo ${TMP_LINE} | ${AWK} '{ print $3 }' )
+      TMP_TIME=$( echo ${TMP_LINE} | ${AWK} '{ print $4 }' )
+      TMP_IDLE=$( echo ${TMP_LINE} | ${AWK} '{ print $5 }' )
+      TMP_PID=$( echo ${TMP_LINE} | ${AWK} '{ print $6 }' )
+      TMP_COMMENT=$( echo ${TMP_LINE} | ${AWK} '{ print $7 }' )
+
+
+      script_data "logins.who.${TMP_USER}.line.{${TMP_TERMINAL}}.login_date" "${TMP_DATE}"
+      script_data "logins.who.${TMP_USER}.line.{${TMP_TERMINAL}}.login_time" "${TMP_TIME}"
+      script_data "logins.who.${TMP_USER}.line.{${TMP_TERMINAL}}.idle" "${TMP_IDLE}"
+      script_data "logins.who.${TMP_USER}.line.{${TMP_TERMINAL}}.pid" "${TMP_PID}"
+      script_data "logins.who.${TMP_USER}.line.{${TMP_TERMINAL}}.comment" "${TMP_COMMENT}"
+   done
+   ! false
+   

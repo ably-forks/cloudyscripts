@@ -1,0 +1,66 @@
+# Copyright 2010-2011 SecludIT
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+ID: APACHE2_INIT_2
+Imports: [SED, GREP, CUT]
+Exports: [APACHE2_CONFIG_FILES]
+Depends: [HAS_BASE, HAS_GREP, HAS_CUT]
+Description: Find the Apache 2 daemon configuration files.
+WarningMessage: > 
+   Apache2 daemon configuration file not found, Apache2 checks will be omitted. 
+Type: [check, export]
+Script: |
+   TMP_UNTREATED_CONFIG_FILES=""
+   APACHE2_CONFIG_FILES=""
+   for path in /etc/apache2/apache2.conf /etc/apache2/httpd.conf
+   do
+      ls ${path} 2>/dev/null 1>/dev/null &&
+         TMP_UNTREATED_CONFIG_FILES="${TMP_UNTREATED_CONFIG_FILES}${path}:"
+   done
+
+   while [ ! -z "${TMP_UNTREATED_CONFIG_FILES%%:}" ]
+   do
+      #get next configuration file from the untreated config files fifo
+      NEXT_CONFIG_FILE=$(echo "${TMP_UNTREATED_CONFIG_FILES}" | ${CUT} -d: -f1) && TMP_UNTREATED_CONFIG_FILES=$(echo "${TMP_UNTREATED_CONFIG_FILES}" | ${CUT} -d: -f2-)
+
+      if [ -z "${NEXT_CONFIG_FILE}" ]; then continue; fi
+
+      #for each include directive in the config file (automatically expands file expressions with *)
+      for f in $(${GREP} -E "^[[:blank:]]*Include" "${NEXT_CONFIG_FILE}" | ${SED} -e 's/^[[:blank:]]*Include[[:blank:]]\+\([^#]\+\)/\1/')
+      do
+         #if a whole directory is included, we want to expand to every file in the directory
+         if [ -d "$f" ]; then f="${f%%/}/*"; fi
+
+         #to handle the 'every file in directory' we just constructed
+         for g in $f
+         do
+            #check that file is not in any fifo yet; this avoids looping forever if there is an include loop
+            if ! ( echo "${APACHE2_CONFIG_FILES}" | ${GREP} "$g" 1>/dev/null 2>/dev/null || echo "${TMP_UNTREATED_CONFIG_FILES}" | ${GREP} "$g" 1>/dev/null 2>/dev/null )
+            then
+               #append newly found configuration file to the fifo of untreated files
+               TMP_UNTREATED_CONFIG_FILES="${TMP_UNTREATED_CONFIG_FILES%%:}:$g:"
+            fi
+         done
+      done
+      #all includes from this file fleshed out, put it to the treated config files
+      APACHE2_CONFIG_FILES="${APACHE2_CONFIG_FILES%% } ${NEXT_CONFIG_FILE}"
+      script_info_message "Found configuration file ${NEXT_CONFIG_FILE}"
+   done
+
+   #to remove nasty leading/trailing colons
+   APACHE2_CONFIG_FILES="${APACHE2_CONFIG_FILES%% }"
+   APACHE2_CONFIG_FILES="${APACHE2_CONFIG_FILES## }"
+
+   #check only successful if at least one configuration file is found
+   [ ! "${APACHE2_CONFIG_FILES}" = "" ]

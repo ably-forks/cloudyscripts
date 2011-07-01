@@ -1,0 +1,87 @@
+# Copyright 2010-2011 SecludIT
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+ID: PROCESS_LIST
+Name: List running processes
+Imports: [NETSTAT, SED, CUT, TAIL, WC]
+Depends: [HAS_PS, MAYBE_HAS_SUPERUSER, HAS_CUT, HAS_BASE, HAS_TAIL, HAS_WC]
+Description: List running processes with ps.
+Script: |
+   TMP_OUTPUT=$( ${PS} -A -o pid -o tid -o ppid -o time -o pcpu -o euid -o egid -o ruid -o rgid -o nice -o euser -o egroup -o ruser -o rgroup -o args -o comm )
+   TMP_COLUMN_NAMES="pid tid ppid time pcpu euid egid ruid rgid nice euser egroup ruser rgroup args comm"
+   #never change from left-aligned to right-aligned - won't work
+   TMP_COLUMN_ALIGNMENTS="r r r r r r r r r r l l l l l l"
+
+   IFS=$( printf '\n+' ); IFS=${IFS%+}
+   TMP_HEADER=$( printf "%s" "${TMP_OUTPUT}" | ${HEAD} -n1 )
+   TMP_BODY=$( printf "%s" "${TMP_OUTPUT}" | ${TAIL} -n+2 )
+   TMP_COLSTART=0
+   TMP_COLEND=0
+
+   #for each column in the output table
+   while [ ! "${TMP_HEADER}" = "" ]
+   do
+      #get first column header field
+      TMP_ALIGNMENT=$( echo ${TMP_COLUMN_ALIGNMENTS} | sed -e 's/^[[:blank:]]*\(r\|l\).*$/\1/' )
+      if [ "${TMP_ALIGNMENT}" = l ]
+      then 
+         TMP_FIELD=$( printf "%s" "${TMP_HEADER}" | ${SED} -e 's/^\([^ ]* *\).*$/\1/' )
+      else
+         TMP_FIELD=$( printf "%s" "${TMP_HEADER}" | ${SED} -e 's/^\( *[^ ]*\).*$/\1/' )
+      fi
+      TMP_COLUMN_NAME=$( printf "%s" "${TMP_COLUMN_NAMES}" | ${SED} -e 's/^\([^ ]* *\).*$/\1/' )
+
+      
+
+      #remove first field from rest
+      if [ "${TMP_ALIGNMENT}" = l ]
+      then
+         TMP_HEADER=$( printf "%s" "${TMP_HEADER}" | ${SED} -e 's/^[^ ]* *\(.*\)$/\1/' )
+      else
+         TMP_HEADER=$( printf "%s" "${TMP_HEADER}" | ${SED} -e 's/^ *[^ ]*\(.*\)$/\1/' )
+      fi
+      # if field is empty, this means a change from left to right-aligned columns or vice-versa - ignore the empty column of just blanks
+      if [ "${TMP_FIELD% }" = "" ]
+      then 
+         continue
+      fi
+
+      TMP_COLUMN_ALIGNMENTS=$( echo ${TMP_COLUMN_ALIGNMENTS} | ${SED} -e 's/^[[:blank:]]*\(r\|l\)\(.*\)/\2/' )
+      
+      TMP_COLUMN_NAMES=$( printf "%s" "${TMP_COLUMN_NAMES}" | ${SED} -e 's/^[^ ]* *\(.*\)$/\1/' )
+
+      TMP_COLWIDTH=$( printf "%s" "${TMP_FIELD}" | ${WC} -c )
+      TMP_COLSTART=$(( ${TMP_COLEND} + 1 ))
+
+      if [ "${TMP_HEADER}" = "" ]
+      then
+         #last column, do not give an end
+         TMP_CHARRANGE="${TMP_COLSTART}-"
+      else
+         #normal column, give start and end
+         TMP_COLEND=$(( ${TMP_COLSTART} + ${TMP_COLWIDTH} - 1 ))
+         TMP_CHARRANGE="${TMP_COLSTART}-${TMP_COLEND}"
+      fi
+
+      #echo "Column '${TMP_FIELD}', range ${TMP_CHARRANGE}, header $( printf "%s" "${TMP_OUTPUT}" | ${HEAD} -n1 | ${CUT} -c ${TMP_CHARRANGE} )"
+      #for each row in this column
+      TMP_COUNTER=1
+      for TMP_VALUE in $( printf "%s" "${TMP_BODY}" | ${CUT} -c ${TMP_CHARRANGE} )
+      do
+         #remove leading/trailing whitespace
+         TMP_VALUE=$( echo ${TMP_VALUE} )
+         script_data "processes.${TMP_COUNTER}.${TMP_COLUMN_NAME}" "${TMP_VALUE}"
+         TMP_COUNTER=$(( ${TMP_COUNTER} + 1 ))
+      done
+   done

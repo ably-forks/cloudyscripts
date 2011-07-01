@@ -1,0 +1,5 @@
+ID: VAR_LIST_HOME_DIRECTORIES
+Depends: [USERS_INIT_1, HAS_CAT, HAS_TR, HAS_CUT, HAS_SED]
+Description: Export colon-separated home directory list from /etc/passwd.
+Type: [export]
+Script: "export HOME_DIRS_LIST=$(${CAT} /etc/passwd | ${CUT} -d: -f6 | ${TR} '\n' ':' | ${SED} -e 's/:$//')"

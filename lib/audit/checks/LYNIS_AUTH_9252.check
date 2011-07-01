@@ -1,0 +1,19 @@
+ID: LYNIS_AUTH_9252
+Name: Check for sudoers file permissions
+Depends: [HAS_STAT, FIND_SUDOERS_FILE]
+Imports: [STAT, SUDOERS_FILE]
+Severity: low
+Description: >
+   Check that each group name is defined only once in /etc/groups.
+   If a group name is defined multiple times this does not necessarily 
+   mean an error, but you should verify that this is intended.
+Script: |
+   TMP_PERMS=$( ${STAT} -c '%a' ${SUDOERS_FILE} )
+
+   if [ "${TMP_PERMS}" = "440" ] || [ "${TMP_PERMS}" = "660" ] || [ "${TMP_PERMS}" = "600" ]
+   then
+      script_info_message "Sudoers file ${SUDOERS_FILE} permissions ok"
+   else
+      script_error_message "Permissions (${TMP_PERMS}) of ${SUDOERS_FILE} may be too loose"
+      false
+   fi

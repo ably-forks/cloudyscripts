@@ -1,0 +1,60 @@
+ID: APACHE2_CONFIG_03
+Depends: [APACHE2_INIT_2, HAS_CAT, HAS_BASE, HAS_GREP]
+Description: Find all directories that are publicly accessible through Apache2.
+Exports: [APACHE2_DOCUMENT_ROOT]
+Type: [info]
+Name: APACHE2 find public directories
+Script: |
+   # first check for alias definitions (see mod_alias for details)
+   TMP_ALIAS_NUM=1
+   for TMP_FILE in ${APACHE2_CONFIG_FILES}
+   do 
+      TMP_PUBLICDIRS=$( ${CAT} ${TMP_FILE} | ${GREP} -E '^[[:blank:]]*(Alias|ScriptAlias)' | ${SED} -e 's/^[[:blank:]]*//' )
+      IFS=$( printf '\n+' ); IFS=${IFS%+}
+
+      for TMP_PUBLICDIR in ${TMP_PUBLICDIRS}
+      do
+         TMP_SHARETYPE=$( echo ${TMP_PUBLICDIR} | ${CUT} -d" " -f1)
+         TMP_DIRECTORY=$( echo ${TMP_PUBLICDIR} | ${CUT} -d" " -f3 | ${SED} -e 's/^"//;s/"$//')
+         TMP_URL=$( echo ${TMP_PUBLICDIR} | ${CUT} -d" " -f2 | ${SED} -e 's/^"//;s/"$//')
+
+         script_data "apache2.aliases.${TMP_ALIAS_NUM}.defined_in" "${TMP_FILE}" 
+         script_data "apache2.aliases.${TMP_ALIAS_NUM}.type" "${TMP_SHARETYPE}" 
+         script_data "apache2.aliases.${TMP_ALIAS_NUM}.directory" "${TMP_DIRECTORY}"
+         script_data "apache2.aliases.${TMP_ALIAS_NUM}.url" "${TMP_URL}"
+         script_info_message "Directory ${TMP_DIRECTORY} is accessible as ${TMP_URL} through alias in file ${TMP_FILE}"
+         TMP_ALIAS_NUM=$(( ${TMP_ALIAS_NUM} + 1 ))
+      done
+      IFS=" "
+   done
+
+   #then check for document root definitions
+   #I've dropped the idea of checking that there is only one document root definition, there may be 
+   #multiple vhosts, each with a document root definition.
+   TMP_DOCROOT_NUM=1
+   for TMP_FILE in ${APACHE2_CONFIG_FILES}
+   do 
+      TMP_PUBLICDIRS=$( ${CAT} ${TMP_FILE} | ${GREP} -E '^[[:blank:]]*DocumentRoot' | ${SED} -e 's/^[[:blank:]]*//' )
+      IFS=$( printf '\n+' ); IFS=${IFS%+}
+      for TMP_PUBLICDIR in ${TMP_PUBLICDIRS}
+      do
+         TMP_SHARETYPE=$( echo ${TMP_PUBLICDIR} | ${CUT} -d" " -f1)
+         TMP_DIRECTORY=$( echo ${TMP_PUBLICDIR} | ${CUT} -d" " -f2)
+
+         script_data "apache2.document_roots.${TMP_DOCROOT_NUM}.defined_in" "${TMP_FILE}" 
+         script_data "apache2.document_roots.${TMP_DOCROOT_NUM}.type" "${TMP_SHARETYPE}" 
+         script_data "apache2.document_roots.${TMP_DOCROOT_NUM}.directory" "${TMP_DIRECTORY}"
+
+         script_info_message "Directory ${TMP_DIRECTORY} is accessible as document root in file ${TMP_FILE}"
+
+         #up to now, I don't have a better idea on how to set this ... normally there should be one 
+         #document root definition for port 80 of the principal server (not a vhost), that should be
+         #used here ...
+         APACHE2_DOCUMENT_ROOT="${TMP_DIRECTORY}"
+         TMP_DOCROOT_NUM=$(( ${TMP_DOCROOT_NUM} + 1 ))
+      done
+      IFS=" "
+   done
+
+   IFS=${TMP_IFS}
+   

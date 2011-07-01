@@ -1,0 +1,22 @@
+ID: LOADED_MODULES
+Name: List loaded kernel modules
+Depends: [HAS_AWK, HAS_BASE]
+Imports: [AWK, SED]
+Description: List all modules currently inserted in the kernel.
+Script: |
+   IFS=$( printf "\n+" ); IFS=${IFS%+}
+   TMP_OUTPUT=$( cat /proc/modules )
+
+   for TMP_LINE in ${TMP_OUTPUT}
+   do
+      TMP_MODULE=$( echo ${TMP_LINE} | ${AWK} '{ print $1 }' )
+      TMP_SIZE=$( echo ${TMP_LINE} | ${AWK} '{ print $2 }' )
+      TMP_USED_COUNT=$( echo ${TMP_LINE} | ${AWK} '{ print $3 }' )
+      TMP_USED_LIST=$( echo ${TMP_LINE} | ${AWK} '{ print $4 }' )
+
+      script_data "kernel.modules.${TMP_MODULE}.size" "${TMP_SIZE}"
+      script_data "kernel.modules.${TMP_MODULE}.used_count" "${TMP_USED_COUNT}"
+      script_data "kernel.modules.${TMP_MODULE}.used_list" "${TMP_USED_LIST}"
+   done
+   ! false
+   

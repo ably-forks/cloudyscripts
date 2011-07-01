@@ -1,0 +1,14 @@
+ID: APACHE2_INIT_1
+Depends: [HAS_PS, HAS_SED, HAS_GREP]
+Imports: [PS, SED, GREP]
+Exports: [APACHE2_PID]
+Description: Check if the Apache server version 2 is running. 
+Type: [check, export]
+Script: |
+   APACHE2_PID=$(${PS} -A | ${GREP} apache2 | ${SED} -e 's/^[[:blank:]]*\([0-9]\+\)[[:blank:]]\+.*/\1/')
+   if [ ! -z "${APACHE2_PID}" ]
+   then 
+      ! false
+   else 
+      false
+   fi

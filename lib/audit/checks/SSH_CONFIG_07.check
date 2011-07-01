@@ -1,0 +1,11 @@
+ID: SSH_CONFIG_07
+Depends: [SSH_INIT_2, HAS_GREP]
+Imports: [GREP, SSHD_CONFIG_FILE]
+Name: SSH rhost  authentication
+Description: >
+   Check that .rhosts and .shosts files are ignored in host based or rhost authentication.
+   There must not be a "IgnoreRhosts no" line in your SSHD configration.
+WarningMessage: >
+   Your SSH configuration allows the .rhosts files, which provide weak authentication.
+Type: [check]
+Script: ( ! ${GREP} -i -E '^[[:blank:]]*IgnoreRhosts[[:blank:]]+"?no"?' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null )

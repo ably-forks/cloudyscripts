@@ -1,0 +1,24 @@
+ID: BACKUP_LOG
+Name: Create a backup copy of the /var/log directory
+Depends: [HAS_COMPRESSOR, MAYBE_HAS_SUPERUSER]
+Description: Create a backup copy of the /var/log directory
+Script: |
+   #if [ "${DU}" = "" ]
+   #then
+   #   TMP_SIZE=0
+   #else
+   #   TMP_SIZE=$( ${DU} -s | ${AWK} '{ print $1 }' )
+   #fi
+
+   #if [ ${TMP_SIZE} -gt 30000 ]
+   #then
+   #   script_warning_message "/var/log directory is bigger than 30M (${TMP_SIZE}k) and will not be backuped"
+   #else
+      ${RUN_AS_SUPERUSER} ${COMPRESSOR} ${AUDIT_DIRECTORY}/BACKUP_LOG.${COMPRESSOR_SUFFIX} /var/log 2>/dev/null
+      TMP_EXITCODE=$?
+      if [ ${TMP_EXITCODE} -eq 0 ]
+      then
+         script_attach_file "${AUDIT_DIRECTORY}/BACKUP_LOG.${COMPRESSOR_SUFFIX}" "Backup of the /var/log directory"
+      fi 
+      script_set_exit_code ${TMP_EXITCODE}
+   #fi

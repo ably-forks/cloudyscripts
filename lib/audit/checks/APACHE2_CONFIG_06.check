@@ -1,0 +1,30 @@
+ID: APACHE2_CONFIG_06
+Depends: [APACHE2_CONFIG_01, APACHE_CONFIG_02, HAS_GROUPS]
+Description: Check that Apache2 user is not allowed to login in /etc/passwd and /etc/shadow
+Type: [info]
+Name: Check that Apache2 user login is disabled
+Script: |
+   #test that user is not allowed to login via /etc/passwd
+   TMP_PASSWD=$(${GREP} "${APACHE2_USER}" "${PASSWD_FILE}" | ${CUT} -d: -f2)
+
+   if ! [ "${TMP_PASSWD}" = x ]
+   then
+      script_error_message "Apache2 user ${APACHE2_USER} is allowed to login in ${PASSWD_FILE}"
+   fi
+
+   #test that user is not allowed to login via /etc/shadow
+   #this test needs superuser privileges to access /etc/shadow
+   if [ "${HAVE_SUPERUSER_PRIVILEGES}" = 1 ]
+   then
+      TMP_SHADOW=$(execute_as_superuser "${GREP} \"${APACHE2_USER}\" \"${SHADOW_FILE}\" | ${CUT} -d: -f2")
+
+      if [ ! "${TMP_SHADOW}" = '*' ] || [ ! "${TMP_SHADOW##\!}" = "${TMP_SHADOW}" ]
+      then
+         script_error_message "Apache2 user ${APACHE2_USER} is allowed to login in ${SHADOW_FILE}"
+      fi
+   fi
+
+   #test that user is not allowed to login via ssh
+   #test that user is not allowed to login via rlogin
+   #test that user is not allowed to login via ftp
+      

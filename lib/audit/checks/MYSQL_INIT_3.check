@@ -1,0 +1,7 @@
+ID: MYSQL_INIT_3
+Script: |
+
+   TMP_INCLUDE_DIRS=$(${GREP} -E "^[[:blank:]]*\!includedir" ${MYSQL_CONFIG_FILE} | ${SED} -e 's/^[[:blank:]]*!includedir \(.*\)\(#.*\)\?$/\1/')
+   while [ -z "${TMP_INCLUDE_DIRS}" ]
+   do
+      

@@ -1,0 +1,12 @@
+ID: SSH_INIT_2
+Exports: [SSHD_CONFIG_FILE]
+Description: Find the SSH daemon configuration file.
+WarningMessage: > 
+   SSH daemon configuration file not found, SSH checks will be omitted. 
+Type: [check, export]
+Script: |
+   SSHD_CONFIG_FILE=""
+   for TMP_PATH in /etc/ssh/sshd_config
+   do 
+      ls ${TMP_PATH} 2>/dev/null 1>/dev/null && SSHD_CONFIG_FILE=${TMP_PATH} && break
+   done

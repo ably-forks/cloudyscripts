@@ -1,0 +1,36 @@
+ID: APACHE2_CONFIG_01
+Depends: [APACHE2_INIT_2, HAS_CAT, HAS_BASE, HAS_GREP]
+Description: Get user for running Apache2 from configuration files and export it to APACHE2_USER.
+Type: [info]
+Name: APACHE2 get user from configuration files
+Script: |
+   APACHE2_USER=""
+   TMP_NUM_USERS=$(${CAT} ${APACHE2_CONFIG_FILES} | ${GREP} -c -E '^[[:blank:]]*User')
+
+   if [ ! "${TMP_NUM_USERS}" = 1 ]
+   then
+      script_error_message "Found more than one 'User' directive in configuration files"
+   else
+      TMP_USER=$(${CAT} ${APACHE2_CONFIG_FILES} | ${GREP} -E '^[[:blank:]]*User' | sed -e 's/^[[:blank:]]*User[[:blank:]]*//')
+
+      #In Ubuntu, the user name is a variable and is really defined in /etc/apache2/envvars
+      if echo "${TMP_USER}" | ${GREP} '$' 2>/dev/null 1>/dev/null
+      then
+         TMP_USER_VAR=$( echo "${TMP_USER}" | ${SED} -e 's/\${\?//;s/}//' )
+         TMP_USER=$(${CAT} /etc/apache2/envvars | ${GREP} "${TMP_USER_VAR}" | ${SED} -e "s/^.*${TMP_USER_VAR}[[:blank:]]*=[[:blank:]]*\(.*\)$/\1/")
+         APACHE2_USER=${TMP_USER}
+      else
+         APACHE2_USER=${TMP_USER}
+      fi
+
+      if [ "${APACHE2_USER}" = "" ]
+      then
+         script_error_message "could not find Apache2 user"
+         false
+      else
+         script_info_message "Found Apache2 user: ${APACHE2_USER}"
+         ! false
+      fi
+   fi
+      
+      

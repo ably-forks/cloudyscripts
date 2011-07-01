@@ -1,0 +1,6 @@
+ID: BENCHMARK
+Children: 
+   - APACHE2
+   - SSH
+   - LYNIS_AUTH
+   - VARIOUS

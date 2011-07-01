@@ -1,0 +1,5 @@
+ID: FIND_SHADOW_FILE
+Name: Find /etc/shadow file
+Description: Check that /etc/shadow file is present and export it in SHADOW_FILE.
+Export: [SHADOW_FILE]
+Script: ls /etc/shadow 2>/dev/null 1>/dev/null && SHADOW_FILE=/etc/shadow

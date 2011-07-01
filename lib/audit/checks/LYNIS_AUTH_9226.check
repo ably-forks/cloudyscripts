@@ -1,0 +1,24 @@
+ID: LYNIS_AUTH_9226
+Name: Check non unique group names
+Depends: [HAS_GREP, HAS_CUT, HAS_SORT, HAS_UNIQ, FIND_GROUP_FILE]
+Imports: [GREP, CUT, SORT, UNIQ, GROUP_FILE]
+Severity: low
+Description: >
+   Check that each group name is defined only once in /etc/groups.
+   If a group name is defined multiple times this does not necessarily 
+   mean an error, but you should verify that this is intended.
+Script: |
+   TMP_DUPLICATE_GROUPS=$(${GREP} -v '^$' ${GROUP_FILE} | ${CUT} -d: -f1 | ${SORT} | ${UNIQ} -d)
+    
+   if [ "${TMP_DUPLICATE_GROUPS}" = "" ]
+   then
+      script_info_message "no duplicate groups"
+      ! false
+   else
+      IFS=$( printf '\n+' ); IFS=${IFS%+}
+      for TMP_LINE in $(echo ${TMP_DUPLICATE_GROUPS})
+      do
+         script_error_message "The group ${TMP_LINE} is defined multiple times in ${GROUP_FILE}"
+      done
+      false
+   fi

@@ -1,0 +1,33 @@
+ID: LIST_ROUTES
+Name: List network routes
+Depends: [HAS_AWK, HAS_ROUTE, HAS_BASE, HAS_TAIL]
+Imports: [AWK, ROUTE, SED, TAIL]
+Description: List network routes on this system.
+Script: |
+   IFS=$( printf "\n+" ); IFS=${IFS%+}
+   TMP_OUTPUT=$( ${ROUTE} | ${TAIL} -n +3 )
+
+   TMP_COUNT=0
+
+   for TMP_LINE in ${TMP_OUTPUT}
+   do
+      TMP_DESTINATION=$( echo ${TMP_LINE} | ${AWK} '{ print $1 }' )
+      TMP_GATEWAY=$( echo ${TMP_LINE} | ${AWK} '{ print $2 }' )
+      TMP_NETMASK=$( echo ${TMP_LINE} | ${AWK} '{ print $3 }' )
+      TMP_FLAGS=$( echo ${TMP_LINE} | ${AWK} '{ print $4 }' )
+      TMP_METRIC=$( echo ${TMP_LINE} | ${AWK} '{ print $5 }' )
+      TMP_REF=$( echo ${TMP_LINE} | ${AWK} '{ print $6 }' )
+      TMP_USE=$( echo ${TMP_LINE} | ${AWK} '{ print $7 }' )
+      TMP_INTERFACE=$( echo ${TMP_LINE} | ${AWK} '{ print $8 }' )
+
+      script_data "network.ip.routes.${TMP_COUNT}.destination" "${TMP_DESTINATION}"
+      script_data "network.ip.routes.${TMP_COUNT}.destination" "${TMP_GATEWAY}"
+      script_data "network.ip.routes.${TMP_COUNT}.destination" "${TMP_NETMASK}"
+      script_data "network.ip.routes.${TMP_COUNT}.destination" "${TMP_FLAGS}"
+      script_data "network.ip.routes.${TMP_COUNT}.destination" "${TMP_METRIC}"
+      script_data "network.ip.routes.${TMP_COUNT}.destination" "${TMP_REF}"
+      script_data "network.ip.routes.${TMP_COUNT}.destination" "${TMP_USE}"
+      script_data "network.ip.routes.${TMP_COUNT}.destination" "${TMP_INTERFACE}"
+   done
+   ! false
+   

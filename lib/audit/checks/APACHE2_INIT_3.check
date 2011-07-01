@@ -1,0 +1,13 @@
+ID: APACHE2_INIT_3
+Depends: [HAS_WHICH, HAS_BASE]
+Imports: [WHICH, HEAD]
+Exports: [APACHE2_BINARY, APACHE2CTL_BINARY]
+Description: Check for Apache2 binaries.
+Type: [check, info, export]
+Script: |
+   APACHE2_BINARY=$(${WHICH} apache2)
+   APACHE2CTL_BINARY=$(${WHICH} apache2ctl)
+   TMP_APACHE2_NAME=$(${APACHE2_BINARY} -v | ${HEAD} -1 | ${SED} -e 's/^[^:]*:\([^\/]\+\)\/\(.*\)/\1/')
+   TMP_APACHE2_VERSION=$(${APACHE2_BINARY} -v | ${HEAD} -1 | ${SED} -e 's/^[^:]*:\([^\/]\+\)\/\(.*\)/\2/')
+   echo "%% ${MY_SCRIPT_ID} %% INFO %% PROGRAM_NAME %% ${TMP_APACHE2_NAME} %% ${TMP_APACHE2_VERSION}"
+   ${WHICH} apache2 apache2ctl 2>/dev/null 1>/dev/null

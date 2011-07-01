@@ -1,0 +1,14 @@
+ID: SSH_CONFIG_11
+Depends: [SSH_INIT_2, HAS_GREP]
+Imports: [GREP, SSHD_CONFIG_FILE]
+Name: SSH tunneling
+Description: > 
+   Check that tunneling is forbidden.
+   There must not be a "PermitTunnel yes" (or point-to-point, ethernet) line in your
+   SSHD configuration.
+WarningMessage: >
+   Tunneling allows to transfer arbitrary traffic over SSH. While this option does not prevent
+   users to setup their own forwarders, you should disable it if there is no specific need for it.
+Type: [check]
+Script: |
+   ( ! ${GREP} -i -E '^[[:blank:]]*PermitTunnel[[:blank:]]+"?(yes|point-to-point|ethernet)"?' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null )

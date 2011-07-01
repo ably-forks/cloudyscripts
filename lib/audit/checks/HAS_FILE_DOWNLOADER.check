@@ -1,0 +1,32 @@
+ID:  HAS_FILE_DOWNLOADER
+Name: Provide a program that can download files from web servers
+Description: >
+   Extract all information from the /etc/passwd file
+   and export it as key/value pairs.
+Depends: [MAYBE_HAS_WGET, MAYBE_HAS_CURL]
+Imports: [WGET, CURL]
+Exports: [DOWNLOAD_FILE] #export is a function
+Script: |
+   if [ ! "${WGET}" = "" ]
+   then
+      DOWNLOAD_FILE() {
+         if [ "$3" = "" ]
+         then
+            ${WGET} -O "$1" "$2" 2>/dev/null 1>/dev/null
+         else
+            ${WGET} -O "$1" --user=$3 --password=$4 "$2" 2>/dev/null 1>/dev/null
+         fi
+      }
+   elif [ ! "${CURL}" = "" ]
+   then
+      DOWNLOAD_FILE() {
+         if [ "$3" = "" ]
+         then
+            ${CURL} -L -o "$1" "$2" 2>/dev/null 1>/dev/null
+         else
+            ${CURL} -L -o "$1" --user $3:$4 "$2" 2>/dev/null 1>/dev/null
+         fi
+      }
+   fi
+
+   type DOWNLOAD_FILE 2>/dev/null 1>/dev/null

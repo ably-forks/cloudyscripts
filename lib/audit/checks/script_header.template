@@ -1,0 +1,69 @@
+
+###################################################
+# Auditor scanning script #########################
+###################################################
+# (C) 2010 SecludIT, Jonas Zaddach ################
+###################################################
+
+script_raw_message() {
+	msg="%% ${MY_SCRIPT_ID}"
+	for val in "$@"
+	do
+		if [ ! val = "" ]
+		then 
+			msg="${msg} %% ${val}"
+		fi
+	done
+	echo "${msg}"
+}
+
+script_message() {
+	script_raw_message "$1" "MESSAGE" "$2"
+}
+
+script_info_message() {
+	script_message "INFO" "$1"
+}
+
+script_warn_message() {
+	script_message "WARN" "$1"
+}
+
+script_error_message() {
+	script_message "ERROR" "$1"
+}
+
+script_return() {
+	script_raw_message "INFO" "CHECK_FINISHED" "$1"
+}
+
+script_program_name() {
+	script_raw_message "INFO" "PROGRAM_NAME" "$1" "$2"
+}
+
+script_not_found() {
+	script_raw_message "ERROR" "NOT_FOUND" "$1"
+}
+
+script_data() {
+	script_raw_message "INFO" "DATA" "$1" "$2"
+}
+
+script_debug() {
+	echo "$1" 1>&2
+}
+
+script_attach_file() {
+	script_raw_message "INFO" "ATTACH_FILE" "$1" "$2"
+}
+
+
+script_set_exit_code() {
+	/bin/sh -c "exit $1"
+}
+
+# create directory that can be used to store audit files
+AUDIT_DIRECTORY="/tmp/audit"
+rm -Rf ${AUDIT_DIRECTORY}
+mkdir -p ${AUDIT_DIRECTORY}
+

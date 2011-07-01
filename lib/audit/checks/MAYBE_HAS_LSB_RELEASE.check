@@ -1,0 +1,15 @@
+ID: MAYBE_HAS_LSB_RELEASE
+Name: Check for lsb_release program
+Depends: [HAS_BASE]
+Imports: [HEAD, SED]
+Description: Find the lsb_release program and export it to LSB_RELEASE.
+Script: |
+   lsb_release 2>/dev/null 1>/dev/null
+   if ! [ "$?" = 127 ]
+   then 
+      LSB_RELEASE="lsb_release -s"
+      script_program_name "lsb_release" "unknown"
+   else 
+      script_warn_message "lsb_release not found"
+   fi
+   ! false

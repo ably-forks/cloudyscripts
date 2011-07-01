@@ -1,0 +1,19 @@
+ID: BACKUP_MAIL
+Name: Backup mail files
+Depends: [HAS_COMPRESSOR, MAYBE_HAS_SUPERUSER, VAR_LIST_HOME_DIRECTORIES]
+Description: Create a backup copy of the /var/mail directory and $HOME/mbox files
+Script: |
+   ${RUN_AS_SUPERUSER} ${COMPRESSOR} ${AUDIT_DIRECTORY}/BACKUP_MAIL.${COMPRESSOR_SUFFIX} /var/mail 2>/dev/null 1>/dev/null
+   TMP_EXITCODE=$?
+   IFS=:
+   for dir in ${HOME_DIRS_LIST}
+   do
+      ${RUN_AS_SUPERUSER} ${COMPRESSOR} ${AUDIT_DIRECTORY}/BACKUP_MAIL.${COMPRESSOR_SUFFIX} ${dir}/mbox 2>/dev/null 1>/dev/null
+      TMP_EXITCODE=$(( ${TMP_EXITCODE} | $? ))
+   done
+
+   if [ -f "${AUDIT_DIRECTORY}/BACKUP_MAIL.${COMPRESSOR_SUFFIX}" ]
+   then
+      script_attach_file "${AUDIT_DIRECTORY}/BACKUP_MAIL.${COMPRESSOR_SUFFIX}" "Mails backup"
+   fi 
+   script_set_exit_code ${TMP_EXITCODE}

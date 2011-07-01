@@ -1,0 +1,7 @@
+ID: SLOW
+Name: slow tests
+Children:
+   - SLOW_1
+   - SLOW_2
+   - SLOW_3
+Blubb: something

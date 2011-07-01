@@ -1,0 +1,12 @@
+ID: SSH_CONFIG_06
+Depends: [SSH_INIT_2, HAS_GREP]
+Imports: [GREP, SSHD_CONFIG_FILE]
+Name: SSH file permission control
+Description: >
+   Check that permission control of critical login files is enabled.
+   There must be no "StrictModes no" line in your SSHD configuration.
+WarningMessage: > 
+   You should use the StrictModes parameter so SSH verifies the file modes and permissions of
+   users files and home directories before login.
+Type: [check]
+Script: ( ! "${GREP}" -i -E '^[[:blank:]]*StrictModes[[:blank:]]+"?no"?' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null )

@@ -1,0 +1,7 @@
+ID: HAS_UNAME
+Name: Check for uname program
+Depends: [MAYBE_HAS_UNAME]
+Imports: [UNAME]
+Description: Require the uname program.
+Script: |
+   ! [ "${UNAME}" = "" ]

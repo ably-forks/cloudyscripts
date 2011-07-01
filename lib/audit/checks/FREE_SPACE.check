@@ -1,0 +1,26 @@
+ID: FREE_SPACE
+Name: List free and used space for devices.
+Depends: [HAS_AWK, HAS_DF, HAS_BASE, HAS_TAIL]
+Imports: [AWK, DF, SED, TAIL]
+Description: List free and used spaces for devices mounted in the file system.
+Script: |
+   IFS=$( printf "\n+" ); IFS=${IFS%+}
+   TMP_OUTPUT=$( ${DF} | ${TAIL} -n +2 )
+
+   for TMP_LINE in ${TMP_OUTPUT}
+   do
+      TMP_DEVICE=$( echo ${TMP_LINE} | ${AWK} '{ print $1 }' )
+      TMP_SIZE=$( echo ${TMP_LINE} | ${AWK} '{ print $2 }' )
+      TMP_USED=$( echo ${TMP_LINE} | ${AWK} '{ print $3 }' )
+      TMP_AVAILABLE=$( echo ${TMP_LINE} | ${AWK} '{ print $4 }' )
+      TMP_USED_PERCENT=$( echo ${TMP_LINE} | ${AWK} '{ print $5 }' )
+      TMP_MOUNTPOINT=$( echo ${TMP_LINE} | ${AWK} '{ print $6 }' )
+
+      script_data "filesystem.mountpoints.{${TMP_MOUNTPOINT}}.device" "${TMP_DEVICE}"
+      script_data "filesystem.mountpoints.{${TMP_MOUNTPOINT}}.size" "${TMP_SIZE}"
+      script_data "filesystem.mountpoints.{${TMP_MOUNTPOINT}}.used" "${TMP_USED}"
+      script_data "filesystem.mountpoints.{${TMP_MOUNTPOINT}}.available" "${TMP_AVAILABLE}"
+      script_data "filesystem.mountpoints.{${TMP_MOUNTPOINT}}.used_percent" "${TMP_USED_PERCENT}"
+   done
+   ! false
+   

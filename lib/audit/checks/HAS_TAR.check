@@ -1,0 +1,7 @@
+ID: HAS_TAR
+Name: Check for tar program
+Depends: [MAYBE_HAS_TAR]
+Imports: [TAR]
+Description: Require the tar program.
+Script: |
+   ! [ "${TAR}" = "" ]

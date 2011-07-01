@@ -1,0 +1,5 @@
+ID: USERS_INIT_2
+Depends: [USERS_INIT_1, HAS_CAT, HAS_TR, HAS_CUT, HAS_SED]
+Description: Export colon-separated login name list from /etc/passwd.
+Type: [export]
+Script: "export USERS_LIST=$(${CAT} /etc/passwd | ${CUT} -d: -f1 | ${TR} '\n' ':' | ${SED} -e 's/:$//')"

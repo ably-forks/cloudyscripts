@@ -1,0 +1,18 @@
+ID: HAS_DPKG
+Name: Check for dpkg program
+Depends: [HAS_BASE]
+Exports: [DPKG]
+Imports: [HEAD, SED]
+Description: Find the dpkg program and export it to DPKG.
+Script: |
+   if dpkg --version 2>/dev/null 1>/dev/null
+   then 
+      DPKG=dpkg
+      TMP_DPKG_NAME=$(${DPKG} --version | ${HEAD} -1 | ${SED} -e 's/^\(.*\)[[:blank:]]\+version.*$/\1/' )
+      TMP_DPKG_VERSION=$(${DPKG} --version | ${HEAD} -1 | ${SED} -e 's/^.*version[[:blank:]]\+\(.*\)$/\1/')
+      script_program_name "${TMP_DPKG_NAME}" "${TMP_DPKG_VERSION}"
+      ! false
+   else 
+      script_message "dpkg not found"
+      false
+   fi

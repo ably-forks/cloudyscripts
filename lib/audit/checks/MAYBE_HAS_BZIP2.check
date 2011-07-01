@@ -1,0 +1,17 @@
+ID: MAYBE_HAS_BZIP2
+Name: Check for bzip2
+Depends: [HAS_BASE]
+Exports: [BZIP2]
+Imports: [HEAD, SED]
+Description: Find the bzip2 program and export it to BZIP2.
+Script: |
+   if echo "test" | bzip2 --version 2>/dev/null 1>/dev/null
+   then 
+      BZIP2=bzip2
+      TMP_BZIP2_NAME=$(echo "test" | ${BZIP2} --version 2>&1 1>/dev/null | ${HEAD} -1 | ${SED} -e 's/^\(.*\) Version \(.*\)$/\1/')
+      TMP_BZIP2_VERSION=$(echo "test" | ${BZIP2} --version 2>&1 1>/dev/null | ${HEAD} -1 | ${SED} -e 's/^\(.*\) Version \(.*\)$/\2/')
+      script_program_name "${TMP_BZIP2_NAME}" "${TMP_BZIP2_VERSION}"
+   else 
+      script_message "bzip2 not found"
+   fi
+   ! false

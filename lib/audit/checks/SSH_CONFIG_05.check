@@ -1,0 +1,12 @@
+ID: SSH_CONFIG_05
+Depends: [SSH_INIT_2, HAS_GREP]
+Imports: [GREP, SSHD_CONFIG_FILE]
+Name: SSH TCP forwarding
+Description: >
+   Check that TCP forwarding is disabled.
+   There must be a line "AllowTcpForwarding no" in your SSHD configuration.
+WarningMessage: > 
+   With TCP forwarding users can establish tunneled connections. If this is desirable, you should
+   perhaps have a dedicated server for this.
+Type: [check]
+Script: ${GREP} -i -E '^[[:blank:]]*AllowTcpForwarding[[:blank:]]+"?no"?[[:blank:]]*(#.*)?$' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null

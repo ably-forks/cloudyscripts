@@ -1,0 +1,12 @@
+ID: MYSQL_INIT_2
+Exports: [MYSQLD_CONFIG_FILE]
+Description: Find the mysql daemon configuration file.
+WarningMessage: > 
+   Mysql daemon configuration file not found, mysql checks will be omitted. 
+Type: [check, export]
+Script: |
+   MYSQLD_CONFIG_FILE=""
+   for path in /etc/mysql/my.cnf
+   do 
+      ls ${path} 2>/dev/null 1>/dev/null && MYSQLD_CONFIG_FILE=${path} && break
+   done

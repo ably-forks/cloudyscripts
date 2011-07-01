@@ -1,0 +1,6 @@
+ID: FIND_SUDOERS_FILE
+Name: Find /etc/sudoers file
+Export: [SUDOERS_FILE]
+Description: Check that /etc/sudoers file is present and export it in SUDOERS_FILE.
+Severity: high
+Script: ls /etc/sudoers 2>/dev/null 1>/dev/null && SUDOERS_FILE=/etc/sudoers

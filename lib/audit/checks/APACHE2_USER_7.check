@@ -1,0 +1,17 @@
+ID: APACHE2_USER_7
+Depends: [APACHE2_INIT_2, HAS_CAT, HAS_BASE, HAS_GREP]
+Description: Find all directories that are publicly accessible through Apache2.
+Exports: [APACHE2_DOCUMENT_ROOT]
+Type: [info]
+Name: APACHE2 find public directories
+Script: |
+   TMP_SHELL=$(${GREP} "${APACHE2_USER}" "${PASSWD_FILE}" | ${CUT} -d: -f7- )
+
+   if [ "${TMP_SHELL}" = "/bin/nologin" ] ||
+      [ "${TMP_SHELL}" = "/bin/false" ]
+   then
+      ! false
+   else
+      script_warn_message "Apache2 user has login shell ${TMP_SHELL} which is not recommended (should be an invalid shell)"
+      false
+   fi

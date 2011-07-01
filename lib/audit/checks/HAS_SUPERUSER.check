@@ -1,0 +1,11 @@
+ID: HAS_SUPERUSER
+Name: Check if script has superuser rights
+Depends: [MAYBE_HAS_SUPERUSER]
+Exports: [GROUPS]
+Imports: [RUN_AS_SUPERUSER]
+Description: >
+   Check that script is either run as superuser or can have superuser rights via sudo (without 
+   password) and export command to obtain superuser rights to RUN_AS_SUPERUSER.
+Script: |
+   [ "${HAS_SUPERUSER}" = "yes" ]
+         

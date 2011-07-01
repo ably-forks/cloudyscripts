@@ -1,0 +1,17 @@
+ID: HAS_UNIQ
+Name: Check for uniq program
+Depends: [HAS_BASE]
+Imports: [HEAD, SED]
+Description: Find the uniq program and export it to UNIQ.
+Script: |
+   if uniq --version 2>/dev/null 1>/dev/null
+   then 
+      UNIQ=uniq
+      TMP_UNIQ_NAME=$(${UNIQ} --version | ${HEAD} -1 | ${SED} -e 's/\([A-Za-z() ]\+\)[[:blank:]]\([0-9.]\+\)/\1/')
+      TMP_UNIQ_VERSION=$(${UNIQ} --version | ${HEAD} -1 | ${SED} -e 's/\([A-Za-z() ]\+\)[[:blank:]]\([0-9.]\+\)/\2/')
+      script_program_name "${TMP_UNIQ_NAME}" "${TMP_UNIQ_VERSION}"
+      ! false
+   else 
+      script_error_message "uniq not found"
+      false
+   fi

@@ -1,0 +1,23 @@
+ID: HAS_GROUPCHECK
+Name: Find the grpck program
+Depends: [HAS_BASE, PLATFORM_FACTS, DISTRIBUTION_FACTS]
+Imports: [HEAD, SED]
+Description: Find the grpck program and export it to GROUPCHECK.
+Type: [check, export, info]
+Script: |
+   grpck -r 2>/dev/null 1>/dev/null
+   if ! [ "$?" = 127 ]
+   then 
+      if [ "${OS_NAME}" = "Linux" ] && [ "${DISTRIBUTION_NAME}" = "SuSE" ]
+      then
+         #on SuSE, only print errors, not warnings (option not available on other systems)
+         GROUPCHECK="grpck -q -r"
+      else
+         GROUPCHECK="grpck -r"
+      fi
+      script_program_name "grpck" "unknown"
+      ! false
+   else 
+      script_message "grpck not found"
+      false
+   fi

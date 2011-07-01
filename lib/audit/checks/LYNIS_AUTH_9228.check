@@ -1,0 +1,24 @@
+ID: LYNIS_AUTH_9228
+Name: Check Linux password file consistency pwck tool
+Depends: [HAS_SUPERUSER, HAS_PASSWD_CHECK, HAS_GREP]
+Imports: [RUN_AS_SUPERUSER, PASSWD_CHECK, GREP]
+Description: >
+   Run pwck program to verify integrity of passwd and shadow files.
+Script: |
+   TMP_PWCHECK_RESULT=$(${RUN_AS_SUPERUSER} ${PASSWD_CHECK})
+       
+   if [ "${TMP_PWCHECK_RESULT}" = "" ]
+   then
+      script_info_message "Password and shadow file ok"
+      ! false
+   else
+      IFS=$( printf '\n+' ); IFS=${IFS%+}
+      TMP_COUNTER=1
+      for TMP_LINE in $(echo "${TMP_PWCHECK_RESULT}" | ${GREP} -v "pwck:")
+      do
+         script_error_message "pwck reported error: ${TMP_LINE}"
+         script_data "errors.users.pwck.${TMP_COUNTER}" "${TMP_LINE}"
+         TMP_COUNTER=$(( ${TMP_COUNTER} + 1 ))
+      done
+      false
+   fi

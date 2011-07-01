@@ -1,0 +1,36 @@
+ID: MAYBE_HAS_SUPERUSER
+Name: Check if script has superuser rights
+Depends: [HAS_ID, HAS_SH]
+Exports: [GROUPS]
+Imports: [HEAD, SED]
+Description: >
+   Check that script is either run as superuser or can have superuser rights via sudo (without 
+   password) and export command to obtain superuser rights to RUN_AS_SUPERUSER.
+Script: |
+   TMP_UID=$(${ID} -u)
+   if [ "${TMP_UID}" = 0 ]
+   then
+      #we already have root rights
+      script_info_message "Check script is run as root"
+      RUN_AS_SUPERUSER=""
+      HAS_SUPERUSER="yes"
+      ! false
+   else
+      #test if sudo works for this user without password
+      sudo -n echo test 1>/dev/null 2>/dev/null
+      if [ "$?" = 0 ]
+      then
+         #we have root rights by doing sudo without password
+         script_info_message "Check script can use ${SUDO} for root rights"
+         RUN_AS_SUPERUSER="sudo -n"
+         HAS_SUPERUSER="yes"
+         ! false
+      else
+         #probably you would need a password to get root rights - give up here
+         script_error_message "No method to get root rights found"
+         RUN_AS_SUPERUSER=""
+         HAS_SUPERUSER="no"
+         ! false
+      fi
+   fi
+         

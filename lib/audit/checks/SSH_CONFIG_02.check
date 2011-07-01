@@ -1,0 +1,15 @@
+ID: SSH_CONFIG_02
+Depends: [SSH_INIT_2, HAS_GREP]
+Imports: [GREP, SSHD_CONFIG_FILE]
+Name: SSH root login
+Description: >
+   Check that root login with password is not possible.
+   The directive "PermitRootLogin no" (or without-password, 
+   forced-commands-only) must be present in the SSHD configuration
+   file.
+WarningMessage: > 
+   Password login for root via SSH is enabled. Login via the su/sudo mechanism 
+   or key based scheme is more secure, consider using these methods for root
+   login.
+Type: [check]
+Script: ${GREP} -i -E '^[[:blank:]]*PermitRootLogin[[:blank:]]+"?(without-password|forced-commands-only|no)"?[[:blank:]]*(#.*)?$' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null

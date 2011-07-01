@@ -1,0 +1,26 @@
+ID: BACKUP_HOME_DOTFILES
+Name: Create a backup copy of dotfiles in home directories
+Depends: [HAS_BASE, HAS_FIND, HAS_CAT, HAS_CUT, HAS_COMPRESSOR, MAYBE_HAS_SUPERUSER]
+Imports: [HAS_COMPRESSOR, MAYBE_HAS_SUPERUSER]
+Description: Create a backup copy of the /var/log directory
+Script: |
+   #if [ "${DU}" = "" ]
+   #then
+   #   TMP_SIZE=0
+   #else
+   #   TMP_SIZE=$( ${DU} -s | ${AWK} '{ print $1 }' )
+   #fi
+
+   #if [ ${TMP_SIZE} -gt 30000 ]
+   #then
+   #   script_warning_message "/var/log directory is bigger than 30M (${TMP_SIZE}k) and will not be backuped"
+   #else
+      TMP_FILES=$( ${RUN_AS_SUPERUSER} ${FIND} $( ${CAT} ${PASSWD_FILE} | ${CUT} -d: -f6 ) -maxdepth 1 -name '.*' 2>/dev/null )
+      ${RUN_AS_SUPERUSER} ${COMPRESSOR} ${AUDIT_DIRECTORY}/BACKUP_HOME_DOTFILES.${COMPRESSOR_SUFFIX} ${TMP_FILES} 2>/dev/null
+      TMP_EXITCODE=$?
+      if [ ${TMP_EXITCODE} -eq 0 ]
+      then
+         script_attach_file "${AUDIT_DIRECTORY}/BACKUP_HOME_DOTFILES.${COMPRESSOR_SUFFIX}" 'Backup of the ~/.* directories'
+      fi 
+      script_set_exit_code ${TMP_EXITCODE}
+   #fi

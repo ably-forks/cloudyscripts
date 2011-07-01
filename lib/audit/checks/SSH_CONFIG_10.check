@@ -1,0 +1,15 @@
+ID: SSH_CONFIG_10
+Depends: [SSH_INIT_2, HAS_GREP]
+Imports: [GREP, SSHD_CONFIG_FILE]
+Name: SSH default port
+Description: >
+   Check that ssh server uses a different port than 22.
+   There should be a line "Port XXX" with XXX different than 22 in your SSHD configuration.
+WarningMessage: >
+   Your SSH server listens on port 22. This is the recommended port for SSH, but you may expose
+   yourself to SSH exploit probing if you use a well-known port.
+Type: [check]
+Script: |
+   ( ! ${GREP} -i -E '^[[:blank:]]*ListenAddress.*:22' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null ) &&
+   ( ${GREP} -i -E '^[[:blank:]]*Port.*' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null ) &&
+   ( ! ${GREP} -i -E '^[[:blank:]]*Port.*22' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null )

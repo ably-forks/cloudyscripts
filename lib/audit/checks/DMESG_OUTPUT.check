@@ -1,0 +1,14 @@
+ID: DMESG_OUTPUT
+Name: Save output of dmesg
+Depends: [HAS_FIND, HAS_COMPRESSOR]
+Imports: [FIND, STREAM_COMPRESSOR]
+Description: >
+   Save output of dmesg to a file.
+Script: |
+   dmesg | ${STREAM_COMPRESSOR} > ${AUDIT_DIRECTORY}/DMESG_OUTPUT.txt.${STREAM_COMPRESSOR_SUFFIX}
+   TMP_EXITCODE=$?
+   if [ ${TMP_EXITCODE} -eq 0 ]
+   then
+      script_attach_file "${AUDIT_DIRECTORY}/DMESG_OUTPUT.txt.${STREAM_COMPRESSOR_SUFFIX}" "output of the dmesg command"
+      script_set_exit_code ${TMP_EXITCODE}
+   fi 

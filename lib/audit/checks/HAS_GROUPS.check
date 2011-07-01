@@ -1,0 +1,19 @@
+ID: HAS_GROUPS
+Name: Check for groups command
+Depends: [HAS_BASE]
+Exports: [GROUPS]
+Imports: [HEAD, SED]
+Description: Find the groups program and export it to GROUPS.
+Type: [check, export, info]
+Script: |
+   if groups --version 2>/dev/null 1>/dev/null
+   then 
+      GROUPS=groups
+      TMP_GROUPS_NAME=$(${GROUPS} --version | ${HEAD} -1 | ${SED} -e 's/\([A-Za-z() ]\+\)[[:blank:]]\([0-9.]\+\)/\1/')
+      TMP_GROUPS_VERSION=$(${GROUPS} --version | ${HEAD} -1 | ${SED} -e 's/\([A-Za-z() ]\+\)[[:blank:]]\([0-9.]\+\)/\2/')
+      script_program_name "${TMP_GROUPS_NAME}" "${TMP_GROUPS_VERSION}"
+      ! false
+   else 
+      script_error_message "not found"
+      false
+   fi

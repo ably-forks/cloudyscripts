@@ -1,0 +1,22 @@
+ID: MOUNTED_DEVICES
+Name: List mounted devices
+Depends: [HAS_AWK, HAS_MOUNT, HAS_BASE]
+Imports: [AWK, MOUNT, SED]
+Description: List all devices that are currently mounted in the file system.
+Script: |
+   IFS=$( printf "\n+" ); IFS=${IFS%+}
+   TMP_OUTPUT=$( ${MOUNT} )
+
+   for TMP_LINE in ${TMP_OUTPUT}
+   do
+      TMP_DEVICE=$( echo ${TMP_LINE} | ${AWK} '{ print $1 }' )
+      TMP_MOUNTPOINT=$( echo ${TMP_LINE} | ${AWK} '{ print $3 }' )
+      TMP_TYPE=$( echo ${TMP_LINE} | ${AWK} '{ print $5 }' )
+      TMP_OPTIONS=$( echo ${TMP_LINE} | ${AWK} '{ print $6 }' | ${SED} -e 's/^(//;s/)$//' )
+
+      script_data "filesystem.mountpoints.{${TMP_MOUNTPOINT}}.device" "${TMP_DEVICE}"
+      script_data "filesystem.mountpoints.{${TMP_MOUNTPOINT}}.type" "${TMP_TYPE}"
+      script_data "filesystem.mountpoints.{${TMP_MOUNTPOINT}}.options" "${TMP_OPTIONS}"
+   done
+   ! false
+   

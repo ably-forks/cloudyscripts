@@ -1,0 +1,35 @@
+ID: PLATFORM_FACTS
+Name: Get platform facts
+Depends: [MAYBE_HAS_ID, MAYBE_HAS_UNAME, MAYBE_HAS_HOSTNAME]
+Exports: [OS_NAME]
+Imports: [HEAD, SED]
+Description: >
+   Get platform facts like processor, architecture, operating system ...
+Script: |
+   TMP_USER=$(${ID} -u -n 2>/dev/null)
+   TMP_UID=$(${ID} -u 2>/dev/null)
+   TMP_GROUP=$(${ID} -g -n 2>/dev/null)
+   TMP_GID=$(${ID} -g 2>/dev/null)
+   TMP_MACHINE=$(${UNAME} -m 2>/dev/null)
+   TMP_OPERATING_SYSTEM=$(${UNAME} -o 2>/dev/null)
+   TMP_KERNEL=$(${UNAME} -s 2>/dev/null)
+   TMP_KERNEL_VERSION=$(${UNAME} -v 2>/dev/null)
+   TMP_KERNEL_RELEASE=$(${UNAME} -r 2>/dev/null)
+   TMP_HOSTNAME=$(${HOSTNAME} 2>/dev/null)
+
+   script_data "audit.executed_as.user" "${TMP_USER}"
+   script_data "audit.executed_as.uid" "${TMP_UID}"
+   script_data "audit.executed_as.group" "${TMP_GROUP}"
+   script_data "audit.executed_as.gid" "${TMP_GID}"
+   script_data "machine_information.machine" "${TMP_MACHINE}"
+   script_data "machine_information.os" "${TMP_OPERATING_SYSTEM}"
+   script_data "machine_information.kernel.name" "${TMP_KERNEL}"
+   script_data "machine_information.kernel.version" "${TMP_KERNEL_VERSION}"
+   script_data "machine_information.kernel.release" "${TMP_KERNEL_RELEASE}"
+   script_data "machine_information.host.name" "${TMP_HOSTNAME}"
+
+   OS_NAME="Linux"
+
+   #currently the auditing system only supports linux, so make this script fail if we do not run on linux
+   [ "${TMP_KERNEL}" = "Linux" ]
+         

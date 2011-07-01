@@ -1,0 +1,23 @@
+ID: APACHE2_CONFIG_04
+Depends: [APACHE2_CONFIG_01, APACHE_CONFIG_02, HAS_GROUPS]
+Description: Find groups for Apache2 user and verify that she is only in one group and that this group corresponds to the web server group.
+Type: [info]
+Name: APACHE2 check groups of web server user
+Script: |
+   if ${GROUPS} ${APACHE2_USER}
+   then
+      script_error_message "something went wrong while executing the ${GROUP} command to find the groups of ${APACHE2_USER}"
+      false
+   else
+      TMP_GROUPS=$(${GROUPS} ${APACHE2_USER})
+      #strip leading and trailing whitespace
+      TMP_GROUPS=$(echo ${TMP_GROUPS})
+      
+      if [ "${APACHE2_GROUP}" = "${TMP_GROUPS}" ]
+      then
+         ! false
+      else
+         script_warn_message "Either apache user ${APACHE2_USER} with apache group ${APACHE2_GROUP} has multiple groups or not the same group as in the web server configuration file: ${TMP_GROUPS}"
+         false
+      fi
+   fi

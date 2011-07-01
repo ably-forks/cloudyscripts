@@ -1,0 +1,14 @@
+ID: DIRECTORY_LISTING
+Name: Create a directory listing of all files on the root filesystem
+Depends: [HAS_FIND, HAS_COMPRESSOR, MAYBE_HAS_SUPERUSER]
+Imports: [FIND, STREAM_COMPRESSOR, STREAM_COMPRESSOR_SUFFIX, RUN_AS_SUPERUSER]
+Description: >
+   Create a listing of all directories and files on the root filesystem.
+Script: |
+   ${RUN_AS_SUPERUSER} ${FIND} / -mount -ls | ${STREAM_COMPRESSOR} > ${AUDIT_DIRECTORY}/DIRECTORY_LISTING.txt.${STREAM_COMPRESSOR_SUFFIX}
+   TMP_EXITCODE=$?
+   if [ ${TMP_EXITCODE} -eq 0 ]
+   then
+      script_attach_file "${AUDIT_DIRECTORY}/DIRECTORY_LISTING.txt.${STREAM_COMPRESSOR_SUFFIX}" "A complete directory listing of the audited host"
+      script_set_exit_code ${TMP_EXITCODE}
+   fi

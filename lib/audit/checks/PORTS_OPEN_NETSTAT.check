@@ -1,0 +1,121 @@
+# Copyright 2010-2011 SecludIT
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+ID: PORTS_OPEN_NETSTAT
+Name: List open listening ports with netstat.
+Imports: [NETSTAT, SED, GREP, AWK]
+Exports: [LISTENING_PORTS]
+Depends: [HAS_NETSTAT, MAYBE_HAS_SUPERUSER, HAS_BASE, HAS_AWK]
+Description: List open server ports with netstat on the host.
+Script: |
+   LISTENING_PORTS=""
+   #test if netstat supports --wide switch
+   if ${NETSTAT} --wide 2>/dev/null 1>/dev/null
+   then
+      TMP_WIDE_SWITCH="--wide"
+   else
+      TMP_WIDE_SWITCH=
+   fi
+
+   TMP_NETSTAT_TCP_OUTPUT=$(
+      ${RUN_AS_SUPERUSER} ${NETSTAT} --tcp --programs --all --extend ${TMP_WIDE_SWITCH} --numeric --numeric-hosts --numeric-ports 2>/dev/null | 
+      ${GREP} ^tcp )
+   TMP_NETSTAT_UDP_OUTPUT=$(
+      ${RUN_AS_SUPERUSER} ${NETSTAT} --udp --programs --listening --extend ${TMP_WIDE_SWITCH} --numeric --numeric-hosts --numeric-ports 2>/dev/null | 
+      ${GREP} ^udp )
+
+   IFS=$( printf '\n+' ); IFS=${IFS%+}
+   #do tcp parsing
+   for TMP_LINE in ${TMP_NETSTAT_TCP_OUTPUT}
+   do
+      TMP_PROTOCOL=$( echo ${TMP_LINE} | ${AWK} '{ print $1 }' )
+      TMP_SRC_SOCKET=$( echo ${TMP_LINE} | ${AWK} '{ print $4 }' )
+      TMP_DEST_SOCKET=$( echo ${TMP_LINE} | ${AWK} '{ print $5 }' )
+      TMP_STATE=$( echo ${TMP_LINE} | ${AWK} '{ print $6 }' )
+      TMP_UID=$( echo ${TMP_LINE} | ${AWK} '{ print $7 }' )
+      TMP_INODE=$( echo ${TMP_LINE} | ${AWK} '{ print $8 }' )
+      TMP_PIDPROGRAM=$( echo ${TMP_LINE} | ${AWK} '{ print $9 }' )
+
+      TMP_SRC_ADDR=$( echo ${TMP_SRC_SOCKET} | ${SED} -e 's/^\(.*\):\([0-9*]\+\)$/\1/' )
+      TMP_SRC_PORT=$( echo ${TMP_SRC_SOCKET} | ${SED} -e 's/^\(.*\):\([0-9*]\+\)$/\2/' )
+      TMP_DEST_ADDR=$( echo ${TMP_DEST_SOCKET} | ${SED} -e 's/^\(.*\):\([0-9*]\+\)$/\1/' )
+      TMP_DEST_PORT=$( echo ${TMP_DEST_SOCKET} | ${SED} -e 's/^\(.*\):\([0-9*]\+\)$/\2/' )
+
+      if [ "${TMP_PIDPROGRAM}" = "-" ]
+      then 
+         TMP_PID="UNKNOWN"
+         TMP_PROGRAM="UNKNOWN"
+      else 
+         TMP_PID=$(echo ${TMP_PIDPROGRAM} | ${SED} -e 's/\([0-9]\+\)\/\(.*\)$/\1/' )
+         TMP_PROGRAM=$(echo ${TMP_PIDPROGRAM} | ${SED} -e 's/\([0-9]\+\)\/\(.*\)$/\2/' )
+      fi
+
+      if [ "${TMP_STATE}" = "LISTEN" ]
+      then
+         if [ "${LISTENING_PORTS}" = "" ]
+         then
+            LISTENING_PORTS=${TMP_SRC_PORT}
+         else
+            LISTENING_PORTS="${LISTENING_PORTS},${TMP_SRC_PORT}"
+         fi
+      fi
+
+      script_info_message "Application '${TMP_PROGRAM}' (${TMP_PID}) is listening on ${TMP_PROTOCOL} port ${TMP_SRC_PORT} (adapter ${TMP_SRC_ADDR})"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.destination.address" "${TMP_DEST_ADDR}"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.destination.port" "${TMP_DEST_PORT}"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.state" "${TMP_STATE}"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.uid" "${TMP_UID}"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.inode" "${TMP_INODE}"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.pid" "${TMP_PID}"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.program" "${TMP_PROGRAM}"
+   done
+
+   #do udp parsing
+   for TMP_LINE in ${TMP_NETSTAT_UDP_OUTPUT}
+   do
+      TMP_PROTOCOL=$( echo ${TMP_LINE} | ${AWK} '{ print $1 }' )
+      TMP_SRC_SOCKET=$( echo ${TMP_LINE} | ${AWK} '{ print $4 }' )
+      TMP_DEST_SOCKET=$( echo ${TMP_LINE} | ${AWK} '{ print $5 }' )
+      TMP_UID=$( echo ${TMP_LINE} | ${AWK} '{ print $6 }' )
+      TMP_INODE=$( echo ${TMP_LINE} | ${AWK} '{ print $7 }' )
+      TMP_PIDPROGRAM=$( echo ${TMP_LINE} | ${AWK} '{ print $8 }' )
+
+      TMP_SRC_ADDR=$( echo ${TMP_SRC_SOCKET} | ${SED} -e 's/^\(.*\):\([0-9*]\+\)$/\1/' )
+      TMP_SRC_PORT=$( echo ${TMP_SRC_SOCKET} | ${SED} -e 's/^\(.*\):\([0-9*]\+\)$/\2/' )
+      TMP_DEST_ADDR=$( echo ${TMP_DEST_SOCKET} | ${SED} -e 's/^\(.*\):\([0-9*]\+\)$/\1/' )
+      TMP_DEST_PORT=$( echo ${TMP_DEST_SOCKET} | ${SED} -e 's/^\(.*\):\([0-9*]\+\)$/\2/' )
+
+      if [ "${TMP_PIDPROGRAM}" = "-" ]
+      then 
+         TMP_PID="UNKNOWN"
+         TMP_PROGRAM="UNKNOWN"
+      else
+         TMP_PID=$(echo ${TMP_PIDPROGRAM} | ${SED} -e 's/\([0-9]\+\)\/\(.*\)$/\1/' )
+         TMP_PROGRAM=$(echo ${TMP_PIDPROGRAM} | ${SED} -e 's/\([0-9]\+\)\/\(.*\)$/\2/' )
+      fi
+
+      script_info_message "Application '${TMP_PROGRAM}' (${TMP_PID}) is listening on ${TMP_PROTOCOL} port ${TMP_SRC_PORT} (adapter ${TMP_SRC_ADDR})"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.destination.address" "${TMP_DEST_ADDR}"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.destination.port" "${TMP_DEST_PORT}"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.state" "LISTEN"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.uid" "${TMP_UID}"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.inode" "${TMP_INODE}"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.pid" "${TMP_PID}"
+      script_data "network.interfaces.{${TMP_SRC_ADDR}}.protocol.${TMP_PROTOCOL}.ports.${TMP_SRC_PORT}.program" "${TMP_PROGRAM}"
+   done
+
+   #TODO: Maybe show connected UDP sockets - but is not very very useful, since UDP sockets don't need to be connected
+   # netstat --udp --numeric --programs --extend --wide 2>/dev/null
+
+   ! false

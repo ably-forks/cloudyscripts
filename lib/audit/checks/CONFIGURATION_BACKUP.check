@@ -1,0 +1,14 @@
+ID: CONFIGURATION_BACKUP
+Name: Backup configuration
+Depends: [HAS_COMPRESSOR, MAYBE_HAS_SUPERUSER]
+Imports: [COMPRESSOR, COMPRESSOR_SUFFIX]
+Description: >
+   Create an archive of all files in the /etc directory
+Script: |
+   ${RUN_AS_SUPERUSER} ${COMPRESSOR} ${AUDIT_DIRECTORY}/CONFIGURATION_BACKUP.${COMPRESSOR_SUFFIX} /etc 2>/dev/null
+   TMP_EXITCODE=$?
+   if [ ${TMP_EXITCODE} -eq 0 ]
+   then
+      script_attach_file "${AUDIT_DIRECTORY}/CONFIGURATION_BACKUP.${COMPRESSOR_SUFFIX}" "Backup of the /etc directory"
+   fi 
+   script_set_exit_code ${TMP_EXITCODE}

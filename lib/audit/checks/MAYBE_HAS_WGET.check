@@ -1,0 +1,17 @@
+ID: MAYBE_HAS_WGET
+Name: Check for wget program
+Depends: [HAS_BASE]
+Imports: [HEAD, SED]
+Description: Find the wget program and export it to WGET, but do not fail if it is not installed.
+Script: |
+   if wget --version 2>/dev/null 1>/dev/null
+   then 
+      WGET=wget
+      TMP_WGET_NAME=$(${WGET} --version | ${HEAD} -1 | ${SED} -e 's/\([A-Za-z ]\+\)[[:blank:]]\([0-9.]\+\)[[:blank:]].*$/\1/')
+      TMP_WGET_VERSION=$(${WGET} --version | ${HEAD} -1 | ${SED} -e 's/\([A-Za-z() ]\+\)[[:blank:]]\([0-9.]\+\)[[:blank:]].*$/\2/')
+      script_program_name "${TMP_WGET_NAME}" "${TMP_WGET_VERSION}"
+   else 
+      WGET=""
+      script_error_message "not found"
+   fi
+   ! false

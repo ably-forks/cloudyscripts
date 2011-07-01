@@ -1,0 +1,6 @@
+ID: FIND_GROUP_FILE
+Name: Find /etc/group file
+Description: Check that /etc/group file is present and export it in GROUP_FILE.
+Export: [GROUP_FILE]
+Severity: high
+Script: ls /etc/group 2>/dev/null 1>/dev/null && GROUP_FILE=/etc/group

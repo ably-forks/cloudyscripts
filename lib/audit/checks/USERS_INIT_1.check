@@ -1,0 +1,9 @@
+ID: USERS_INIT_1
+Name: Find /etc/passwd file
+Description: Check that /etc/passwd file is present and export it in PASSWD_FILE.
+Fail-Message: >
+   File /etc/passwd not found. This file is essential for all checks on users and home directories. 
+   Please verify your installation, as this file should exist.
+Severity: high
+Type: [check, export]
+Script: ls /etc/passwd 2>/dev/null 1>/dev/null && PASSWD_FILE=/etc/passwd

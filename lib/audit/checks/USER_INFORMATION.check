@@ -1,0 +1,29 @@
+ID:  USER_INFORMATION
+Name: Get user information from /etc/passwd file
+Description: >
+   Extract all information from the /etc/passwd file
+   and export it as key/value pairs.
+Depends: [FIND_SHADOW_FILE, FIND_PASSWD_FILE, HAS_BASE, MAYBE_HAS_SUPERUSER, HAS_CUT]
+Imports: [SHADOW_FILE, PASSWD_FILE, CAT, CUT, RUN_AS_SUPERUSER]
+Script: |
+   IFS=$( printf '\n+' ); IFS=${IFS%+}
+   # get information from /etc/passwd file
+   for TMP_LINE in $( ${CAT} ${PASSWD_FILE} )
+   do
+      TMP_USERNAME=$( echo ${TMP_LINE} | ${CUT} -d: -f1 )
+      TMP_PASSWD_PWD=$( echo ${TMP_LINE} | ${CUT} -d: -f2 )
+      TMP_UID=$( echo ${TMP_LINE} | ${CUT} -d: -f3 )
+      TMP_GID=$( echo ${TMP_LINE} | ${CUT} -d: -f4 )
+      TMP_COMMENT=$( echo ${TMP_LINE} | ${CUT} -d: -f5 )
+      TMP_HOMEDIR=$( echo ${TMP_LINE} | ${CUT} -d: -f6 )
+      TMP_LOGINSHELL=$( echo ${TMP_LINE} | ${CUT} -d: -f7- )
+
+      script_data "users.${TMP_USERNAME}.passwd_hash" "${TMP_PASSWD_PWD}"
+      script_data "users.${TMP_USERNAME}.uid" "${TMP_UID}"
+      script_data "users.${TMP_USERNAME}.gid" "${TMP_GID}"
+      script_data "users.${TMP_USERNAME}.comment" "${TMP_COMMENT}"
+      script_data "users.${TMP_USERNAME}.home" "${TMP_HOMEDIR}"
+      script_data "users.${TMP_USERNAME}.shell" "${TMP_LOGINSHELL}"
+   done
+
+   ! false

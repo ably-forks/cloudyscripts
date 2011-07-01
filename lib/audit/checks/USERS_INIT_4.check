@@ -1,0 +1,9 @@
+ID: USERS_INIT_4
+Name: Find /etc/shadow file
+Description: Check that /etc/shadow file is present and export it in SHADOW_FILE.
+Fail-Message: >
+   File /etc/shadow not found. This file is essential for all checks on user
+   login permissions. Please verify your installation, as this file should exist.
+Severity: high
+Type: [check, export]
+Script: ls /etc/shadow 2>/dev/null 1>/dev/null && SHADOW_FILE=/etc/shadow
