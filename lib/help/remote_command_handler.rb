@@ -11,6 +11,23 @@ class RemoteCommandHandler
     @use_sudo = false
   end
 
+  # Checks for a given IP/port if there's a response on that port.
+  def is_port_open?(ip, port)
+    begin
+      Timeout::timeout(5) do
+        begin
+          s = TCPSocket.new(ip, port)
+          s.close
+          return true
+        rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
+          return false
+        end
+      end
+    rescue Timeout::Error
+      return false
+    end
+  end
+
   # Connect to the machine as root using a keyfile.
   # Params:
   # * ip: ip address of the machine to connect to

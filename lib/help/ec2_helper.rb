@@ -106,8 +106,10 @@ class Ec2Helper
     end
   end
 
-  def instance_prop(instance_id, prop)
-    instances = @ec2_api.describe_instances(:instance_id => instance_id)
+  def instance_prop(instance_id, prop, instances = nil)
+    if instances == nil
+      instances = @ec2_api.describe_instances(:instance_id => instance_id)
+    end
     begin
       if instances['reservationSet']['item'][0]['instancesSet']['item'].size == 0
         raise Exception.new("instance #{instance_id} not found")
@@ -155,6 +157,59 @@ class Ec2Helper
       end
     }
     false
+  end
+
+  # From the information retrieved via EC2::describe_security_groups, look up
+  # all open ports for the group specified
+  def get_security_group_info(group_name, group_infos)
+    group_infos['securityGroupInfo']['item'].each() do |group_info|
+      return group_info if group_info['groupName'] == group_name
+    end
+    nil
+  end
+
+  # From the information retrieved via EC2::describe_instances for a specific
+  # instance, retrieve the names of the security groups belonging to that instance.
+  def lookup_security_group_names(instance_info)
+    group_names = []
+    puts "lookup_security_group_names(#{instance_info.inspect})"
+    instance_info['groupSet']['item'].each() {|group_info|
+      group_name = group_info['groupName'] || group_info['groupId']
+      group_names << group_name
+    }
+    group_names
+  end
+
+  # From the information retrieved via EC2::describe_security_groups, look up
+  # all open ports for the group specified
+  def lookup_open_ports(group_name, group_infos)
+    puts "group_infos = #{group_infos.inspect}"
+    group_info = get_security_group_info(group_name, group_infos)
+    puts "group_info for #{group_name} = #{group_info.inspect}"
+    open_ports = []
+    group_info['ipPermissions']['item'].each() {|permission|
+      if permission['ipRanges'] == nil
+        #no IP-Ranges defined (group based mode): ignore
+        next
+      end
+      prot = permission['ipProtocol']
+      from_port = permission['fromPort'].to_i
+      to_port = permission['toPort'].to_i
+      next if from_port != to_port #ignore port ranges
+      permission['ipRanges']['item'].each() {|ipRange|
+        if ipRange['cidrIp'] == "0.0.0.0/0"
+          #found one
+          open_ports << {:protocol => prot, :port => from_port}
+        end
+      }
+    }
+    open_ports
+  end
+
+  # Looks up the instanceId for the output retrieved by EC2::describe_instances(:instance_id => xxx)
+  def get_instance_id(instance_info)
+    puts "look up instanceId in #{instance_info.inspect}"
+    instance_info['instancesSet']['item'][0]['instanceId']
   end
 
 end

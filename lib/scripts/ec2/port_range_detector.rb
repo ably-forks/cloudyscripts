@@ -74,7 +74,6 @@ class PortRangeDetector < Ec2Script
     end
   end
 
-
   # Script done.
   class Done < PortRangeDetectorState
     def done?

@@ -2,13 +2,19 @@
 # and open the template in the editor.
 
 class MockedRemoteCommandHandler
-  attr_accessor :drive_mounted, :logger
+  attr_accessor :drive_mounted, :logger, :open_ports
 
   def initialize
+    @open_ports = [80]
     @connected = false
     @drive_mounted = false
     @logger = Logger.new(STDOUT)
     @logger.level = Logger::ERROR
+  end
+
+  def is_port_open?(ip, port)
+    puts "check for #{ip} on port #{port} => #{@open_ports.include?(port)}"
+    return @open_ports.include?(port)
   end
 
   def connect(ip, user, keydata)

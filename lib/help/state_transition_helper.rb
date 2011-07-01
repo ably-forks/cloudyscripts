@@ -179,6 +179,14 @@ module StateTransitionHelper
     @logger.info("found #{sgs.size} security groups")
     @context[:security_groups] = sgs
   end
+
+  def retrieve_instances()
+    @context[:script].post_message("going to retrieve all instances...")
+    inst = @context[:ec2_api_handler].describe_instances()
+    @context[:script].post_message("found #{inst.size} instances")
+    @logger.info("found #{inst.size} instances")
+    @context[:ec2_instances] = inst
+  end
   
   # Creates a new EBS volume.
   # Input Parameters:

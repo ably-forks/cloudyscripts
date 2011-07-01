@@ -166,7 +166,7 @@ class MockedEc2Api
   def describe_instances(instance_ids = nil)
     if instance_ids != nil
       #needed to adapt to the API
-      instance_ids = instance_ids[:instance_id]
+      instance_ids = [instance_ids]
     else
       instance_ids = []
     end
