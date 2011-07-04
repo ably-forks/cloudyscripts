@@ -66,8 +66,8 @@ class OpenPortChecker < Ec2Script
       @context[:ec2_instances]['reservationSet']['item'].each() do |instance_info|
         instance_id = ec2_helper.get_instance_id(instance_info)
         @logger.debug("instance_info = #{instance_info.inspect}")
-        instance_ip = ec2_helper.instance_prop(instance_id, 'dnsName', @context[:ec2_instances])
-        instance_state = ec2_helper.instance_prop(instance_id, 'instanceState', @context[:ec2_instances])['name']
+        instance_ip = ec2_helper.get_instance_prop(instance_info, 'dnsName')
+        instance_state = ec2_helper.get_instance_prop(instance_info, 'instanceState')['name']
         next unless instance_state == "running"
         sec_groups = ec2_helper.lookup_security_group_names(instance_info)
         @logger.debug("group lookup for #{instance_id} => #{sec_groups.inspect}")

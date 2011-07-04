@@ -207,9 +207,17 @@ class Ec2Helper
   end
 
   # Looks up the instanceId for the output retrieved by EC2::describe_instances(:instance_id => xxx)
+  # without the reservation set.
   def get_instance_id(instance_info)
     puts "look up instanceId in #{instance_info.inspect}"
     instance_info['instancesSet']['item'][0]['instanceId']
+  end
+
+  # Looks up the instanceId for the output retrieved by EC2::describe_instances(:instance_id => xxx)
+  # without the reservation set.
+  def get_instance_prop(instance_info, prop)
+    puts "look up #{prop} in #{instance_info.inspect}"
+    instance_info['instancesSet']['item'][0][prop.to_s]
   end
 
 end
