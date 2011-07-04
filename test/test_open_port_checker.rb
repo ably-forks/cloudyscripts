@@ -40,7 +40,7 @@ class TestOpenPortChecker < Test::Unit::TestCase
     puts "results = #{script.get_execution_result().inspect}"
     assert script.get_execution_result[:done]
     assert !script.get_execution_result[:failed]
-    port_checks = [{:port=>22, :instance=>"i-11111", :success=>false, :protocol=>"tcp"}, {:port=>80, :instance=>"i-11111", :success=>true, :protocol=>"tcp"}, {:port=>22, :instance=>"i-22222", :success=>false, :protocol=>"tcp"}]
+    port_checks = [{:group_name => 'web-service', :port=>22, :instance=>"i-11111", :success=>false, :protocol=>"tcp"}, {:group_name => 'web-service',:port=>80, :instance=>"i-11111", :success=>true, :protocol=>"tcp"}, {:group_name => 'thousand',:port=>22, :instance=>"i-22222", :success=>false, :protocol=>"tcp"}]
     assert_equal port_checks, script.get_execution_result[:port_checks]
     puts "done in #{endtime-starttime}s"
   end

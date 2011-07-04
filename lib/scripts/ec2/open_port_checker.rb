@@ -83,7 +83,7 @@ class OpenPortChecker < Ec2Script
               @logger.warn("exception during executing port check: #{e}")
             end
             @context[:result][:port_checks] << {:instance => instance_id, :protocol => port_info[:protocol],
-              :port => port_info[:port], :success => result
+              :port => port_info[:port], :success => result, :group_name => group_name
             }
           end
         end
