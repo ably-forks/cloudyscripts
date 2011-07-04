@@ -68,7 +68,10 @@ class OpenPortChecker < Ec2Script
         @logger.debug("instance_info = #{instance_info.inspect}")
         instance_ip = ec2_helper.get_instance_prop(instance_info, 'dnsName')
         instance_state = ec2_helper.get_instance_prop(instance_info, 'instanceState')['name']
-        next unless instance_state == "running"
+        if instance_state != "running"
+          post_message("ignore instance #{instance_id} since not running")
+          next
+        end
         sec_groups = ec2_helper.lookup_security_group_names(instance_info)
         @logger.debug("group lookup for #{instance_id} => #{sec_groups.inspect}")
         sec_groups.each() do |group_name|
