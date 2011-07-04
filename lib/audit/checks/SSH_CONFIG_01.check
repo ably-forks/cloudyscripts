@@ -1,0 +1,12 @@
+ID: SSH_CONFIG_01
+Depends: [SSH_INIT_2, HAS_GREP]
+Imports: [GREP, SSHD_CONFIG_FILE]
+Name: SSH protocol version
+Description: >
+   Check that only SSH protocol 2 is enabled in the SSH server configuration.
+   The "Protocol 2" directive must be present in the SSHD configuration file.
+WarningMessage: > 
+   The SSH server has other protocol versions than version 2 enabled. Protocol version 1
+   is known to contain vulnerabilities and should not be used.
+Type: [check]
+Script: ${GREP} -i -E '^[[:blank:]]*Protocol[[:blank:]]+"?2"?[[:blank:]]*(#.*)?$' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null

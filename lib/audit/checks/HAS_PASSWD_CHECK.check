@@ -1,0 +1,17 @@
+ID: HAS_PASSWD_CHECK
+Name: Find the pwck program
+Depends: []
+Imports: []
+Description: Find the grpck program and export it to GROUPCHECK.
+Type: [check, export, info]
+Script: |
+   pwck -r 2>/dev/null 1>/dev/null
+   if ! [ "$?" = 127 ]
+   then 
+      PASSWD_CHECK="pwck -q -r"
+      script_program_name "pwck" "unknown"
+      ! false
+   else 
+      script_error_message "pwck not found"
+      false
+   fi

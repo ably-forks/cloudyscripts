@@ -1,0 +1,10 @@
+ID: USERS_INIT_5
+Name: Check for superuser privileges
+Description: >
+   Check that this script has the permissions to obtain superuser rights.
+   There are several possible ways for this: A superuser password, or
+   sudo privileges.
+Severity: high
+Type: [check, export]
+Script: |
+   

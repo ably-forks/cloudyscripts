@@ -1,0 +1,30 @@
+ID: HAS_COMPRESSOR
+Name: Find a compression program and export it to COMPRESSOR.
+Depends: [MAYBE_HAS_BZIP2, MAYBE_HAS_TAR]
+Exports: [COMPRESSOR, STREAM_COMPRESSOR, COMPRESSOR_SUFFIX, STREAM_COMPRESSOR_SUFFIX]
+Imports: [TAR, BZIP2]
+Description: >
+   Find a compression program. The program will be exported to COMPRESSOR
+   and can be used by calling it like that: 
+   ${COMPRESSOR} destination.${COMPRESSOR_SUFFIX} files
+   It is important to not put quotation marks around ${COMPRESSOR}, as the  command
+   includes parameters.
+   In the same manner STREAM_COMPRESSOR is exported and can be chained into a stream
+   to compress this stream, p.ex. 
+   cat data | ${STREAM_COMPRESSOR} > dest.${STREAM_COMPRESSOR_SUFFIX}  
+Script: |
+   #
+   if [ ! "${TAR}" = "" ]
+   then
+      COMPRESSOR="${TAR} cjf"
+      COMPRESSOR_SUFFIX="tar.bz2"
+   fi
+
+   if [ ! "${BZIP2}" = "" ]
+   then
+      STREAM_COMPRESSOR="${BZIP2} -9c"
+      STREAM_COMPRESSOR_SUFFIX="bz2"
+   fi
+
+   # script is fine if the compressor variables are defined in the end
+   [ ! "${COMPRESSOR}" = "" ] && [ ! "${STREAM_COMPRESSOR}" = "" ]

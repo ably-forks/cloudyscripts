@@ -1,0 +1,35 @@
+ID: LYNIS_AUTH_9208
+Name: Check non unique user ids
+Depends: [FIND_PASSWD_FILE, HAS_GREP, HAS_CUT, HAS_CAT]
+Imports: [PASSWD_FILE, GREP, CUT, CAT]
+Description: >
+   Check that each user has a unique UID. Having several
+   accounts with the same UID is not meaningful. as only the
+   UID is ised internally to distinguish between users.
+Script: |
+   TMP_RESULT=""
+
+   TMP_DUPLICATE_UIDS=$( ${GREP} -v "^$" "${PASSWD_FILE}" | ${SED} -e 's/^[^:]*:[^:]*:\([^:]*\):.*$/\1/' | ${SORT} | ${UNIQ} -d )
+   IFS=$( printf ' \t\n+' ); IFS=${IFS%+}
+   for TMP_UID in $( echo ${TMP_DUPLICATE_UIDS} )
+   do
+      TMP_USERNAME_NUM=1
+      IFS=$( printf '\n+' ); IFS=${IFS%+}
+      for TMP_LINE in $(${GREP} -E "^[^:]*:[^:]*:${TMP_UID}:" "${PASSWD_FILE}" )
+      do
+         TMP_USER=$(echo ${TMP_LINE} | ${CUT} -d: -f1)
+         TMP_RESULT="${TMP_RESULT}I"
+
+         script_error_message "User ${TMP_USER} does not have a unique UID"
+
+         #TODO: UID is not a unique key here, as there may also be 3 users with the same UID ...
+         script_data "errors.users.duplicate_uid.${TMP_UID}.names.${TMP_USERNAME_NUM}" "${TMP_USER}"
+
+         TMP_USERNAME_NUM=$(( ${TMP_USERNAME_NUM} + 1 ))
+      done
+      IFS=$( printf ' \t\n+' ); IFS=${IFS%+}
+   done
+
+   # only succeed check if no users with same uid were found
+   [ "${TMP_DUPLICATE_UIDS}" = "" ]
+         

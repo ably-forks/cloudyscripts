@@ -1,0 +1,7 @@
+ID: HAS_ID
+Name: Check for id program
+Depends: [MAYBE_HAS_ID]
+Imports: [ID]
+Description: Require the id program.
+Script: |
+   ! [ "${ID}" = "" ]

@@ -1,0 +1,25 @@
+ID: LIST_USER_ACCOUNTS
+Name: List all user accounts on the system
+Depends: [FIND_PASSWD_FILE, HAS_CAT, HAS_GREP]
+Imports: [PASSWD_FILE, CAT, GREP]
+Severity: low
+Description: >
+   List all user accounts
+Script:
+   for TMP_LINE in $(${CAT} ${PASSWD_FILE} | ${GREP} -v "^$" )
+   do
+      TMP_USER=$(echo ${TMP_LINE} | ${CUT} -d: -f1)
+      TMP_UID=$(echo ${TMP_LINE} | ${CUT} -d: -f3)
+      TMP_PWD_HASH=$(echo ${TMP_LINE} | ${CUT} -d: -f2)
+      TMP_SHELL=$(echo ${TMP_LINE} | ${CUT} -d: -f7-)
+      TMP_HOMEDIR=$(echo ${TMP_LINE} | ${CUT} -d: -f6)
+
+      script_info_message "user account ${TMP_USER} [${TMP_UID}]"
+      script_data "users.${TMP_USER}.uid" "${TMP_UID}" 
+      script_data "users.${TMP_USER}.passwd_hash" "${TMP_PWD_HASH}"
+      script_data "users.${TMP_USER}.gid" "${TMP_GID}"
+      script_data "users.${TMP_USER}.shell" "${TMP_SHELL}"
+      script_data "users.${TMP_USER}.home_dir" "${TMP_HOMEDIR}"
+   done
+
+   ! false

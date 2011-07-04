@@ -1,0 +1,12 @@
+ID: BACKUP_WEB
+Name: Create a backup copy of the /var/www and /srv/www directory
+Depends: [HAS_COMPRESSOR, MAYBE_HAS_SUPERUSER]
+Description: Create a backup copy of the /var/www and /srv/www directory
+Script: |
+   ${RUN_AS_SUPERUSER} ${COMPRESSOR} ${AUDIT_DIRECTORY}/BACKUP_WWW.${COMPRESSOR_SUFFIX} /var/www /srv/www 2>/dev/null 1>/dev/null
+   TMP_EXITCODE=$?
+   if [ -f "${AUDIT_DIRECTORY}/BACKUP_WWW.${COMPRESSOR_SUFFIX}" ]
+   then
+      script_attach_file "${AUDIT_DIRECTORY}/BACKUP_WWW.${COMPRESSOR_SUFFIX}" "Backup of the /var/www directory"
+   fi 
+   script_set_exit_code ${TMP_EXITCODE}

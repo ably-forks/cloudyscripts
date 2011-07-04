@@ -1,0 +1,9 @@
+ID: MYSQL_INIT_1
+Depends: [HAS_PS, HAS_SED, HAS_GREP]
+Imports: [PS, SED, GREP]
+Exports: [MYSQLD_PID]
+Description: Check if the mysql server is running. 
+Type: [check, export]
+Script: |
+   MYSQLD_PID=$(${PS} -A | ${GREP} mysqld | ${SED} -e 's/^[[:blank:]]*\([0-9]\+\)[[:blank:]]\+.*/\1/')
+   if [ ! -z "${MYSQLD_PID}" ]; then true; else ! true; fi

@@ -1,0 +1,34 @@
+ID: APACHE2_CONFIG_02
+Depends: [APACHE2_INIT_2, HAS_CAT, HAS_BASE, HAS_GREP]
+Description: Get group for running Apache2 from configuration files and export it to APACHE2_GROUP.
+Type: [info]
+Name: APACHE2 get group from configuration files
+Script: |
+   APACHE2_GROUP=""
+   TMP_NUM_GROUPS=$(${CAT} ${APACHE2_CONFIG_FILES} | ${GREP} -c -E '^[[:blank:]]*Group')
+
+   if [ ! "${TMP_NUM_GROUPS}" = 1 ]
+   then
+      script_error_message "Found more than one 'Group' directive in configuration files"
+   else
+      TMP_GROUP=$(${CAT} ${APACHE2_CONFIG_FILES} | ${GREP} -E '^[[:blank:]]*Group' | sed -e 's/^[[:blank:]]*Group[[:blank:]]*//')
+
+      #In Ubuntu, the group name is a variable and is really defined in /etc/apache2/envvars
+      if echo "${TMP_GROUP}" | ${GREP} '$' 2>/dev/null 1>/dev/null
+      then
+         TMP_GROUP_VAR=$( echo "${TMP_GROUP}" | ${SED} -e 's/\${\?//;s/}//' )
+         TMP_GROUP=$(${CAT} /etc/apache2/envvars | ${GREP} "${TMP_GROUP_VAR}" | ${SED} -e "s/^.*${TMP_GROUP_VAR}[[:blank:]]*=[[:blank:]]*\(.*\)$/\1/")
+         APACHE2_GROUP=${TMP_GROUP}
+      else
+         APACHE2_GROUP=${TMP_GROUP}
+      fi
+
+      if [ "${APACHE2_GROUP}" = "" ]
+      then
+         script_error_message "could not find Apache2 group"
+         false
+      else
+         script_info_message "Found Apache2 group: ${APACHE2_GROUP}"
+         ! false
+      fi
+   fi

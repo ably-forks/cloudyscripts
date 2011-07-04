@@ -1,0 +1,4 @@
+ID: SLOW_2
+Name: Slow check
+Duration: 20
+Script: sleep 20

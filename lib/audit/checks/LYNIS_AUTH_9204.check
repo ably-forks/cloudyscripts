@@ -1,0 +1,43 @@
+ID: LYNIS_AUTH_9204
+Name: Check users with UID zero (0)
+Depends: [FIND_PASSWD_FILE, HAS_GREP]
+Exports: [GROUPS]
+Imports: [HEAD, SED]
+Description: >
+   Check that there is only one user with UID 0. Only the 'root' account
+   should have this UID, as you are able to do everything you want on a
+   system if you have UID 0. If you want to allow multiple accounts to 
+   administrate your machine, consider using sudo.
+Script: |
+   TMP_COUNTER=1
+   for TMP_LINE in $(${GREP} -E "^[^:]*:[^:]*:0:" "${PASSWD_FILE}" )
+   do
+      TMP_USER=$(echo ${TMP_LINE} | ${CUT} -d: -f1)
+      TMP_UID=$(echo ${TMP_LINE} | ${CUT} -d: -f3)
+      TMP_GID=$(echo ${TMP_LINE} | ${CUT} -d: -f4)
+
+      script_info_message "User ${TMP_USER} [${TMP_UID}] has root rights"
+
+      if [ ! "${TMP_USER}" = "root" ]
+      then
+         script_data "errors.users.duplicate_root.${TMP_COUNTER}.name" "${TMP_USER}"
+         script_data "errors.users.duplicate_root.${TMP_COUNTER}.uid" "${TMP_UID}"
+         script_data "errors.users.duplicate_root.${TMP_COUNTER}.gid" "${TMP_GID}"
+      fi
+
+      TMP_COUNTER=$(( ${TMP_COUNTER} + 1 ))
+   done
+
+   if [ ${TMP_COUNTER} = 1 ]
+   then
+      script_error_message "No administrator accounts found"
+      false
+   elif [ ${TMP_COUNTER} = 2 ]
+   then
+      script_info_message "No accounts found with UID 0 other than root"
+      ! false
+   else
+      script_error_message "Multiple users with UID 0 found in passwd file"
+      false
+   fi
+         

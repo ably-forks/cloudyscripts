@@ -1,0 +1,19 @@
+ID: HAS_MOUNT
+Name: Check for mount
+Depends: [HAS_BASE]
+Exports: [MOUNT]
+Imports: [HEAD, SED]
+Description: Find the mount program and export it to MOUNT.
+Type: [check, export, info]
+Script: |
+   if mount --version 2>/dev/null 1>/dev/null
+   then 
+      MOUNT=mount
+      TMP_MOUNT_NAME=$(${MOUNT} --version | ${HEAD} -1 | ${SED} -e 's/^\([A-Za-z() -]\+\)[[:blank:]]\([0-9.]\+\)[[:blank:]].*$/\1/')
+      TMP_MOUNT_VERSION=$(${MOUNT} --version | ${HEAD} -1 | ${SED} -e 's/^\([A-Za-z() -]\+\)[[:blank:]]\([0-9.]\+\)[[:blank:]].*$/\2/')
+      script_program_name "${TMP_MOUNT_NAME}" "${TMP_MOUNT_VERSION}"
+      ! false
+   else 
+      script_message "mount not found"
+      false
+   fi

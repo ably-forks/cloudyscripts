@@ -1,0 +1,32 @@
+ID: SSH_KEYS_1
+Depends: [USERS_INIT_1, HAS_CAT, HAS_CUT, HAS_BASE]
+Description: Generate list of all public ssh keys in 'authorized_keys' files of all users.
+Type: [info]
+Name: SSH list login keys
+Script: |
+   IFS=$( printf '\n+' ); IFS=${IFS%+}
+
+   for LINE in $(${CAT} ${PASSWD_FILE})
+   do 
+      TMP_LOGINNAME=$(echo ${LINE} | ${CUT} -d: -f1)
+      TMP_UID=$(echo ${LINE} | ${CUT} -d: -f3)
+      TMP_HOME_DIR=$(echo ${LINE} | ${CUT} -d: -f6)
+      if [ -f ${TMP_HOME_DIR}/.ssh/authorized_keys ]
+      then
+         TMP_SSH_KEY_NUM=1
+         for l in $(${CAT} ${TMP_HOME_DIR}/.ssh/authorized_keys)
+         do
+            TMP_KEY_TYPE=$( echo $l | ${CUT} -d' ' -f1 )
+            TMP_KEY_KEY=$( echo $l | ${CUT} -d' ' -f2 )
+            TMP_KEY_NAME=$( echo $l | ${CUT} -d' ' -f3 )
+            script_data "users.${TMP_UID}.name" "${TMP_LOGINNAME}" 
+            script_data "users.${TMP_UID}.home_dir" "${TMP_HOME_DIR}"
+            script_data "users.${TMP_UID}.authorized_ssh_keys.${TMP_SSH_KEY_NUM}.type" "${TMP_KEY_TYPE}"
+            script_data "users.${TMP_UID}.authorized_ssh_keys.${TMP_SSH_KEY_NUM}.key" "${TMP_KEY_KEY}"
+            script_data "users.${TMP_UID}.authorized_ssh_keys.${TMP_SSH_KEY_NUM}.name" "${TMP_KEY_NAME}"
+
+            script_info_message "${TMP_LOGINNAME} can login with key ${TMP_KEY_NAME}"
+            TMP_SSH_KEY_NUM=$(( ${TMP_SSH_KEY_NUM} + 1 ))
+         done
+      fi
+   done

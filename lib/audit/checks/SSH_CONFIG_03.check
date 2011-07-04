@@ -1,0 +1,13 @@
+ID: SSH_CONFIG_03
+Depends: [SSH_INIT_2, HAS_GREP]
+Imports: [GREP, SSHD_CONFIG_FILE]
+Name: SSH privilege separation
+Description: >
+   Check that privilege separation is enabled.
+   There must be no "UsePrivilegeSeparation no" line in your SSHD configuration.
+WarningMessage: > 
+   Privilege separation spawns a new process with user privileges after the
+   user has logged in. This contains corruptions in the unprivileged process
+   and prevents privilege escalation.
+Type: [check]
+Script: ( ! ${GREP} -i -E '^[[:blank:]]*UsePrivilegeSeparation[[:blank:]]+"?no"?' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null )

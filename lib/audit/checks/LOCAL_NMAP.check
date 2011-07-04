@@ -1,0 +1,97 @@
+ID:  LOCAL_NMAP
+Name: Run local nmap for fingerprinting purposes
+Description: >
+   Extract all information from the /etc/passwd file
+   and export it as key/value pairs.
+Depends: [HAS_TAR, HAS_UNAME, HAS_HOSTNAME, HAS_FILE_DOWNLOADER, MAYBE_HAS_SUPERUSER]
+Imports: [SHADOW_FILE, PASSWD_FILE, CAT, CUT, RUN_AS_SUPERUSER]
+Script: |
+   TMP_NMAP_LIGHT_TEXT_OUTPUT="${AUDIT_DIRECTORY}/nmap_light.log"
+   TMP_NMAP_LIGHT_XML_OUTPUT="${AUDIT_DIRECTORY}/nmap_light.xml"
+   TMP_NMAP_LIGHT_NONROOT_PARAMS="-vv -p 0-65535 -Pn -sV --version-light -script=default,ssh2-enum-algos,ssh-hostkey --host-timeout 2m"
+   TMP_NMAP_LIGHT_ROOT_PARAMS="-O --osscan-limit"
+      
+   TMP_NMAP_THOROUGH_TEXT_OUTPUT="${AUDIT_DIRECTORY}/nmap_thorough.log"
+   TMP_NMAP_THOROUGH_XML_OUTPUT="${AUDIT_DIRECTORY}/nmap_thorough.xml"
+   TMP_NMAP_THOROUGH_NONROOT_PARAMS="-vv -p 0-65535 -Pn -sV --version-all -script=default,ssh2-enum-algos,ssh-hostkey --host-timeout 5m"
+   TMP_NMAP_THOROUGH_ROOT_PARAMS="-O --osscan-guess"
+   
+   TMP_NMAP="" # this is the path of the nmap program that will be started
+   TMP_NMAP_DIR="" # nmap directory is used to delete copied nmap
+   TMP_NMAP_LIGHT_EXIT_CODE=1
+   TMP_NMAP_THOROUGH_EXIT_CODE=1
+   TMP_ARCH=$( ${UNAME} -m )
+   
+   # download nmap and unpack it
+   case "${TMP_ARCH}" in
+   i686)
+      TMP_NMAP_ARCHIVE="nmap-5.51-x86-tmp.tar.bz2"
+      ${DOWNLOAD_FILE} "/tmp/${TMP_NMAP_ARCHIVE}" "http://home.in.tum.de/zaddach/var/${TMP_NMAP_ARCHIVE}" 2>/dev/null 1>/dev/null
+      if [ ! -f "/tmp/${TMP_NMAP_ARCHIVE}" ]
+      then
+         script_error_message "Downloading of NMap archive ${TMP_NMAP_ARCHIVE} failed"
+      else
+         ${TAR} xjf "/tmp/${TMP_NMAP_ARCHIVE}" -C /
+         TMP_NMAP_DIR="/tmp/nmap-5.51-x86"
+         TMP_NMAP="/tmp/nmap-5.51-x86/bin/nmap"
+      fi
+      ;;
+   x86_64)
+      TMP_NMAP_ARCHIVE="nmap-5.51-x64-tmp.tar.bz2"
+      ${DOWNLOAD_FILE} "/tmp/${TMP_NMAP_ARCHIVE}" "http://home.in.tum.de/zaddach/var/${TMP_NMAP_ARCHIVE}" 2>/dev/null 1>/dev/null
+      if [ ! -f "/tmp/${TMP_NMAP_ARCHIVE}" ]
+      then
+         script_error_message "Downloading of NMap archive ${TMP_NMAP_ARCHIVE} failed"
+      else
+         ${TAR} xjf "/tmp/${TMP_NMAP_ARCHIVE}" -C /
+         TMP_NMAP_DIR="/tmp/nmap-5.51-x64"
+         TMP_NMAP="/tmp/nmap-5.51-x64/bin/nmap"
+      fi
+      ;;
+   *)
+      script_error_message "Unknown architecture ${TMP_ARCH}"
+      ;;
+   esac
+   
+   # if an nmap was installed
+   if [ ! "${TMP_NMAP}" = "" ]
+   then
+      if [ "${HAS_SUPERUSER}" = "yes" ]
+      then
+         # if superuser possible, execute nmap with superuser rights
+         ${RUN_AS_SUPERUSER} ${TMP_NMAP} -oX "${TMP_NMAP_LIGHT_XML_OUTPUT}" -oN "${TMP_NMAP_LIGHT_TEXT_OUTPUT}" ${TMP_NMAP_LIGHT_NONROOT_PARAMS} ${TMP_NMAP_LIGHT_ROOT_PARAMS} $( ${HOSTNAME} ) 2>/dev/null 1>/dev/null
+         TMP_NMAP_LIGHT_EXIT_CODE=$?
+         ${RUN_AS_SUPERUSER} ${TMP_NMAP} -oX "${TMP_NMAP_THOROUGH_XML_OUTPUT}" -oN "${TMP_NMAP_THOROUGH_TEXT_OUTPUT}" ${TMP_NMAP_THOROUGH_NONROOT_PARAMS} ${TMP_NMAP_THOROUGH_ROOT_PARAMS} $( ${HOSTNAME} ) 2>/dev/null 1>/dev/null
+         TMP_NMAP_THOROUGH_EXIT_CODE=$?
+      else
+         ${TMP_NMAP} -oX "${TMP_NMAP_LIGHT_XML_OUTPUT}" -oN "${TMP_NMAP_LIGHT_TEXT_OUTPUT}" ${TMP_NMAP_LIGHT_NONROOT_PARAMS} $( ${HOSTNAME} ) 2>/dev/null 1>/dev/null
+         TMP_NMAP_LIGHT_EXIT_CODE=$?
+         ${TMP_NMAP} -oX "${TMP_NMAP_THOROUGH_XML_OUTPUT}" -oN "${TMP_NMAP_THOROUGH_TEXT_OUTPUT}" ${TMP_NMAP_THOROUGH_NONROOT_PARAMS} $( ${HOSTNAME} ) 2>/dev/null 1>/dev/null
+         TMP_NMAP_THOROUGH_EXIT_CODE=$?
+      fi
+   
+      script_attach_file "${TMP_NMAP_LIGHT_TEXT_OUTPUT}"
+      script_attach_file "${TMP_NMAP_LIGHT_XML_OUTPUT}"
+      script_attach_file "${TMP_NMAP_THOROUGH_TEXT_OUTPUT}"
+      script_attach_file "${TMP_NMAP_THOROUGH_XML_OUTPUT}"
+   
+      # if nmap directory was set, remove the installed nmap
+      if [ ! "${TMP_NMAP_DIR}" = "" ]
+      then
+         rm -Rf "${TMP_NMAP_DIR}"
+      fi
+
+      # and also delete the archive that we downloaded
+      if [ ! "${TMP_NMAP_ARCHIVE}" = "" ] && [ -f "/tmp/${TMP_NMAP_ARCHIVE}" ]
+      then
+         rm -f "/tmp/${TMP_NMAP_ARCHIVE}"
+      fi
+   fi
+   
+   if [ ${TMP_NMAP_LIGHT_EXIT_CODE} -eq 0 ] && [ ${TMP_NMAP_THOROUGH_EXIT_CODE} -eq 0 ]
+   then
+      #both nmaps finished with exit code 0, script suceeded
+      ! false
+   else
+      false
+   fi

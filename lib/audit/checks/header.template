@@ -1,0 +1,10 @@
+
+
+#################################
+### %%SCRIPT_ID%%
+#################################
+
+MY_SCRIPT_ID="%%SCRIPT_ID%%"
+IFS=$( printf ' \t\n+' ); IFS=${IFS%+}
+if [ 0 -eq 0 %%DEPENDS_CONDITION%% ]
+then

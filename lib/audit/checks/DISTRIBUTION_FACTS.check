@@ -1,0 +1,60 @@
+ID: DISTRIBUTION_FACTS
+Name: Get linux distribution facts
+Depends: [MAYBE_HAS_LSB_RELEASE, HAS_CUT, HAS_BASE]
+Exports: [DISTRIBUTION_NAME]
+Imports: [HEAD, SED, CUT, LSB_RELEASE]
+Description: >
+   Get platform facts like processor, architecture, operating system ...
+Script: |
+   if [ ! "${LSB_RELEASE}" = "" ]; then
+      TMP_DIST_NAME=$(${LSB_RELEASE} -i 2>/dev/null)
+      TMP_DIST_RELEASE=$(${LSB_RELEASE} -r 2>/dev/null)
+      TMP_DIST_CODENAME=$(${LSB_RELEASE} -c 2>/dev/null)
+      TMP_DIST_DESCRIPTION=$(${LSB_RELEASE} -d 2>/dev/null)
+   elif [ -r "/etc/fedora-release" ]; then
+      TMP_DIST_NAME=$( ${CAT} /etc/fedora-release | ${CUT} -d' ' -f1 )
+      TMP_DIST_RELEASE=$( ${CAT} /etc/fedora-release | ${CUT} -d' ' -f2-3 )
+      TMP_DIST_CODENAME=$( ${CAT} /etc/fedora-release  | ${SED} -e 's/^.*(\(.*\)).*$/\1/' )
+   elif [ -r '/etc/release' ]; then
+      TMP_DIST_NAME=$( head -n1 /etc/release | sed 's/ *\([^0-9]*\) [0-9].*/\1/' )
+   elif [ -r '/etc/arch-release' ]; then
+      TMP_DIST_NAME="Arch Linux"
+   elif [ -r '/etc/debian_version' ]; then
+      TMP_DIST_NAME='Debian'
+      TMP_DIST_RELEASE=$( ${CAT} /etc/debian_version )
+   elif [ -r '/etc/gentoo-release' ]; then
+      TMP_DIST_NAME='Gentoo'
+   elif [ -r '/etc/knoppix-version' ]; then
+      TMP_DIST_NAME='Knoppix'
+   elif [ -r '/etc/mandrake-release' ]; then
+      TMP_DIST_NAME='Mandrake'
+   elif [ -r '/etc/pardus-release' ]; then
+      TMP_DIST_NAME='Pardus'
+   elif [ -r '/etc/puppyversion' ]; then
+      TMP_DIST_NAME='Puppy Linux'
+   elif [ -r '/etc/redhat-release' ]; then
+      TMP_DIST_NAME='Red Hat'
+   elif [ -r '/etc/sabayon-release' ]; then
+      TMP_DIST_NAME='Sabayon'
+   elif [ -r '/etc/slackware-version' ]; then
+      TMP_DIST_NAME='Slackware'
+   elif [ -r '/etc/SuSE-release' ]; then
+      TMP_DIST_NAME=$( ${CAT} /etc/SuSE-release | ${HEAD} -n1 | ${CUT} -d' ' -f1 )
+      TMP_DIST_VERSION=$( ${CAT} /etc/SuSE-release | ${HEAD} -n1 | ${CUT} -d' ' -f2 )
+   elif [ -r '/etc/xandros-desktop-version' ]; then
+      TMP_DIST_NAME='Xandros'
+   elif [ -r '/etc/zenwalk-version' ]; then
+      TMP_DIST_NAME="Zenwalk"
+   fi
+
+
+
+   script_data "machine_information.distribution.name" "${TMP_DIST_NAME}"
+   script_data "machine_information.distribution.release" "${TMP_DIST_RELEASE}"
+   if [ ! "${TMP_DIST_CODENAME}" = "" ]; then script_data "machine_information.distribution.codename" "${TMP_DIST_CODENAME}"; fi
+   if [ ! "${TMP_DIST_DESCRIPTION}" = "" ]; then script_data "machine_information.distribution.description" "${TMP_DIST_DESCRIPTION}"; fi
+   DISTRIBUTION_NAME="${TMP_DIST_NAME}"
+   ! false
+
+   
+         

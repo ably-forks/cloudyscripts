@@ -1,0 +1,19 @@
+ID: HAS_SH
+Name: Check for sh
+Depends: [HAS_BASE]
+Exports: [GREP]
+Imports: [HEAD, SED]
+Description: Find the sh shell and export it to SH.
+Script: |
+   /bin/sh -c "exit 42"
+
+   if [ $? = 42 ]
+   then 
+      SH=/bin/sh
+      GREP=grep
+      script_program_name "${TMP_GREP_NAME}" "unknown"
+      ! false
+   else 
+      script_message "sh not found"
+      false
+   fi

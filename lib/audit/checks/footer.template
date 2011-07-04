@@ -1,0 +1,12 @@
+   EXIT_CODE=$?
+   %%SCRIPT_ID%%_EXITCODE=${EXIT_CODE}
+   if [ ${EXIT_CODE} -eq 0 ]
+   then 
+      script_return "pass"
+   else 
+		script_return "fail"
+   fi
+else
+   %%SCRIPT_ID%%_EXITCODE=2
+   script_return "notchecked"
+fi

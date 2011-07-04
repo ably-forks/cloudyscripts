@@ -1,0 +1,11 @@
+ID: SSH_CONFIG_04
+Depends: [SSH_INIT_2, HAS_GREP]
+Imports: [GREP, SSHD_CONFIG_FILE]
+Name: SSH X11 forwarding
+Description: >
+   Check that X11 forwarding is disabled.
+   There must be no "X11Forwarding yes" line in your SSHD configuration.
+WarningMessage: > 
+   With X11 forwarding enabled, clients may expose their X-Servers to attacks. 
+Type: [check]
+Script: ( ! ${GREP} -i -E '^[[:blank:]]*X11Forwarding[[:blank:]]+"?yes"?' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null )

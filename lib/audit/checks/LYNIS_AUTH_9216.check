@@ -1,0 +1,24 @@
+ID: LYNIS_AUTH_9216
+Name: Check /etc/group and shadow group files with grpck tool
+Depends: [HAS_SUPERUSER, HAS_GROUPCHECK]
+Imports: [PASSWD_FILE, GREP, CUT, CAT]
+Description: >
+   Run grpck program to verify integrity of group
+   and gshadow files.
+Script: |
+   TMP_GROUPCHECK_RESULT=$(${RUN_AS_SUPERUSER} ${GROUPCHECK})
+    
+   if [ "${TMP_GROUPCHECK_RESULT}" = "" ]
+   then
+      ! false
+   else
+      IFS=$( printf '\n+' ); IFS=${IFS%+}
+      TMP_COUNTER=1
+      for TMP_LINE in $(echo "${TMP_GROUPCHECK_RESULT}")
+      do
+         script_error_message "grpck reported error: ${TMP_LINE}"
+         script_data "errors.users.grpck.${TMP_COUNTER}" "${TMP_LINE}"
+         TMP_COUNTER=$(( ${TMP_COUNTER} + 1 ))
+      done
+      false
+   fi     

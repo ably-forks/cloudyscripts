@@ -1,0 +1,12 @@
+ID: SSH_CONFIG_09
+Depends: [SSH_INIT_2, HAS_GREP]
+Imports: [GREP, SSHD_CONFIG_FILE]
+Name: SSH host-based authentication for protocol 1
+Description: >
+   Check that host based authentication is not allowed for protocol version 1.
+   There must not be a "RhostsRSAAuthentication yes" line in your SSHD configuration.
+WarningMessage: >
+   Hostbased authentication is a bad idea, as you need to trust the computer from which you login as
+   much as the one you log into. Use user-based authentication instead.
+Type: [check]
+Script: ( ! ${GREP} -i -E '^[[:blank:]]*RhostsRSAAuthentication[[:blank:]]+"?yes"?' "${SSHD_CONFIG_FILE}" 2>/dev/null 1>/dev/null )

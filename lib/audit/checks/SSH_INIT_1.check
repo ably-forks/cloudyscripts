@@ -1,0 +1,9 @@
+ID: SSH_INIT_1
+Depends: [HAS_PS, HAS_BASE, HAS_GREP]
+Imports: [PS, SED, GREP]
+Exports: [SSHD_PID]
+Description: Check if the SSH server is running. 
+Type: [check, export]
+Script: |
+   SSHD_PID=$(${PS} -A | ${GREP} sshd | ${SED} -e 's/^[[:blank:]]*\([0-9]\+\)[[:blank:]]\+.*/\1/')
+   if [ ! -z "${SSHD_PID}" ]; then true; else ! true; fi

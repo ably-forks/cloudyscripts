@@ -1,0 +1,29 @@
+ID: MYSQL_HISTORY_1
+Name: Check for MySQL history files
+Depends: [USERS_INIT_1, HAS_BASE, HAS_CUT, HAS_SED]
+Description: >
+   Check all users home directories for MySQL history files.
+   These files contain the history of all executed MySQL commands and may be valuable to an
+   attacker.
+Script: |
+   TMP_IFS=IFS
+   IFS=$( print '\n+' ); IFS=${IFS%+}
+
+   TMP_RETURN_CODE=1
+
+   for TMP_LINE in $(${CAT} ${PASSWD_FILE})
+   do 
+      TMP_LOGINNAME=$(echo ${TMP_LINE} | ${CUT} -d: -f1)
+      TMP_HOME_DIR=$(echo ${TMP_LINE} | ${CUT} -d: -f6)
+
+      #test if any file with the name .mysql_history exists in the home directory, regardless of
+      #if it is a symbolic link or a regular file     
+      if [ -e ${TMP_HOME_DIR}/.mysql_history ]
+      then 
+         script_warn_message "User ${TMP_LOGINNAME} has a Mysql history file in his home directory: ${TMP_HOME_DIR}/.mysql_history"
+         script_data "${TMP_LOGINNAME}" "${TMP_HOME_DIR}/.mysql_history"
+         TMP_RETURN_CODE=0
+      fi
+   done
+   IFS=TMP_IFS
+   [ "${TMP_RETURN_CODE}" = 1 ]

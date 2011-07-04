@@ -1,0 +1,38 @@
+# Copyright 2010-2011 SecludIT
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+ID: PACKAGES_INSTALLED_DPKG
+Name: List installed packages with dpkg
+Imports: [DPKG, AWK, TAIL]
+Exports: [PACKAGES_LIST]
+Depends: [HAS_AWK, HAS_DPKG, HAS_TAIL]
+Description: Get a list of installed packages from the dpkg package manager.
+Script: |
+   IFS=$( printf '\n+' ); IFS=${IFS%+}
+   TMP_COUNTER=1
+   for TMP_PACKAGE in $( ${DPKG} --list | ${TAIL} -n+6 )
+   do
+      TMP_PACKAGE_NAME=$( echo ${TMP_PACKAGE} | ${AWK} '{ print $2 }' )
+      TMP_PACKAGE_STATE=$( echo ${TMP_PACKAGE} | ${AWK} '{ print $1 }' )
+      TMP_PACKAGE_VERSION=$( echo ${TMP_PACKAGE} | ${AWK} '{ print $3 }' )
+      TMP_PACKAGE_DESCRIPTION=$( echo ${TMP_PACKAGE} | ${AWK} '{ print $4 }' )
+
+      script_data "package_mgr.packages.${TMP_COUNTER}.name" "${TMP_PACKAGE_NAME}"
+      script_data "package_mgr.packages.${TMP_COUNTER}.state" "${TMP_PACKAGE_STATE}"
+      script_data "package_mgr.packages.${TMP_COUNTER}.version" "${TMP_PACKAGE_VERSION}"
+      #script_data "package_mgr.packages.${TMP_COUNTER}.state" "${TMP_PACKAGE_DESCRIPTION}"
+      TMP_COUNTER=$(( ${TMP_COUNTER} + 1 ))
+   done
+
+   ! false

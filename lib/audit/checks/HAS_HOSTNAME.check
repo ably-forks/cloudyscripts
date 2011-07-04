@@ -1,0 +1,7 @@
+ID: HAS_HOSTNAME
+Name: Check for hostname program
+Depends: [MAYBE_HAS_HOSTNAME]
+Imports: [HOSTNAME]
+Description: Require the hostname program.
+Script: |
+   ! [ "${HOSTNAME}" = "" ]
