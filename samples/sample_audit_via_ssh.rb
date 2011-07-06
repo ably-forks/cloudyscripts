@@ -27,12 +27,9 @@ class AuditViaSshSampleCode
     aws_access_key = "MyAccessKey"	# Your AWS access key
     aws_secret_key = "MySecretKey"	# Your AWS secret key
 
-    aws_access_key = "AKIAJHUQRMJ2N43R45KA"	# Your AWS access key
-    aws_secret_key = "zosvhonNGRsvnzN8pJhhQAYlGe+LMyD3PI1byt0+"	# Your AWS secret key
-
     aws_endpoint = "ec2.us-east-1.amazonaws.com"
     aws_ami_id = "ami-72d8201b"		# Your EC2 AMI to Audit
-    aws_instance_id = "i-4f495a21"	# Your EC2 Instance to Audit
+    aws_instance_id = "i-012345678"	# Your EC2 Instance to Audit
 
     aws_ec2_api = AWS::EC2::Base.new(:access_key_id => aws_access_key, :secret_access_key => aws_secret_key, :server => aws_endpoint)
     ssh = RemoteCommandHandler.new()
@@ -42,8 +39,8 @@ class AuditViaSshSampleCode
 
     puts "describe images: #{aws_ec2_api.describe_images(:image_id => aws_ami_id).inspect}"
     params = {
-      #:ami_id => aws_ami_id,
-      :instance_id => aws_instance_id,
+      :ami_id => aws_ami_id,
+      #:instance_id => aws_instance_id,
       :ec2_api_handler => aws_ec2_api,
       :sec_grp_name => "CloudyScripts Open FW",
       :logger => logger,
