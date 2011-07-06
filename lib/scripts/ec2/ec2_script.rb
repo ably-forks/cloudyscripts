@@ -12,7 +12,7 @@ class Ec2Script
     @progress_message_listeners = []
     if input_params[:logger] == nil
       @logger = Logger.new(STDOUT)
-      @logger .level = Logger::WARN
+      @logger.level = Logger::WARN
       input_params[:logger] = @logger
     else
       @logger = input_params[:logger]

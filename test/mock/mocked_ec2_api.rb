@@ -103,8 +103,10 @@ class MockedEc2Api
     if @rootDeviceType == "ebs"
       vol_id = create_dummy_volume("vol-ebs-for-#{instance_id}", "timezone")['volumeId']
       attach_volume(:volume_id => vol_id, :instance_id =>instance_id)
-      drop "instances now #{describe_instances(:instance_id => instance_id).inspect}"
-      drop "volumes now #{describe_volumes(:volume_id => vol_id).inspect}"
+      #drop "instances now #{describe_instances(:instance_id => instance_id).inspect}"
+      puts "instances now #{describe_instances(:instance_id => instance_id).inspect}"
+      #drop "volumes now #{describe_volumes(:volume_id => vol_id).inspect}"
+      puts "volumes now #{describe_volumes(:volume_id => vol_id).inspect}"
     end
     describe_instances(:instance_id => instance_id)['reservationSet']['item'][0]
   end
@@ -166,7 +168,7 @@ class MockedEc2Api
   def describe_instances(instance_ids = nil)
     if instance_ids != nil
       #needed to adapt to the API
-      instance_ids = [instance_ids]
+      instance_ids = instance_ids[:instance_id]
     else
       instance_ids = []
     end
@@ -356,7 +358,7 @@ class MockedEc2Api
     get_instance(options[:instance_id])[:instance_state] = "running"
   end
 
-  private
+  #private
 
   def cause_failure()
     if @fail

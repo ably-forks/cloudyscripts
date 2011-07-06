@@ -96,6 +96,7 @@ module StateTransitionHelper
   # * ami_id => ID of the AMI to be launched
   # * key_name => name of the key to access the instance
   # * security_group_name => name of the security group to be used
+  # * type => type of instance to start
   # Returned information:
   # * instance_id => ID of the started instance
   # * dns_name => DNS name of the started instance
@@ -103,7 +104,7 @@ module StateTransitionHelper
   # * kernel_id => EC2 Kernel ID of the started instance
   # * ramdisk_id => EC2 Ramdisk ID of the started instance
   # * architecture => architecture (e.g. 386i, 64x) of the started instance
-  def launch_instance(ami_id, key_name, security_group_name, ec2_handler = nil)
+  def launch_instance(ami_id, key_name, security_group_name, ec2_handler = nil, type = nil)
     ec2_handler = ec2_handler() if ec2_handler == nil
     post_message("starting up instance to execute the script (AMI = #{ami_id}) ...")
     @logger.debug "start up AMI #{ami_id}"
@@ -114,6 +115,7 @@ module StateTransitionHelper
     if architecture != "i386"
       instance_type = "m1.large"
     end
+    instance_type = type if type != nil
     arch_log_msg = "Architecture of image #{ami_id} is #{architecture}. Use instance_type #{instance_type}."
     @logger.info arch_log_msg
     post_message(arch_log_msg)
@@ -150,6 +152,59 @@ module StateTransitionHelper
     return instance_id, dns_name, availability_zone, kernel_id, ramdisk_id, architecture
   end
 
+  # Start an instance
+  # Input Paramters:
+  # * instance_id => ID of the instance to start
+  # * timeout => a timeout for waiting instance to start to avoid infinite loop (default set to 4m)
+  # Return Parameters (Array):
+  # * instance_id
+  # * public_dns_name
+  def start_instance(instance_id, timeout = 240)
+    dns_name = ""
+    post_message("going to start instance '#{instance_id}'...")
+    res = ec2_handler().describe_instances(:instance_id => instance_id)
+    state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
+    if state['code'].to_i == 16
+      dns_name = res['reservationSet']['item'][0]['instancesSet']['item'][0]['dnsName'] 
+      msg = "instance '#{instance_id}' already started"
+      @logger.warn "#{msg}"
+      post_message("#{msg}")
+      done = true
+    else
+      @logger.debug "start instance #{instance_id}"
+      ec2_handler().start_instances(:instance_id => instance_id)
+    end
+      while timeout > 0 && !done
+      res = ec2_handler().describe_instances(:instance_id => instance_id)
+      state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
+      @logger.debug "instance in state '#{state['name']}' (#{state['code']})"
+      if state['code'].to_i == 16 
+        done = true
+        timeout = 0
+        dns_name = res['reservationSet']['item'][0]['instancesSet']['item'][0]['dnsName']
+      elsif state['code'].to_i != 0 
+        done = false
+        timeout = 0
+        msg = "instance in state '#{state['name']}'"
+        @logger.error "#{msg}"
+        post_message("#{msg}")
+      end
+      sleep(5)
+      timeout -= 5
+    end
+    msg = ""
+    if !done
+      msg = "Failed to start instance '#{instance_id}"
+      @logger.error "#{msg}"
+      raise Exception.new("Unable to start instance '#{instance_id}'}")
+    else
+      msg = "'#{instance_id}' successfully started" 
+      @logger.info "#{msg}" 
+    end
+    post_message("#{msg}")
+    return instance_id, dns_name
+  end
+   
   # Shuts down an instance.
   # Input Parameters:
   # * instance_id => ID of the instance to be shut down
@@ -270,11 +325,12 @@ module StateTransitionHelper
     msg = ""
     if !done
       msg = "Failed to attach volume '#{volume_id}' to instance '#{instance_id}"
+      @logger.error "#{msg}"
       raise Exception.new("volume #{mount_point} not attached")
     else
       msg = "volume #{volume_id} successfully attached" 
+      @logger.info "#{msg}"
     end
-    @logger.error "#{msg}"
     post_message("#{msg}")
   end
 
@@ -304,11 +360,12 @@ module StateTransitionHelper
     msg = ""
     if !done
       msg = "Failed to detach volume '#{volume_id}' from instance '#{instance_id}"
+      @logger.error "#{msg}"
       raise Exception.new("volume #{mount_point} not detached")
     else
       msg = "volume #{volume_id} successfully detached" 
+      @logger.info "#{msg}"
     end
-    @logger.error "#{msg}"
     post_message("#{msg}")
   end
 

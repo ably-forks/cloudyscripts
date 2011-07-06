@@ -26,7 +26,7 @@ class SshConnection
 		end
 		
 		@@logger.info("opening ssh connection with parameters: " + @parameters.to_s)
-		
+	
 		parameters = @parameters.clone()
 		host = @parameters[:host]
 		user = @parameters[:user]
