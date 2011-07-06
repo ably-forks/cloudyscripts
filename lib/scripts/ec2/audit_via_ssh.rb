@@ -22,7 +22,7 @@ class AuditViaSsh < Ec2Script
   end
 
   def check_input_parameters()
-    if @input_params[:instance_id] == nil && @input_params[:instance_id] == nil
+    if @input_params[:ami_id] == nil && @input_params[:instance_id] == nil
       raise Exception.new("No Instance ID or AMI ID specified")
     end
     if @input_params[:ami_id] != nil && !(@input_params[:ami_id] =~ /^ami-.*$/)
@@ -37,6 +37,8 @@ class AuditViaSsh < Ec2Script
     end
     if @input_params[:audit_type] != nil && @input_params[:audit_type].casecmp("SSH")
       @input_params[:benchmark_file] = "./lib/audit/benchmark_ssh.zip"
+    elsif @input_params[:audit_type] != nil && @input_params[:audit_type].casecmp("APACHE")
+      @input_params[:benchmark_file] = "./lib/audit/benchmark_apache.zip"
     else
       raise Exception.new("Invalid Audit '#{@input_params[:audit_type]}' specified")
     end
@@ -105,9 +107,9 @@ class AuditViaSsh < Ec2Script
       @context[:result][:audit_test] = []
       audit.results.each() {|key, value|
         if key =~ /^SSH_.*$/
-          puts "DEBUG: Key: #{key}, Result: #{value.result}, Desc: #{value.rule.description}"
+          #puts "DEBUG: Key: #{key}, Result: #{value.result}, Desc: #{value.rule.description}"
           @context[:result][:audit_test] << {:name => key, :desc => value.rule.description, :status => value.result}
-          post_message("== > Test #{key}: Status: #{value.result.eql?("pass") ? "OK" : "NOK"}")
+          post_message("== > Test #{key}: Status: #{value.result.eql?("pass") ? "OK" : "NOK"}\n  Desc: #{value.rule.description}")
         end
       }
       CleanUpAuditViaSsh.new(@context)
