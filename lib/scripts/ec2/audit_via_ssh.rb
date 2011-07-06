@@ -22,8 +22,8 @@ class AuditViaSsh < Ec2Script
   end
 
   def check_input_parameters()
-    if @input_params[:ami_id] == nil && @input_params[:instance_id] == nil
-      raise Execption.new("No Instance ID or AMI ID specified")
+    if @input_params[:instance_id] == nil && @input_params[:instance_id] == nil
+      raise Exception.new("No Instance ID or AMI ID specified")
     end
     if @input_params[:ami_id] != nil && !(@input_params[:ami_id] =~ /^ami-.*$/)
       raise Exception.new("Invalid AMI ID specified")
