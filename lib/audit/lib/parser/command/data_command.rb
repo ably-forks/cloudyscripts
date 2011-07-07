@@ -1,7 +1,7 @@
-require 'parser/command/abstract_command'
-require 'parser/command/abstract_command_result'
-require 'parser/result_type'
-require 'parser/parse_exception'
+require 'audit/lib/parser/command/abstract_command'
+require 'audit/lib/parser/command/abstract_command_result'
+require 'audit/lib/parser/result_type'
+require 'audit/lib/parser/parse_exception'
 
 class DataCommandResult < AbstractCommandResult
   attr_reader :key

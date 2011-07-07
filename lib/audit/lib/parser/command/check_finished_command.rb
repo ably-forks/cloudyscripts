@@ -1,8 +1,8 @@
 # To change this template, choose Tools | Templates
 # and open the template in the editor.
-require 'parser/command/abstract_command_result'
-require 'parser/command/abstract_command'
-require 'parser/result_type'
+require 'audit/lib/parser/command/abstract_command_result'
+require 'audit/lib/parser/command/abstract_command'
+require 'audit/lib/parser/result_type'
 
 class CheckFinishedCommandResult < AbstractCommandResult
   attr_reader :exit_code

@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'rexml/document'
-require 'util/random_string'
+require 'audit/lib/util/random_string'
 require 'fileutils'
 require 'socket'
 require 'timeout'

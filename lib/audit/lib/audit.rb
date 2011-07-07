@@ -1,12 +1,12 @@
 require 'logger'
 	
-require 'connection/connection_factory'
-require 'benchmark/benchmark_factory'
-require 'linear_script_generator'
-require 'parser/script_output_parser'
-require 'util/random_string'
-require 'benchmark/benchmark_result'
-require 'lazy'
+require 'audit/lib/connection/connection_factory'
+require 'audit/lib/benchmark/benchmark_factory'
+require 'audit/lib/linear_script_generator'
+require 'audit/lib/parser/script_output_parser'
+require 'audit/lib/util/random_string'
+require 'audit/lib/benchmark/benchmark_result'
+require 'audit/lib/lazy'
 
 class Audit
 	attr_reader :benchmark

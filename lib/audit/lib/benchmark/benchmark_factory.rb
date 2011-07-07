@@ -1,4 +1,4 @@
-require 'benchmark/yaml_benchmark'
+require 'audit/lib/benchmark/yaml_benchmark'
 
 class BenchmarkFactory
 	def initialize(options)

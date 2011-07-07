@@ -2,12 +2,11 @@ require 'yaml'
 require 'logger'
 require 'zip/zip'
 
-require 'benchmark/group'
-require 'benchmark/item_exception'
-require 'benchmark/check'
-require 'benchmark/audit_benchmark'
-require 'benchmark/automatic_dependencies'
-
+require 'audit/lib/benchmark/group'
+require 'audit/lib/benchmark/item_exception'
+require 'audit/lib/benchmark/check'
+require 'audit/lib/benchmark/audit_benchmark'
+require 'audit/lib/benchmark/automatic_dependencies'
 
 
 class YamlBenchmark < AuditBenchmark

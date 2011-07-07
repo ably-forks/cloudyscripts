@@ -1,6 +1,7 @@
-require 'benchmark/check'
-require 'benchmark/item_exception'
-require 'lazy'
+require 'audit/lib/benchmark/check'
+require 'audit/lib/benchmark/item_exception'
+require 'audit/lib/lazy'
+
 
 class AuditBenchmark
 	attr_reader :item_repository

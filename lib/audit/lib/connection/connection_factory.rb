@@ -1,4 +1,4 @@
-require 'connection/ssh_connection'
+require 'audit/lib/connection/ssh_connection'
 
 
 class ConnectionFactory

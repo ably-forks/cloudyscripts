@@ -3,8 +3,8 @@
 
 # icons taken from http://www.famfamfam.com/lab/icons/silk/
 
-require 'benchmark/audit_benchmark'
-require 'parser/result_type'
+require 'audit/lib/benchmark/audit_benchmark'
+require 'audit/lib/parser/result_type'
 require 'logger'
 
 class WebViewTransformer

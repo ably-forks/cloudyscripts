@@ -1,7 +1,7 @@
-require 'parser/command/abstract_command_result'
-require 'parser/command/abstract_command'
-require 'parser/parse_exception'
-require 'parser/result_type'
+require 'audit/lib/parser/command/abstract_command_result'
+require 'audit/lib/parser/command/abstract_command'
+require 'audit/lib/parser/parse_exception'
+require 'audit/lib/parser/result_type'
 
 class AttachFileCommandResult < AbstractCommandResult
   attr_reader :file

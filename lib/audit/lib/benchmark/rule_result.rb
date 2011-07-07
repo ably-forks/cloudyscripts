@@ -1,5 +1,5 @@
-require 'benchmark/result_code'
-require 'lazy'
+require 'audit/lib/benchmark/result_code'
+require 'audit/lib/lazy'
 
 class RuleResult
   attr_reader :rule

@@ -1,4 +1,4 @@
-require 'lazy'
+require 'audit/lib/lazy'
 
 
 class Group

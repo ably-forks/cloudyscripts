@@ -1,4 +1,4 @@
-require 'lazy'
+require 'audit/lib/lazy'
 
 class Check
 	attr_reader :id 				# The ID by which this check is referenced from other elements

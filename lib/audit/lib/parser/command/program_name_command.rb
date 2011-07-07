@@ -1,6 +1,6 @@
-require 'parser/command/abstract_command'
-require 'parser/command/abstract_command_result'
-require 'parser/result_type'
+require 'audit/lib/parser/command/abstract_command'
+require 'audit/lib/parser/command/abstract_command_result'
+require 'audit/lib/parser/result_type'
 
 class ProgramNameCommandResult < AbstractCommandResult
   attr_reader :program_name
