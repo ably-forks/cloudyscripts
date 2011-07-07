@@ -106,7 +106,7 @@ class AuditViaSsh < Ec2Script
       audit.start(false)
       @context[:result][:audit_test] = []
       audit.results.each() {|key, value|
-        if key =~ /^SSH_.*$/
+        if key =~ /^SSH_.*$/ || key =~ /^APACHE2_.*$/
           #puts "DEBUG: Key: #{key}, Result: #{value.result}, Desc: #{value.rule.description}"
           @context[:result][:audit_test] << {:name => key, :desc => value.rule.description, :status => value.result}
           post_message("== > Test #{key}: Status: #{value.result.eql?("pass") ? "OK" : "NOK"}\n  Desc: #{value.rule.description}")
