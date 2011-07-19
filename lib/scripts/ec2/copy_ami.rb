@@ -118,8 +118,11 @@ class CopyAmi < Ec2Script
       device = @context[:temp_device_name]
       mount_point = "/mnt/tmp_#{@context[:source_volume_id]}"
       attach_volume(@context[:source_volume_id], @context[:source_instance_id], device)
-      connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
+      connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata]) 
       mount_fs(mount_point, device)
+      # get root partition label and filesystem type
+      @context[:label] = get_root_partition_label()
+      @context[:fs_type] = get_root_partition_fs_type()
       disconnect()
       SourceVolumeReadyState.new(@context)
     end
@@ -151,7 +154,7 @@ class CopyAmi < Ec2Script
       mount_point = "/mnt/tmp_#{@context[:target_volume_id]}"
       attach_volume(@context[:target_volume_id], @context[:target_instance_id], device)
       connect(@context[:target_dns_name], @context[:target_ssh_username], nil, @context[:target_ssh_keydata])
-      create_fs(@context[:target_dns_name], device)
+      create_labeled_fs(@context[:target_dns_name], device, @context[:fs_type], @context[:label])
       mount_fs(mount_point, device)
       disconnect()
       TargetVolumeReadyState.new(@context)
@@ -177,10 +180,19 @@ class CopyAmi < Ec2Script
   # Now we can copy.
   class KeyInPlaceState < CopyAmiState
     def enter()
+      connect(@context[:target_dns_name], @context[:target_ssh_username], nil, @context[:target_ssh_keydata])
+      disable_ssh_tty(@context[:target_dns_name])
+      disconnect()
+      #
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
       source_dir = "/mnt/tmp_#{@context[:source_volume_id]}/"
       dest_dir = "/mnt/tmp_#{@context[:target_volume_id]}"
-      remote_copy(@context[:source_ssh_username], @context[:target_key_name], source_dir, @context[:target_dns_name], dest_dir)
+      remote_copy(@context[:source_ssh_username], @context[:target_key_name], source_dir, 
+        @context[:target_dns_name], @context[:target_ssh_username], dest_dir)
+      disconnect()
+      #
+      connect(@context[:target_dns_name], @context[:target_ssh_username], nil, @context[:target_ssh_keydata])
+      enable_ssh_tty(@context[:target_dns_name])
       disconnect()
       DataCopiedState.new(@context)
     end
@@ -200,8 +212,14 @@ class CopyAmi < Ec2Script
   class TargetSnapshotCreatedState < CopyAmiState
     def enter()
       remote_region()
+      # Get Amazon Kernel Image ID
+      aki = get_aws_kernel_image_aki(@context[:ec2_api_handler].server.split('.')[1], @context[:kernel_id], 
+        @context[:target_ec2_handler].server.split('.')[1])
+      #@context[:result][:image_id] = register_snapshot(@context[:new_snapshot_id], @context[:name],
+      #  @context[:root_device_name], @context[:description], nil,
+      #  nil, @context[:architecture])
       @context[:result][:image_id] = register_snapshot(@context[:new_snapshot_id], @context[:name],
-        @context[:root_device_name], @context[:description], nil,
+        @context[:root_device_name], @context[:description], aki,
         nil, @context[:architecture])
       AmiRegisteredState.new(@context)
     end

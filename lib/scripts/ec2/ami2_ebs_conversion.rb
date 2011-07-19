@@ -112,7 +112,10 @@ class Ami2EbsConversion < Ec2Script
         @context[:ssh_keyfile], @context[:ssh_keydata],
         @context[:connect_trials], @context[:connect_interval]
       )
-      create_fs(@context[:dns_name], @context[:temp_device_name])
+      # get root partition label and filesystem type
+      @context[:label] = get_root_partition_label()
+      @context[:fs_type] = get_root_partition_fs_type()
+      create_labeled_fs(@context[:dns_name], device, @context[:fs_type], @context[:label])      
       FileSystemCreated.new(@context)
     end
   end
@@ -120,7 +123,6 @@ class Ami2EbsConversion < Ec2Script
   # File system created. Mount it.
   class FileSystemCreated < Ami2EbsConversionState
     def enter
-      #@context[:mount_dir] = "/mnt/tmp_#{@context[:volume_id]}"
       @context[:mount_dir] = "/ebs_#{@context[:volume_id]}"
       mount_fs(@context[:mount_dir], @context[:temp_device_name])
       FileSystemMounted.new(@context)

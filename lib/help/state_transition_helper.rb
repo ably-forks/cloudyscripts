@@ -112,6 +112,7 @@ module StateTransitionHelper
     image_props = ec2_handler.describe_images(:image_id => ami_id)
     architecture = image_props['imagesSet']['item'][0]['architecture']
     instance_type = "m1.small"
+    #instance_type = "t1.micro"
     if architecture != "i386"
       instance_type = "m1.large"
     end
@@ -457,9 +458,39 @@ module StateTransitionHelper
 
   # Create a file-system on a given machine (assumes to be connected already).
   # Input Parameters:
+  # * dns_name => IP used
+  # * device => device to be used for file-system creation (e.g. /dev/sdj)
+  # * type => filesystem type (ext2, ext3, ext4)
+  # * label => add a label to the partition
+  def create_labeled_fs(dns_name, device, type, label)
+    post_message("going to create filesystem on #{dns_name} to #{device}...")
+    @logger.debug "create filesystem of type '#{type}' (default is ext3) on '#{dns_name}' to '#{device}'"
+    fs_type = "ext3"
+    if !type.nil? && !type.empty?
+      fs_type = type
+    end
+    @logger.debug "create '#{fs_type}' filesystem on device '#{device}'"
+    status = remote_handler().create_filesystem(fs_type, device)
+    if status == false
+      raise Exception.new("failed to create #{type} filesystem on #{device} device on #{dns_name}")
+    end
+    post_message("filesystem system successfully created")
+    if !label.nil? && !label.empty?
+      post_message("going to add label #{label} for device #{device}...")
+      @logger.debug "add label '#{label}' to device '#{device}'"
+      if remote_handler().set_root_label(device, label)
+        post_message("label #{label} added to device #{device}")
+      else
+        raise Exception.new("failed to add label #{label} to device #{device}")
+      end
+    end
+  end
+
+  # Create a file-system on a given machine (assumes to be connected already).
+  # Input Parameters:
   # * mount_point => directory to be mounted on the device
   # * device => device used for mounting
-  def mount_fs(mount_point, device)
+  def mount_fs_old(mount_point, device)
     post_message("going to mount #{device} on #{mount_point}...")
     @logger.debug "mount #{device} on #{mount_point}"
     if !remote_handler.file_exists?(mount_point)
@@ -482,6 +513,52 @@ module StateTransitionHelper
     post_message("mount successful")
   end
 
+  def mount_fs(mount_point, device)
+    post_message("going to mount #{device} on #{mount_point}...")
+    @logger.debug "mount #{device} on #{mount_point}"
+    if !remote_handler.file_exists?(mount_point)
+      post_message("creating mount point #{mount_point}...")
+      @logger.debug "creating mount point #{mount_point}"
+      remote_handler().mkdir(mount_point)
+    end
+    #XXX: detect new kernel that have /dev/xvdX device node instaed of /dev/sdX
+    if device =~ /\/dev\/sd[a-z]/
+      if !remote_handler().file_exists?(device)
+        post_message("'#{device}' device node not found, checking for new kernel support...")
+        @logger.debug "'#{device}' device node not found, checking for new kernel support" 
+        new_device = device.gsub('sd', 'xvd')
+        if remote_handler().file_exists?(new_device)
+          post_message("'#{new_device}' device node found")
+          @logger.debug "'#{new_device}' device node found"
+          device = new_device
+        end
+      end
+    #elsif device =~/\/dev\/xvd[a-z]/
+    end
+
+    done = false
+    timeout = 120
+    while timeout > 0
+      res = remote_handler().mount(device, mount_point)
+      if remote_handler().drive_mounted?(mount_point)
+        done = true
+        timeout = 0
+      end
+      sleep(5)
+      timeout -= 5
+    end
+    msg = ""
+    if !done
+      msg = "Failed to mount device '#{device}' to '#{mount_point}"
+      @logger.error "#{msg}"
+      raise Exception.new("device #{device} not mounted")
+    else
+      msg = "device #{device} successfully mounted" 
+      @logger.info "#{msg}"
+    end
+    post_message("#{msg}")
+  end
+
   # Unmount a drive
   # Input Parameters:
   # * mount_point => directory to be unmounted
@@ -494,6 +571,39 @@ module StateTransitionHelper
       raise Exception.new("drive #{mount_point} not unmounted")
     end
     post_message("device unmounted")
+  end
+
+  # Get root partition label
+  def get_root_partition_label()
+    post_message("Retrieving '/' root partition label if any...")
+    @logger.debug "get root partition label"
+    # get root device and then its label
+    root_device = remote_handler().get_root_device()
+    @logger.debug "Found '#{root_device}' as root device"
+    label = remote_handler().get_root_label(root_device)
+    @logger.debug "Found label '#{label}'"
+    if label.nil? || label.empty?
+      post_message("'/' root partition has no label specified")
+    else
+      post_message("'/' root partition label '#{label}' for root device node '#{root_device}'")
+    end
+    return label
+  end
+
+  # get root filesytem type
+  def get_root_partition_fs_type()
+    post_message("Retrieving '/' root partition filesystem type...")
+    @logger.debug "get root partition filesystel type"
+    # get root device and then its fs type
+    root_fs_type = remote_handler().get_root_fs_type()
+    @logger.debug "Found '#{root_fs_type}' as root filesystem type"
+    if root_fs_type.nil? || root_fs_type.empty?
+      raise Exception.new("Failed to retrieve filesystem type for '/' root partition")
+    else
+      post_message("'/' root partition contains an #{root_fs_type} filesystem")
+    end
+    return root_fs_type
+  
   end
 
   # Copy all files of a running linux distribution via rsync to a mounted directory
@@ -541,7 +651,7 @@ module StateTransitionHelper
     post_message("EBS volume successfully zipped")
   end
 
-  def remote_copy(user_name, keyname, source_dir, dest_machine, dest_dir)
+  def remote_copy_old(user_name, keyname, source_dir, dest_machine, dest_dir)
     post_message("going to remote copy all files from volume. This may take some time...")
     key_path_candidates = ["/#{user_name}/.ssh/", "/home/#{user_name}/.ssh/"]
     key_path_candidates.each() {|key_path|
@@ -553,6 +663,39 @@ module StateTransitionHelper
         else
           @logger.debug "use scp command #{key_file}"
           remote_handler().scp(key_file, source_dir, dest_machine, dest_dir)
+        end
+        break
+      end
+    }
+    post_message("remote copy operation done")
+  end
+
+  def disable_ssh_tty(host)
+    post_message("going to disable SSH tty on #{host}...")
+    @logger.debug "disable SSH tty on "
+    remote_handler().disable_sudoers_requiretty()
+    post_message("SSH tty disabled")
+  end
+
+  def enable_ssh_tty(host)
+    post_message("going to enable SSH tty on #{host}...")
+    @logger.debug "enable SSH tty on"
+    remote_handler().enable_sudoers_requiretty()
+    post_message("SSH tty enabled")
+  end
+
+  def remote_copy(user_name, keyname, source_dir, dest_machine, dest_user, dest_dir)
+    post_message("going to remote copy all files from volume. This may take some time...")
+    key_path_candidates = ["/#{user_name}/.ssh/", "/home/#{user_name}/.ssh/"]
+    key_path_candidates.each() {|key_path|
+      key_file = "#{key_path}#{keyname}.pem"
+      if remote_handler().file_exists?(key_path)
+        if remote_handler().tools_installed?("rsync")
+          @logger.debug "use rsync command on #{key_file}"
+          remote_handler().remote_rsync(key_file, source_dir, dest_machine, dest_user, dest_dir)
+        else
+          @logger.debug "use scp command #{key_file}"
+          remote_handler().scp(key_file, source_dir, dest_machine, dest_user, dest_dir)
         end
         break
       end
@@ -581,6 +724,122 @@ module StateTransitionHelper
       disconnect()
     end
   end
+
+  # Mapping AmazonKernel Image IDs
+  # From documentation: http://docs.amazonwebservices.com/AWSEC2/latest/UserGuide/index.html?UserProvidedkernels.html
+  # * US-East-1
+  #    aki-4c7d9525 ec2-public-images/pv-grub-hd00-V1.01-i386.gz.manifest.xml
+  #    aki-4e7d9527 ec2-public-images/pv-grub-hd00-V1.01-x86_64.gz.manifest.xml
+  #    aki-407d9529 ec2-public-images/pv-grub-hd0-V1.01-i386.gz.manifest.xml
+  #    aki-427d952b ec2-public-images/pv-grub-hd0-V1.01-x86_64.gz.manifest.xml
+  #    aki-525ea73b ec2-public-images/pv-grub-hd00_1.02-i386.gz.manifest.xml
+  #    aki-8e5ea7e7 ec2-public-images/pv-grub-hd00_1.02-x86_64.gz.manifest.xml
+  #    aki-805ea7e9 ec2-public-images/pv-grub-hd0_1.02-i386.gz.manifest.xml
+  #    aki-825ea7eb ec2-public-images/pv-grub-hd0_1.02-x86_64.gz.manifest.xml
+  # * US-West-1
+  #    aki-9da0f1d8 ec2-public-images-us-west-1/pv-grub-hd00-V1.01-i386.gz.manifest.xml
+  #    aki-9fa0f1da ec2-public-images-us-west-1/pv-grub-hd00-V1.01-x86_64.gz.manifest.xml
+  #    aki-99a0f1dc ec2-public-images-us-west-1/pv-grub-hd0-V1.01-i386.gz.manifest.xml
+  #    aki-9ba0f1de ec2-public-images-us-west-1/pv-grub-hd0-V1.01-x86_64.gz.manifest.xml
+  #    aki-87396bc2 ec2-public-images-us-west-1/pv-grub-hd00_1.02-i386.gz.manifest.xml
+  #    aki-81396bc4 ec2-public-images-us-west-1/pv-grub-hd00_1.02-x86_64.gz.manifest.xml
+  #    aki-83396bc6 ec2-public-images-us-west-1/pv-grub-hd0_1.02-i386.gz.manifest.xml
+  #    aki-8d396bc8 ec2-public-images-us-west-1/pv-grub-hd0_1.02-x86_64.gz.manifest.xml
+  # * EU-West-1
+  #    aki-47eec433 ec2-public-images-eu/pv-grub-hd00-V1.01-i386.gz.manifest.xml
+  #    aki-41eec435 ec2-public-images-eu/pv-grub-hd00-V1.01-x86_64.gz.manifest.xml
+  #    aki-4deec439 ec2-public-images-eu/pv-grub-hd0-V1.01-i386.gz.manifest.xml
+  #    aki-4feec43b ec2-public-images-eu/pv-grub-hd0-V1.01-x86_64.gz.manifest.xml
+  #    aki-8a6657fe ec2-public-images-eu/pv-grub-hd00_1.02-i386.gz.manifest.xml
+  #    aki-60695814 ec2-public-images-eu/pv-grub-hd00_1.02-x86_64.gz.manifest.xml
+  #    aki-64695810 ec2-public-images-eu/pv-grub-hd0_1.02-i386.gz.manifest.xml
+  #    aki-62695816 ec2-public-images-eu/pv-grub-hd0_1.02-x86_64.gz.manifest.xml
+  # * AP-SouthEast-1
+  #    aki-6fd5aa3d ec2-public-images-ap-southeast-1/pv-grub-hd00-V1.01-i386.gz.manifest.xml
+  #    aki-6dd5aa3f ec2-public-images-ap-southeast-1/pv-grub-hd00-V1.01-x86_64.gz.manifest.xml
+  #    aki-13d5aa41 ec2-public-images-ap-southeast-1/pv-grub-hd0-V1.01-i386.gz.manifest.xml
+  #    aki-11d5aa43 ec2-public-images-ap-southeast-1/pv-grub-hd0-V1.01-x86_64.gz.manifest.xml
+  #    aki-a0225af2 ec2-public-images-ap-southeast-1/pv-grub-hd00_1.02-i386.gz.manifest.xml
+  #    aki-a6225af4 ec2-public-images-ap-southeast-1/pv-grub-hd00_1.02-x86_64.gz.manifest.xml
+  #    aki-a4225af6 ec2-public-images-ap-southeast-1/pv-grub-hd0_1.02-i386.gz.manifest.xml
+  #    aki-aa225af8 ec2-public-images-ap-southeast-1/pv-grub-hd0_1.02-x86_64.gz.manifest.xml
+  # * AP-NorthEast-1
+  #    aki-d209a2d3 ec2-public-images-ap-northeast-1/pv-grub-hd0-V1.01-i386.gz.manifest.xml
+  #    aki-d409a2d5 ec2-public-images-ap-northeast-1/pv-grub-hd0-V1.01-x86_64.gz.manifest.xml
+  #    aki-d609a2d7 ec2-public-images-ap-northeast-1/pv-grub-hd00-V1.01-i386.gz.manifest.xml
+  #    aki-d809a2d9 ec2-public-images-ap-northeast-1/pv-grub-hd00-V1.01-x86_64.gz.manifest.xml
+  #    aki-e85df7e9 ec2-public-images-ap-northeast-1/pv-grub-hd00_1.02-i386.gz.manifest.xml
+  #    aki-ea5df7eb ec2-public-images-ap-northeast-1/pv-grub-hd00_1.02-x86_64.gz.manifest.xml
+  #    aki-ec5df7ed ec2-public-images-ap-northeast-1/pv-grub-hd0_1.02-i386.gz.manifest.xml
+  #    aki-ee5df7ef ec2-public-images-ap-northeast-1/pv-grub-hd0_1.02-x86_64.gz.manifest.xml
+  def get_aws_kernel_image_aki(source_region, source_aki, target_region)
+    map = { 'us-east-1' => {'aki-4c7d9525' => 'pv-grub-hd00-V1.01-i386',
+                            'aki-4e7d9527' => 'pv-grub-hd00-V1.01-x86_64',
+                            'aki-407d9529' => 'pv-grub-hd0-V1.01-i386',
+                            'aki-427d952b' => 'pv-grub-hd0-V1.01-x86_64',
+                            'aki-525ea73b' => 'pv-grub-hd00_1.02-i386',
+                            'aki-8e5ea7e7' => 'pv-grub-hd00_1.02-x86_64',
+                            'aki-805ea7e9' => 'pv-grub-hd0_1.02-i386',
+                            'aki-825ea7eb' => 'pv-grub-hd0_1.02-x86_64'
+                           }, 
+            'us-west-1' => {'aki-9da0f1d8' => 'pv-grub-hd00-V1.01-i386',
+                            'aki-9fa0f1da' => 'pv-grub-hd00-V1.01-x86_64',
+                            'aki-99a0f1dc' => 'pv-grub-hd0-V1.01-i386',
+                            'aki-9ba0f1de' => 'pv-grub-hd0-V1.01-x86_64',
+                            'aki-87396bc2' => 'pv-grub-hd00_1.02-i386',
+                            'aki-81396bc4' => 'pv-grub-hd00_1.02-x86_64',
+                            'aki-83396bc6' => 'pv-grub-hd0_1.02-i386',
+                            'aki-8d396bc8' => 'pv-grub-hd0_1.02-x86_64'
+                           },
+            'eu-west-1' => {'aki-47eec433' => 'pv-grub-hd00-V1.01-i386',
+                            'aki-41eec435' => 'pv-grub-hd00-V1.01-x86_64',
+                            'aki-4deec439' => 'pv-grub-hd0-V1.01-i386',
+                            'aki-4feec43b' => 'pv-grub-hd0-V1.01-x86_64',
+                            'aki-8a6657fe' => 'pv-grub-hd00_1.02-i386',
+                            'aki-60695814' => 'pv-grub-hd00_1.02-x86_64',
+                            'aki-64695810' => 'pv-grub-hd0_1.02-i386',
+                            'aki-62695816' => 'pv-grub-hd0_1.02-x86_64'
+                           },
+            'ap-southeast-1' => {'aki-6fd5aa3d' => 'pv-grub-hd00-V1.01-i386',
+                                 'aki-6dd5aa3f' => 'pv-grub-hd00-V1.01-x86_64',
+                                 'aki-13d5aa41' => 'pv-grub-hd0-V1.01-i386',
+                                 'aki-11d5aa43' => 'pv-grub-hd0-V1.01-x86_64',
+                                 'aki-a0225af2' => 'pv-grub-hd00_1.02-i386',
+                                 'aki-a6225af4' => 'pv-grub-hd00_1.02-x86_64',
+                                 'aki-a4225af6' => 'pv-grub-hd0_1.02-i386',
+                                 'aki-aa225af8' => 'pv-grub-hd0_1.02-x86_64'
+                           },
+            'ap-northeast-1' => {'aki-d209a2d3' => 'pv-grub-hd00-V1.01-i386',
+                                 'aki-d409a2d5' => 'pv-grub-hd00-V1.01-x86_64',
+                                 'aki-d609a2d7' => 'pv-grub-hd0-V1.01-i386',
+                                 'aki-d809a2d9' => 'pv-grub-hd0-V1.01-x86_64',
+                                 'aki-e85df7e9' => 'pv-grub-hd00_1.02-i386',
+                                 'aki-ea5df7eb' => 'pv-grub-hd00_1.02-x86_64',
+                                 'aki-ec5df7ed' => 'pv-grub-hd0_1.02-i386',
+                                 'aki-ee5df7ef' => 'pv-grub-hd0_1.02-x86_64'
+                           }
+          }
+    target_aki = ''
+    if map[source_region] == nil
+      Exception.new("source region not supported")
+    elsif map[target_region] == nil
+      Exception.new("target region not supported")
+    else
+      if map[source_region][source_aki] == nil
+        Exception.new("aki not found in source region")
+      else
+        pv_grub_info = map[source_region][source_aki]
+        map[target_region].each() {|key, value|
+          if pv_grub_info.eql?(value)
+            target_aki = key
+            break
+          end
+        }
+      end
+    end
+    return target_aki
+  end
+
 
   #setting/retrieving handlers
 

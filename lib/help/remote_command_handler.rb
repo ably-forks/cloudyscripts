@@ -34,7 +34,7 @@ class RemoteCommandHandler
   # * keyfile: path of the keyfile to be used for authentication
   def connect_with_keyfile(ip, user_name, keyfile, timeout = 30)
     @use_sudo = false
-    @ssh_session = Net::SSH.start(ip, user_name, {:keys => [keyfile], :timeout => timeout})
+    @ssh_session = Net::SSH.start(ip, user_name, :keys => [keyfile], :timeout => timeout, :verbose => :warn)
     @use_sudo = true unless user_name.strip == 'root'
   end
 
@@ -45,7 +45,7 @@ class RemoteCommandHandler
   # * key_data: key_data to be used for authentication
   def connect(ip, user, key_data, timeout = 30)
     @use_sudo = false
-    @ssh_session = Net::SSH.start(ip, user, {:key_data => [key_data], :timeout => timeout})
+    @ssh_session = Net::SSH.start(ip, user, :key_data => [key_data], :timeout => timeout, :verbose => :warn)
     @use_sudo = true unless user.strip == 'root'
   end
 
@@ -63,7 +63,27 @@ class RemoteCommandHandler
   def retrieve_os()
     get_output("uname -r").strip
   end
-  
+
+  # Get root partition label
+  def get_root_device()
+    get_output("cat /etc/mtab | grep -E '[[:blank:]]+\/[[:blank:]]+' | cut -d ' ' -f 1").strip
+  end
+
+  # Get root partition label
+  def get_root_label(root_device)
+    get_output("e2label #{root_device}").strip
+  end
+
+  # Set root partition label
+  def set_root_label(root_device, label)
+    remote_execute("e2label #{root_device} #{label}", nil, false)
+  end
+
+  # Get filesystem type
+  def get_root_fs_type()
+    get_output("cat /etc/mtab | grep -E '[[:blank:]]+\/[[:blank:]]+' | cut -d ' ' -f 3").strip
+  end
+
   # Installs the software package specified.
   def install(software_package)
     e = "yum -yq install #{software_package}"
@@ -87,7 +107,8 @@ class RemoteCommandHandler
 
   def create_filesystem(fs_type, volume)
     e = "mkfs -t #{fs_type} #{volume}"
-    remote_execute(e, "y") #TODO: quiet mode?
+    #remote_execute(e, "y") #TODO: quiet mode?
+    remote_execute(e, nil, false)
   end
 
   def mkdir(path)
@@ -148,19 +169,49 @@ class RemoteCommandHandler
     end
     e = "rsync -avHx #{exclude} #{source_path} #{dest_path}"
     @logger.debug "going to execute #{e}"
-    remote_exec_helper(e, nil, nil, false) #TODO: handle output in stderr?
+    remote_exec_helper(e, nil, nil, true) #TODO: handle output in stderr?
   end
 
-  # Copy directory via an ssh-tunnel.
-  def remote_rsync(keyfile, source_path, dest_ip, dest_path)
+  # Rsync directory via an ssh-tunnel.
+  def remote_rsync_old(keyfile, source_path, dest_ip, dest_path)
     e = "rsync -rlpgoDzq -e "+'"'+"ssh -o stricthostkeychecking=no -i #{keyfile}"+'"'+" #{source_path} root@#{dest_ip}:#{dest_path}"
     @logger.debug "going to execute #{e}"
     remote_exec_helper(e, nil, nil, false) #TODO: handle output in stderr?
   end
 
+  # Disable 'Defaults requiretty' option in sudoers file
+  def disable_sudoers_requiretty()
+    e = "sed -r -e \'s/^(Defaults[[:blank:]]+requiretty)$/# \\1/\' -i /etc/sudoers"
+    @logger.debug "going to execute '#{e}'"
+    status = remote_exec_helper(e, nil, nil, true)
+    if status != true
+      raise Exception.new("disabling 'requiretty' from sudoers failed with status: #{status}")
+    end
+  end
+
+  # Enable 'Defaults requiretty' option in sudoers file
+  def enable_sudoers_requiretty()
+    e = "sed -r -e \'s/^#[[:blank:]]*(Defaults[[:blank:]]+requiretty)$/\\1/\' -i /etc/sudoers"
+    @logger.debug "going to execute '#{e}'"
+    status = remote_exec_helper(e, nil, nil, true)
+    if status != true
+      raise Exception.new("enabling 'requiretty' from sudoers failed with status: #{status}")
+    end
+  end
+
+  def remote_rsync(keyfile, source_path, dest_ip, dest_user, dest_path)
+    e = "rsync -rlpgoDzq --rsh 'ssh -o stricthostkeychecking=no -i #{keyfile}' --rsync-path='sudo rsync'"+
+          " #{source_path} #{dest_user}@#{dest_ip}:#{dest_path}"
+    @logger.debug "going to execute #{e}"
+    status = remote_exec_helper(e, nil, nil, true) #TODO: handle output in stderr?
+    if status != true
+      raise Exception.new("rsync bewteen source and target servers failed with status: #{status}")
+    end
+  end
+
   # Copy directory via an ssh-tunnel.
-  def scp(keyfile, source_path, dest_ip, dest_path)
-    e = "scp -Cpqr -o stricthostkeychecking=no -i #{keyfile} #{source_path} root@#{dest_ip}:#{dest_path}"
+  def scp(keyfile, source_path, dest_ip, dest_user, dest_path)
+    e = "scp -Cpqr -o stricthostkeychecking=no -i #{keyfile} #{source_path} #{dest_user}@#{dest_ip}:#{dest_path}"
     @logger.debug "going to execute #{e}"
     remote_exec_helper(e, nil, nil, false) #TODO: handle output in stderr?
   end
@@ -195,7 +246,6 @@ class RemoteCommandHandler
   # When #raise_exception is set, an exception will be raised instead of
   # returning false.
   def remote_execute(exec_string, push_data = nil, raise_exception = false)
-    #XXX: command line: echo -e 'y' | mkfs -t ext3 /dev/sdf
     exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
     stdout = []
     stderr = []
@@ -251,9 +301,18 @@ class RemoteCommandHandler
     result = true
     sudo = (@use_sudo ? "sudo " : "")
     the_channel = @ssh_session.open_channel do |channel|
+      if sudo
+        channel.request_pty do |ch, success|
+          if success
+            @logger.debug("pty successfully obtained")
+          else
+            @logger.debug("could not obtain pty")
+          end
+        end
+      end
       channel.exec("#{sudo}#{exec_string}") do |ch, success|
         if success
-          @logger.debug("RemoteCommandHandler: starts executing #{sudo}#{exec_string}") if debug
+          @logger.debug("RemoteCommandHandler: starts executing '#{sudo}#{exec_string}'") if debug
           ch.on_data() do |ch, data|
             stdout << data unless data == nil || stdout == nil
           end
