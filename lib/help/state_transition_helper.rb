@@ -478,7 +478,7 @@ module StateTransitionHelper
     if !label.nil? && !label.empty?
       post_message("going to add label #{label} for device #{device}...")
       @logger.debug "add label '#{label}' to device '#{device}'"
-      if remote_handler().set_root_label(device, label)
+      if remote_handler().set_device_label(device, label)
         post_message("label #{label} added to device #{device}")
       else
         raise Exception.new("failed to add label #{label} to device #{device}")
@@ -580,7 +580,7 @@ module StateTransitionHelper
     # get root device and then its label
     root_device = remote_handler().get_root_device()
     @logger.debug "Found '#{root_device}' as root device"
-    label = remote_handler().get_root_label(root_device)
+    label = remote_handler().get_device_label(root_device)
     @logger.debug "Found label '#{label}'"
     if label.nil? || label.empty?
       post_message("'/' root partition has no label specified")
@@ -590,7 +590,24 @@ module StateTransitionHelper
     return label
   end
 
-  # get root filesytem type
+  # Get partition label
+  def get_partition_label(part)
+    post_message("Retrieving '#{part}' partition label if any...")
+    @logger.debug "get #{part} partition label"
+    # get part device and then its label
+    part_device = remote_handler().get_partition_device(part)
+    @logger.debug "Found '#{part_device}' as partition device"
+    label = remote_handler().get_device_label(part_device)
+    @logger.debug "Found label '#{label}'"
+    if label.nil? || label.empty?
+      post_message("'#{part}' partition has no label specified")
+    else
+      post_message("'#{part}' partition label '#{label}' for device node '#{part_device}'")
+    end
+    return label
+  end
+
+  # Get root filesytem type
   def get_root_partition_fs_type()
     post_message("Retrieving '/' root partition filesystem type...")
     @logger.debug "get root partition filesystel type"
@@ -603,7 +620,21 @@ module StateTransitionHelper
       post_message("'/' root partition contains an #{root_fs_type} filesystem")
     end
     return root_fs_type
-  
+  end
+
+  # Get partition filesytem type
+  def get_partition_fs_type(part)
+    post_message("Retrieving '#{part}' partition filesystem type...")
+    @logger.debug "get #{part} partition filesystel type"
+    # get partition device and then its fs type
+    part_fs_type = remote_handler().get_partition_fs_type(part)
+    @logger.debug "Found '#{part_fs_type}' as filesystem type"
+    if part_fs_type.nil? || part_fs_type.empty?
+      raise Exception.new("Failed to retrieve filesystem type for '#{part}' partition")
+    else
+      post_message("'#{part}' partition contains an #{part_fs_type} filesystem")
+    end
+    return part_fs_type
   end
 
   # Copy all files of a running linux distribution via rsync to a mounted directory

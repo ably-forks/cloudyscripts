@@ -69,19 +69,29 @@ class RemoteCommandHandler
     get_output("cat /etc/mtab | grep -E '[[:blank:]]+\/[[:blank:]]+' | cut -d ' ' -f 1").strip
   end
 
-  # Get root partition label
-  def get_root_label(root_device)
-    get_output("e2label #{root_device}").strip
+  # Get partition label
+  def get_partition_device(part)
+    get_output("cat /etc/mtab | grep -E '[[:blank:]]+" + "#{part}" + "[[:blank:]]+' | cut -d ' ' -f 1").strip
   end
 
-  # Set root partition label
-  def set_root_label(root_device, label)
-    remote_execute("e2label #{root_device} #{label}", nil, false)
+  # Get device label
+  def get_device_label(device)
+    get_output("e2label #{device}").strip
+  end
+
+  # Set device label
+  def set_device_label(device, label)
+    remote_execute("e2label #{device} #{label}", nil, false)
   end
 
   # Get filesystem type
   def get_root_fs_type()
     get_output("cat /etc/mtab | grep -E '[[:blank:]]+\/[[:blank:]]+' | cut -d ' ' -f 3").strip
+  end
+
+  # Get filesystem type
+  def get_partition_fs_type(part)
+    get_output("cat /etc/mtab | grep -E '[[:blank:]]+" + "#{part}" + "[[:blank:]]+' | cut -d ' ' -f 3").strip
   end
 
   # Installs the software package specified.
@@ -280,7 +290,7 @@ class RemoteCommandHandler
     exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
     stdout = []
     stderr = []
-    remote_exec_helper(exec_string, stdout, stderr)
+    remote_exec_helper(exec_string, stdout, stderr, true)
     stdout.join()
   end
 

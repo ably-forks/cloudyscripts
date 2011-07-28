@@ -96,9 +96,9 @@ class CopySnapshot< Ec2Script
       attach_volume(@context[:source_volume_id], @context[:source_instance_id], device)
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
       mount_fs(mount_point, device)
-      # get root partition label and filesystem type
-      @context[:label] = get_root_partition_label()
-      @context[:fs_type] = get_root_partition_fs_type()
+      # get partition label and filesystem type
+      @context[:label] = get_partition_label(mount_point)
+      @context[:fs_type] = get_partition_fs_type(mount_point)
       disconnect()
       SourceVolumeReadyState.new(@context)
     end
@@ -146,7 +146,9 @@ class CopySnapshot< Ec2Script
       path_candidates = ["/#{@context[:source_ssh_username]}/.ssh/",
         "/home/#{@context[:source_ssh_username]}/.ssh/"]
       key_path = determine_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata], path_candidates)
-      upload_file(@context[:source_dns_name], "root", @context[:source_ssh_keydata],
+      #upload_file(@context[:source_dns_name], "root", @context[:source_ssh_keydata],
+      #  @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name]}.pem")
+      upload_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata],
         @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name]}.pem")
       post_message("credentials are in place to connect source and target.")
       KeyInPlaceState.new(@context)
