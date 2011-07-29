@@ -62,7 +62,6 @@ class CopyAmi < Ec2Script
     if @input_params[:target_ssh_username] == nil
       @input_params[:target_ssh_username] = "root"
     end
-
   end
 
   # Load the initial state for the script.
@@ -214,8 +213,10 @@ class CopyAmi < Ec2Script
     def enter()
       remote_region()
       # Get Amazon Kernel Image ID
-      aki = get_aws_kernel_image_aki(@context[:ec2_api_handler].server.split('.')[1], @context[:kernel_id], 
-        @context[:target_ec2_handler].server.split('.')[1])
+      #aki = get_aws_kernel_image_aki(@context[:ec2_api_handler].server.split('.')[0], @context[:kernel_id], 
+      #  @context[:target_ec2_handler].server.split('.')[0])
+      aki = get_aws_kernel_image_aki(@context[:ec2_api_handler].server, @context[:kernel_id], 
+        @context[:target_ec2_handler].server)
       #@context[:result][:image_id] = register_snapshot(@context[:new_snapshot_id], @context[:name],
       #  @context[:root_device_name], @context[:description], nil,
       #  nil, @context[:architecture])

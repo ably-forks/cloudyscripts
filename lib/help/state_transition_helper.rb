@@ -861,7 +861,7 @@ module StateTransitionHelper
   #    aki-ea5df7eb ec2-public-images-ap-northeast-1/pv-grub-hd00_1.02-x86_64.gz.manifest.xml
   #    aki-ec5df7ed ec2-public-images-ap-northeast-1/pv-grub-hd0_1.02-i386.gz.manifest.xml
   #    aki-ee5df7ef ec2-public-images-ap-northeast-1/pv-grub-hd0_1.02-x86_64.gz.manifest.xml
-  def get_aws_kernel_image_aki(source_region, source_aki, target_region)
+  def get_aws_kernel_image_aki(source_endpoint, source_aki, target_endpoint)
     map = { 'us-east-1' => {'aki-4c7d9525' => 'pv-grub-hd00-V1.01-i386',
                             'aki-4e7d9527' => 'pv-grub-hd00-V1.01-x86_64',
                             'aki-407d9529' => 'pv-grub-hd0-V1.01-i386',
@@ -909,6 +909,8 @@ module StateTransitionHelper
                            }
           }
     target_aki = ''
+    source_region = get_aws_region_from_endpoint(source_endpoint)
+    target_region = get_aws_region_from_endpoint(target_endpoint)
     post_message("mapping AKI '#{source_aki}' from #{source_region} region to #{target_region} region...")
 
     if map[source_region] == nil
@@ -933,6 +935,24 @@ module StateTransitionHelper
     return target_aki
   end
 
+  def get_aws_region_from_endpoint(endpoint)
+    region = "us-east-1" 
+    case endpoint
+      when /us-east/
+        region = "us-east-1"
+      when /us-west/
+        region = "us-west-1"
+      when /eu-west/
+        region = "eu-west-1"
+      when /ap-southeast/
+        region = "ap-southeast-1"
+      when /ap-northeast/
+        region = "ap-northeast-1"
+      else
+        region = "us-east-1"
+    end
+    return region
+  end
 
   #setting/retrieving handlers
 

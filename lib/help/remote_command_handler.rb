@@ -101,7 +101,7 @@ class RemoteCommandHandler
     else
       cmd = "e2label #{device} #{label}"
     end
-    remote_execute("e2label #{device} #{label}", nil, false)
+    remote_execute(cmd, nil, false)
   end
 
   # Get filesystem type
