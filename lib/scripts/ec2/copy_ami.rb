@@ -121,8 +121,9 @@ class CopyAmi < Ec2Script
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata]) 
       mount_fs(mount_point, device)
       # get root partition label and filesystem type
-      @context[:label] = get_root_partition_label()
-      @context[:fs_type] = get_root_partition_fs_type()
+      #@context[:label] = get_root_partition_label()
+      #@context[:fs_type] = get_root_partition_fs_type()
+      @context[:fs_type], @context[:label] = get_root_partition_fs_type_and_label()
       disconnect()
       SourceVolumeReadyState.new(@context)
     end

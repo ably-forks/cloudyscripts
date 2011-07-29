@@ -97,8 +97,9 @@ class CopySnapshot< Ec2Script
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
       mount_fs(mount_point, device)
       # get partition label and filesystem type
-      @context[:label] = get_partition_label(mount_point)
-      @context[:fs_type] = get_partition_fs_type(mount_point)
+      #@context[:label] = get_partition_label(mount_point)
+      #@context[:fs_type] = get_partition_fs_type(mount_point)
+      @context[:fs_type], @context[:label] = get_partition_fs_type_and_label(mount_point)
       disconnect()
       SourceVolumeReadyState.new(@context)
     end

@@ -428,7 +428,7 @@ module StateTransitionHelper
   # * image_id => ID of the AMI created and registered
   def register_snapshot(snapshot_id, name, root_device_name, description, kernel_id, ramdisk_id, architecture)
     post_message("going to register snapshot #{snapshot_id}...")
-    @logger.debug "register snapshot #{snapshot_id} as #{name}"
+    @logger.debug "register snapshot #{snapshot_id} as #{name} using AKI '#{kernel_id}' ARI '#{ramdisk_id}' and arch '#{architecture}'"
     res = ec2_handler().register_image_updated(:snapshot_id => snapshot_id,
       :kernel_id => kernel_id, :architecture => architecture,
       :root_device_name => root_device_name,
@@ -474,11 +474,11 @@ module StateTransitionHelper
     if status == false
       raise Exception.new("failed to create #{type} filesystem on #{device} device on #{dns_name}")
     end
-    post_message("filesystem system successfully created")
+    post_message("#{fs_type} filesystem system successfully created on device #{device}")
     if !label.nil? && !label.empty?
       post_message("going to add label #{label} for device #{device}...")
       @logger.debug "add label '#{label}' to device '#{device}'"
-      if remote_handler().set_device_label(device, label)
+      if remote_handler().set_device_label_ext(device, label, fs_type)
         post_message("label #{label} added to device #{device}")
       else
         raise Exception.new("failed to add label #{label} to device #{device}")
@@ -622,6 +622,35 @@ module StateTransitionHelper
     return root_fs_type
   end
 
+  # Get root filesytem type and label
+  def get_root_partition_fs_type_and_label()
+    post_message("Retrieving '/' root partition filesystem type and label...")
+    @logger.debug "get root partition filesystel type"
+    # get root device and then its fs type
+    root_fs_type = remote_handler().get_root_fs_type()
+    @logger.debug "Found '#{root_fs_type}' as root filesystem type"
+    if root_fs_type.nil? || root_fs_type.empty?
+      raise Exception.new("Failed to retrieve filesystem type for '/' root partition")
+    else
+      post_message("'/' root partition contains an #{root_fs_type} filesystem")
+    end
+    root_device = remote_handler().get_root_device()
+    @logger.debug "Found '#{root_device}' as root device"
+    if root_device.nil? || root_device.empty?
+      raise Exception.new("Failed to retrieve root device for '/' root partition")
+    else
+       post_message("'/' root partitition on root device '#{root_device}'")
+    end
+    root_label = remote_handler().get_device_label_ext(root_device, root_fs_type)
+    @logger.debug "Found label '#{root_label}'"
+    if root_label.nil? || root_label.empty?
+      post_message("'/' root partition has no label specified")
+    else
+      post_message("'/' root partition label '#{root_label}' for root device node '#{root_device}'")
+    end
+    return root_fs_type, root_label
+  end
+
   # Get partition filesytem type
   def get_partition_fs_type(part)
     post_message("Retrieving '#{part}' partition filesystem type...")
@@ -635,6 +664,35 @@ module StateTransitionHelper
       post_message("'#{part}' partition contains an #{part_fs_type} filesystem")
     end
     return part_fs_type
+  end
+
+  # Get partition filesytem type and label
+  def get_partition_fs_type_and_label(part)
+    post_message("Retrieving '#{part}' partition filesystem type...")
+    @logger.debug "get #{part} partition filesystel type"
+    # get partition device and then its fs type
+    part_fs_type = remote_handler().get_partition_fs_type(part)
+    @logger.debug "Found '#{part_fs_type}' as filesystem type"
+    if part_fs_type.nil? || part_fs_type.empty?
+      raise Exception.new("Failed to retrieve filesystem type for '#{part}' partition")
+    else
+      post_message("'#{part}' partition contains an #{part_fs_type} filesystem")
+    end
+    part_device = remote_handler().get_partition_device(part)
+    @logger.debug "Found '#{part_device}' as partition device"
+    if part_device.nil? || part_device.empty?
+      raise Exception.new("Failed to retrieve device for '#{part}' partition")
+    else
+       post_message("'#{part}' partitition on device '#{part_device}'")
+    end
+    part_label = remote_handler().get_device_label_ext(part_device, part_fs_type)
+    @logger.debug "Found label '#{part_label}'"
+    if part_label.nil? || part_label.empty?
+      post_message("'#{part}' partition has no label specified")
+    else
+      post_message("'#{part}' partition label '#{part_label}' for device node '#{part_device}'")
+    end
+    return part_fs_type, part_label
   end
 
   # Copy all files of a running linux distribution via rsync to a mounted directory
@@ -851,6 +909,8 @@ module StateTransitionHelper
                            }
           }
     target_aki = ''
+    post_message("mapping AKI '#{source_aki}' from #{source_region} region to #{target_region} region...")
+
     if map[source_region] == nil
       Exception.new("source region not supported")
     elsif map[target_region] == nil
@@ -862,12 +922,14 @@ module StateTransitionHelper
         pv_grub_info = map[source_region][source_aki]
         map[target_region].each() {|key, value|
           if pv_grub_info.eql?(value)
+            @logger.debug "found AKI: #{key} for #{value}"
             target_aki = key
             break
           end
         }
       end
     end
+    post_message("AKI mapped to #{target_aki}")
     return target_aki
   end
 

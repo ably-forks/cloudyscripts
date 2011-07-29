@@ -79,8 +79,28 @@ class RemoteCommandHandler
     get_output("e2label #{device}").strip
   end
 
+  # Get device label
+  def get_device_label_ext(device, fs_type)
+    if fs_type.eql?("xfs")
+      cmd = "xfs_admin -l #{device} | sed -r -e 's/^label[[:blank:]]*=[[:blank:]]*\"(.*)\"$/\\1/'"
+    else
+      cmd = "e2label #{device}"
+    end
+    get_output(cmd).strip
+  end
+
   # Set device label
   def set_device_label(device, label)
+    remote_execute("e2label #{device} #{label}", nil, false)
+  end
+
+  # Set device label
+  def set_device_label_ext(device, label, fs_type)
+    if fs_type.eql?("xfs")
+      cmd = "xfs_admin -L #{label} #{device}"
+    else
+      cmd = "e2label #{device} #{label}"
+    end
     remote_execute("e2label #{device} #{label}", nil, false)
   end
 
