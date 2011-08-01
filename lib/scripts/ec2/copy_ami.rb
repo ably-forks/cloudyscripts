@@ -193,6 +193,7 @@ class CopyAmi < Ec2Script
       #
       connect(@context[:target_dns_name], @context[:target_ssh_username], nil, @context[:target_ssh_keydata])
       enable_ssh_tty(@context[:target_dns_name])
+      unmount_fs(dest_dir)
       disconnect()
       DataCopiedState.new(@context)
     end

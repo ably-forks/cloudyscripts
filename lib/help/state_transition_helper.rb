@@ -563,14 +563,30 @@ module StateTransitionHelper
   # Input Parameters:
   # * mount_point => directory to be unmounted
   def unmount_fs(mount_point)
-    post_message("Going to unmount ...")
+    post_message("going to unmount #{mount_point}...")
     @logger.debug "unmount #{mount_point}"
-    remote_handler().umount(mount_point)
-    sleep(2) #give umount some time
-    if remote_handler().drive_mounted?(mount_point)
-      raise Exception.new("drive #{mount_point} not unmounted")
+
+    done = false
+    timeout = 120
+    while timeout > 0
+      res = remote_handler().umount(mount_point)
+      if !remote_handler().drive_mounted?(mount_point)
+        done = true
+        timeout = 0
+      end
+      sleep(5)
+      timeout -= 5
     end
-    post_message("device unmounted")
+    msg = ""
+    if !done
+      msg = "Failed to umount '#{mount_point}'"
+      @logger.error "#{msg}"
+      raise Exception.new("#{mount_point} still mounted")
+    else
+      msg = "#{mount_point} successfully mounted" 
+      @logger.info "#{msg}"
+    end
+    post_message("#{msg}")
   end
 
   # Get root partition label
