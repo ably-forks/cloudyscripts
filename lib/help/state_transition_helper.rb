@@ -314,7 +314,10 @@ module StateTransitionHelper
     while timeout > 0
       res = ec2_handler().describe_volumes(:volume_id => volume_id)
       vol_state = res['volumeSet']['item'][0]['status']
-      attachment_state = res['volumeSet']['item'][0]['attachmentSet']['item'][0]['status']
+      attachment_state = "attaching"
+      if res['volumeSet']['item'][0]['attachmentSet'] != nil
+        attachment_state = res['volumeSet']['item'][0]['attachmentSet']['item'][0]['status']
+      end
       @logger.debug "storage attaching: volume state: #{vol_state}, attachment state: #{attachment_state}"
       if vol_state == 'in-use' && attachment_state == 'attached' 
         done = true
