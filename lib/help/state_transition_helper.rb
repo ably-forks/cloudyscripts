@@ -330,7 +330,7 @@ module StateTransitionHelper
     if !done
       msg = "Failed to attach volume '#{volume_id}' to instance '#{instance_id}"
       @logger.error "#{msg}"
-      raise Exception.new("volume #{mount_point} not attached")
+      raise Exception.new("volume #{volume_id} not attached")
     else
       msg = "volume #{volume_id} successfully attached" 
       @logger.info "#{msg}"
@@ -365,7 +365,7 @@ module StateTransitionHelper
     if !done
       msg = "Failed to detach volume '#{volume_id}' from instance '#{instance_id}"
       @logger.error "#{msg}"
-      raise Exception.new("volume #{mount_point} not detached")
+      raise Exception.new("volume #{volume_id} not detached")
     else
       msg = "volume #{volume_id} successfully detached" 
       @logger.info "#{msg}"
