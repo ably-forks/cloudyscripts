@@ -115,7 +115,7 @@ class Ami2EbsConversion < Ec2Script
       # get root partition label and filesystem type
       @context[:label] = get_root_partition_label()
       @context[:fs_type] = get_root_partition_fs_type()
-      create_labeled_fs(@context[:dns_name], device, @context[:fs_type], @context[:label])      
+      create_labeled_fs(@context[:dns_name], @context[:temp_device_name], @context[:fs_type], @context[:label])      
       FileSystemCreated.new(@context)
     end
   end
