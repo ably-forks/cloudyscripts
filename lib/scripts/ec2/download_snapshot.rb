@@ -117,10 +117,14 @@ class DownloadSnapshot < Ec2Script
       @context[:script].post_message("Going to prepare the two volumes for the zip-operation.")
       @context[:result][:os] =
         connect(@context[:dns_name], @context[:ssh_username], @context[:ssh_keyfile], @context[:ssh_keydata])
+      # source
       source_dir = "/mnt/tmp_#{@context[:source_volume_id]}"
-      dest_dir = @context[:zip_file_dest]
-      create_fs(@context[:dns_name], @context[:dest_device])
       mount_fs(source_dir, @context[:source_device])
+      @context[:fs_type], @context[:label] = get_partition_fs_type_and_label(source_dir)
+      # target
+      dest_dir = @context[:zip_file_dest]
+      #create_fs(@context[:dns_name], @context[:dest_device])
+      create_labeled_fs(@context[:dns_name], @context[:dest_device], @context[:fs_type], @context[:label])
       mount_fs(dest_dir, @context[:dest_device])
       FileSystemsReady.new(@context)
     end
