@@ -101,7 +101,9 @@ class AuditViaSsh < Ec2Script
                         :connection_params => {:user => @context[:ssh_user],
                                                :keys => @context[:ssh_key_file],
                                                :host => @context[:public_dns_name],
-                                               :paranoid => false},
+                                               :paranoid => false}, 
+                                               #:timeout => 120,
+                                               #:verbose => :warn},
                                                :logger => nil)
       audit.start(false)
       @context[:result][:audit_test] = []

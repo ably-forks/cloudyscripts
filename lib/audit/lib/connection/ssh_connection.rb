@@ -44,8 +44,21 @@ class SshConnection
 			@@logger.error("No SSH authentication method found in parameters")
 			raise "No authentication method found"
 		end
-		
-		@ssh_session = Net::SSH.start(host, user, parameters)
+
+		connected = false
+		trials = 5
+		while !connected and trials > 0
+			begin
+				@ssh_session = Net::SSH.start(host, user, parameters)
+				connected = true
+			rescue Exception => e
+				@@logger.warn("connection attempt failed due to #{e.backtrace}")
+			end
+			trials -= 1
+			if !connected
+				sleep(20)
+			end
+		end
 	
 		if block then
 			yield self
