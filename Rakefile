@@ -12,7 +12,7 @@ require 'rake/testtask'
 
 spec = Gem::Specification.new do |s|
   s.name = 'CloudyScripts'
-  s.version = '1.8.38'
+  s.version = '1.8.39'
   s.has_rdoc = true
   s.extra_rdoc_files = ['README.rdoc', 'LICENSE']
   s.summary = 'Scripts to facilitate programming for infrastructure clouds.'

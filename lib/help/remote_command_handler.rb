@@ -138,7 +138,7 @@ class RemoteCommandHandler
   def create_filesystem(fs_type, volume)
     e = "mkfs -t #{fs_type} #{volume}"
     #remote_execute(e, "y") #TODO: quiet mode?
-    remote_execute(e, nil, false)
+    remote_execute(e, "y", false)
   end
 
   def mkdir(path)
@@ -276,7 +276,7 @@ class RemoteCommandHandler
   # When #raise_exception is set, an exception will be raised instead of
   # returning false.
   def remote_execute(exec_string, push_data = nil, raise_exception = false)
-    exec_string = "echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt" unless push_data == nil
+    exec_string = "sh -c 'echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt'" unless push_data == nil
     stdout = []
     stderr = []
     result = remote_exec_helper(exec_string, stdout, stderr)
