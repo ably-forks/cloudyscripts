@@ -49,4 +49,36 @@ class TestSnapshotOptimization < Test::Unit::TestCase
     puts "done in #{endtime-starttime}s"
   end
 
+  def test_execution_empty
+    ec2_api = MockedEc2Api.new
+    #
+    listener = MockedStateChangeListener.new
+    logger = Logger.new(STDOUT)
+    logger.level = Logger::DEBUG
+    puts "describe security groups: #{ec2_api.describe_security_groups().inspect}"
+    params = {
+      :ec2_api_handler => ec2_api,
+      :remote_command_handler => RemoteCommandHandler.new,
+      :delete_snapshots => false,
+      :max_duplicate_snapshots => 2,
+      :delete_volumes => false,
+      :logger => logger,
+    }
+    script = SnapshotOptimization.new(params)
+    script.register_state_change_listener(listener)
+    script.register_progress_message_listener(listener)
+    starttime = Time.now.to_i
+    script.start_script()
+    endtime = Time.now.to_i
+    puts "results = #{script.get_execution_result().inspect}"
+    assert script.get_execution_result[:done]
+    assert !script.get_execution_result[:failed]
+    assert_not_nil script.get_execution_result[:duplicate_snapshots]
+    assert_equal 0, script.get_execution_result[:duplicate_snapshots].size #3 out of 5 as specified in the params
+    assert_not_nil script.get_execution_result[:orphan_volumes]
+    assert_equal 0, script.get_execution_result[:orphan_volumes].size
+    puts "done in #{endtime-starttime}s"
+  end
+
+
 end

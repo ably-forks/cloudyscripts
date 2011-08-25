@@ -49,11 +49,12 @@ class SnapshotOptimization < Ec2Script
   # Nothing done yet. Retrieve all snapshots
   class RetrieveSnapshots < SnapshotOptimizationState
     def enter
+      post_message("Going to retrieve snapshots on EC2")
       @context[:result][:duplicate_snapshots] = []
       @context[:result][:orphan_volumes] = []
       #
       @context[:snapshots] = ec2_handler().describe_snapshots(:owner => "self")
-      puts "snapshots = #{@context[:snapshots].inspect}"
+      @logger.info("all snapshots => #{@context[:snapshots].inspect}")
       IdentifyDuplicateSnapshots.new(@context)
     end
   end
@@ -61,17 +62,19 @@ class SnapshotOptimization < Ec2Script
   # All snapshots retrieved. Group them by volume and identify duplicates
   class IdentifyDuplicateSnapshots < SnapshotOptimizationState
     def enter
+      post_message("Going to check for duplicates among snapshots")
       volume_map = {}
-      @context[:snapshots]['snapshotSet']['item'].each() do |snapshot|
-        next unless snapshot['progress'] == "100%"
-        puts "snapshot['ownerAlias'] = #{snapshot['ownerAlias']} for #{snapshot['snapshotId']}"
-        next if snapshot['ownerAlias'] == "amazon"
-        snaps = volume_map[snapshot['volumeId']]
-        if snaps == nil
-          snaps = []
-          volume_map[snapshot['volumeId']] = snaps
+      unless @context[:snapshots]['snapshotSet'] == nil
+        @context[:snapshots]['snapshotSet']['item'].each() do |snapshot|
+          next unless snapshot['progress'] == "100%"
+          next if snapshot['ownerAlias'] == "amazon"
+          snaps = volume_map[snapshot['volumeId']]
+          if snaps == nil
+            snaps = []
+            volume_map[snapshot['volumeId']] = snaps
+          end
+          snaps << snapshot
         end
-        snaps << snapshot
       end
       #
       volume_map.each() do |volume_id, snapshots|
@@ -113,6 +116,7 @@ class SnapshotOptimization < Ec2Script
   # Duplicate snapshots deleted. Retrieve volumes.
   class RetrieveVolumes < SnapshotOptimizationState
     def enter
+      post_message("Going to retrieve EBS volumes on EC2")
       @context[:volumes] = ec2_handler().describe_volumes()
       IdentifyOrphanVolumes.new(@context)
     end
@@ -121,20 +125,23 @@ class SnapshotOptimization < Ec2Script
   # Volumes retrieved. Identify unattached volumes that are older than a day
   class IdentifyOrphanVolumes < SnapshotOptimizationState
     def enter
+      post_message("Going to check for unattached volumes")
       @logger.info("all volumes => #{@context[:volumes].inspect}")
-      @context[:volumes]['volumeSet']['item'].each() do |volume|
-        if volume['status'] == "available"
-          age = Time.now.to_i - Time.parse(volume['createTime']).to_i
-          @logger.info("age of orphan #{volume['volumeId']}: #{age/(60*60*24).to_f} days")
-          if age < 60*60*24
-            post_message("Volume #{volume['volumeId']} is unattached, but created within the last 24h => ignore")
+      unless @context[:volumes]['volumeSet'] == nil
+        @context[:volumes]['volumeSet']['item'].each() do |volume|
+          if volume['status'] == "available"
+            age = Time.now.to_i - Time.parse(volume['createTime']).to_i
+            @logger.info("age of orphan #{volume['volumeId']}: #{age/(60*60*24).to_f} days")
+            if age < 60*60*24
+              post_message("Volume #{volume['volumeId']} is unattached, but created within the last 24h => ignore")
+            else
+              post_message("Identified unattached volume #{volume['volumeId']}")
+              @context[:result][:orphan_volumes] << volume['volumeId']
+            end
+            @logger.info("complete info on volume: #{volume.inspect}")
           else
-            post_message("Identified unattached volume #{volume['volumeId']}")
-            @context[:result][:orphan_volumes] << volume['volumeId']
+            post_message("Volume #{volume['volumeId']} is attached => ignore")
           end
-          @logger.info("complete info on volume: #{volume.inspect}")
-        else
-          post_message("Volume #{volume['volumeId']} is attached => ignore")
         end
       end
       if @context[:delete_volumes]
