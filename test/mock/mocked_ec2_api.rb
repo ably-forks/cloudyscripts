@@ -376,7 +376,7 @@ class MockedEc2Api
     @logger.debug("MockedEc2API: create snapshot for #{volume_id}")
     snap = "snap_#{Time.now.to_i.to_s}"
     s = {"volumeId"=>"#{volume_id}", "snapshotId"=>"#{snap}", "requestId"=>"dummy-request",
-      "progress"=>nil, "startTime"=>"2009-11-11T17:06:14.000Z",
+      "progress"=>"100%", "startTime"=>"2009-11-11T17:06:14.000Z",
       "status"=>"completed", "xmlns"=>"http://ec2.amazonaws.com/doc/2008-12-01/"}
     @snapshots << s
     s
@@ -466,6 +466,9 @@ class MockedEc2Api
   end
 
   def create_volume(params)
+    if params[:volume_id] != nil
+      self.next_volume_id = params[:volume_id]
+    end
     cause_failure()
     if params[:availability_zone] == nil || params[:availability_zone].strip.size == 0
       raise Exception.new("must specify availability zone")
@@ -480,7 +483,7 @@ class MockedEc2Api
     volume[:volume_id] = vid
     @logger.debug "create volume with id = #{volume[:volume_id]}"
     volume[:availability_zone] = params[:availability_zone]
-    volume[:create_time] = Time.now
+    volume[:create_time] = params[:create_time] || Time.now.to_s
     volume[:volume_id]
     volume[:attachments] = []
     volume[:state] = "available"

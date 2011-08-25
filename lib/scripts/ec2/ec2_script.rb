@@ -61,7 +61,7 @@ class Ec2Script
         @result[:failed] = false
       end
     rescue Exception => e
-      @logger.warn "exception during encryption: #{e}"
+      @logger.warn "exception during execution: #{e}"
       @logger.warn e.backtrace.join("\n")
       err = e.to_s
       err += " (in #{current_state.end_state.to_s})" unless current_state == nil
