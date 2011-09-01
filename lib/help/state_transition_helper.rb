@@ -239,8 +239,12 @@ module StateTransitionHelper
   def retrieve_instances()
     @context[:script].post_message("going to retrieve all instances...")
     inst = @context[:ec2_api_handler].describe_instances()
-    @context[:script].post_message("found #{inst.size} instances")
-    @logger.info("found #{inst.size} instances")
+    n = 0
+    unless inst['reservationSet'] == nil
+      n = inst['reservationSet']['item'].size
+    end
+    @context[:script].post_message("found #{n} instances")
+    @logger.info("found #{n} instances")
     @context[:ec2_instances] = inst
   end
   

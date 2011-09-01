@@ -51,8 +51,10 @@ class TestEc2Helper < Test::Unit::TestCase
       "running", "i1.ec2.amazonaws.com",
       "i1.ec2.amazonaws.com", key_name, ["thousand"])
     ec2_helper = Ec2Helper.new(ec2_api)
-    instance_info1 = ec2_api.describe_instances("i-11111")['reservationSet']['item'][0]
-    instance_info2 = ec2_api.describe_instances("i-22222")['reservationSet']['item'][0]
+    instance_info1 = ec2_api.describe_instances(:instance_id => "i-11111")['reservationSet']['item'][0]
+    instance_info2 = ec2_api.describe_instances(:instance_id => "i-22222")['reservationSet']['item'][0]
+    puts "instance_info1 = #{instance_info1.inspect}"
+    puts "instance_info2 = #{instance_info2.inspect}"
     assert_equal ["web-services"], ec2_helper.lookup_security_group_names(instance_info1)
     assert_equal ["thousand"], ec2_helper.lookup_security_group_names(instance_info2)
   end

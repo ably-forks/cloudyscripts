@@ -172,7 +172,7 @@ class MockedEc2Api
     else
       instance_ids = []
     end
-    @logger.debug "instance_ids = #{instance_ids.inspect} number=#{instance_ids.length}"
+    @logger.debug "instance_ids = #{instance_ids.inspect} number=#{(instance_ids == nil ? 0 : instance_ids.length)}"
     if instance_ids == nil || instance_ids.length == 0
       return transform_instances(@instances)
     else
