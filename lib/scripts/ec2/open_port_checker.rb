@@ -63,31 +63,33 @@ class OpenPortChecker < Ec2Script
     def enter
       @context[:result][:port_checks] = []
       ec2_helper = Ec2Helper.new(@context[:ec2_api_handler])
-      @context[:ec2_instances]['reservationSet']['item'].each() do |instance_info|
-        instance_id = ec2_helper.get_instance_id(instance_info)
-        @logger.debug("instance_info = #{instance_info.inspect}")
-        instance_ip = ec2_helper.get_instance_prop(instance_info, 'dnsName')
-        instance_state = ec2_helper.get_instance_prop(instance_info, 'instanceState')['name']
-        if instance_state != "running"
-          post_message("ignore instance #{instance_id} since not running")
-          next
-        end
-        sec_groups = ec2_helper.lookup_security_group_names(instance_info)
-        @logger.debug("group lookup for #{instance_id} => #{sec_groups.inspect}")
-        sec_groups.each() do |group_name|
-          port_infos = ec2_helper.lookup_open_ports(group_name, @context[:security_groups])
-          @logger.debug("port_infos for group #{group_name} #{port_infos.inspect}")
-          port_infos.each() do |port_info|
-            result = false
-            begin
-              result = @context[:remote_command_handler].is_port_open?(instance_ip, port_info[:port])
-              post_message("check port #{port_info[:port]} for instance #{instance_id} (on #{instance_ip}) #{result ? "successful" : "failed"}")
-            rescue Exception => e
-              @logger.warn("exception during executing port check: #{e}")
+      unless @context[:ec2_instances]['reservationSet'] == nil
+        @context[:ec2_instances]['reservationSet']['item'].each() do |instance_info|
+          instance_id = ec2_helper.get_instance_id(instance_info)
+          @logger.debug("instance_info = #{instance_info.inspect}")
+          instance_ip = ec2_helper.get_instance_prop(instance_info, 'dnsName')
+          instance_state = ec2_helper.get_instance_prop(instance_info, 'instanceState')['name']
+          if instance_state != "running"
+            post_message("ignore instance #{instance_id} since not running")
+            next
+          end
+          sec_groups = ec2_helper.lookup_security_group_names(instance_info)
+          @logger.debug("group lookup for #{instance_id} => #{sec_groups.inspect}")
+          sec_groups.each() do |group_name|
+            port_infos = ec2_helper.lookup_open_ports(group_name, @context[:security_groups])
+            @logger.debug("port_infos for group #{group_name} #{port_infos.inspect}")
+            port_infos.each() do |port_info|
+              result = false
+              begin
+                result = @context[:remote_command_handler].is_port_open?(instance_ip, port_info[:port])
+                post_message("check port #{port_info[:port]} for instance #{instance_id} (on #{instance_ip}) #{result ? "successful" : "failed"}")
+              rescue Exception => e
+                @logger.warn("exception during executing port check: #{e}")
+              end
+              @context[:result][:port_checks] << {:instance => instance_id, :protocol => port_info[:protocol],
+                :port => port_info[:port], :success => result, :group_name => group_name
+              }
             end
-            @context[:result][:port_checks] << {:instance => instance_id, :protocol => port_info[:protocol],
-              :port => port_info[:port], :success => result, :group_name => group_name
-            }
           end
         end
       end
