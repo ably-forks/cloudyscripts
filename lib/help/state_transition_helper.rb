@@ -231,8 +231,12 @@ module StateTransitionHelper
   def retrieve_security_groups()
     @context[:script].post_message("going to retrieve security groups...")
     sgs = @context[:ec2_api_handler].describe_security_groups()
-    @context[:script].post_message("found #{sgs.size} security groups")
-    @logger.info("found #{sgs.size} security groups")
+    n = 0
+    unless sgs['securityGroupInfo'] == nil
+      n = sgs['securityGroupInfo']['item'].size
+    end
+    @context[:script].post_message("found #{n} security groups")
+    @logger.info("found #{n} security groups")
     @context[:security_groups] = sgs
   end
 
