@@ -19,6 +19,7 @@ class Ec2Script
     end
     @result = {:done => false, :failed => false}
     @input_params[:result] = @result
+    @logger.info("input parameters = #{@input_params.inspect}")
   end
 
   def register_state_change_listener(listener)

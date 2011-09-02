@@ -63,7 +63,8 @@ class CriticalPortsAudit < Ec2Script
           @context[:critical_ports].each() do |port|
             if permission_info['fromPort'].to_i <= port && permission_info['toPort'].to_i >= port
               @context[:result][:affected_groups] << {:name => group_info['groupName'],
-                :from => permission_info['fromPort'], :to => permission_info['toPort']}
+                :from => permission_info['fromPort'], :to => permission_info['toPort'], 
+                :concerned => port, :prot => permission_info['protocol']}
               post_message("=> found publically accessible port range that contains "+
                   "critical port for group #{group_info['groupName']}: #{permission_info['fromPort']}-#{permission_info['toPort']}")
             end
