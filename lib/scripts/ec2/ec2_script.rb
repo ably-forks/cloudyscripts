@@ -19,7 +19,15 @@ class Ec2Script
     end
     @result = {:done => false, :failed => false}
     @input_params[:result] = @result
-    @logger.info("input parameters = #{@input_params.inspect}")
+    @input_params.each() do |param_key, param_value|
+      if [:logger, :ec2_api_handler, :target_ec2_handler, :remote_command_handler,
+        :source_ssh_keydata, :target_ssh_keydata
+        ].include?(param_key.to_s.to_sym)
+        @logger.debug("INPUT PARAM #{param_key} is set [but not logged]")
+      else
+        @logger.debug("INPUT PARAM #{param_key} = #{param_value.inspect}")
+      end
+    end
   end
 
   def register_state_change_listener(listener)

@@ -2,7 +2,7 @@
 # and open the template in the editor.
 
 class MockedRemoteCommandHandler
-  attr_accessor :drive_mounted, :logger, :open_ports
+  attr_accessor :drive_mounted, :logger, :open_ports, :use_sudo
 
   def initialize
     @open_ports = [80]
@@ -10,6 +10,58 @@ class MockedRemoteCommandHandler
     @drive_mounted = false
     @logger = Logger.new(STDOUT)
     @logger.level = Logger::ERROR
+  end
+
+  def use_sudo
+    puts "use sudo"
+  end
+
+  def disable_sudoers_requiretty
+    puts "disable_sudoers_requiretty"
+  end
+
+  def enable_sudoers_requiretty
+    puts "enable_sudoers_requiretty"
+  end
+
+  def get_root_device()
+    "dummy/root_device"
+  end
+
+  # Get partition label
+  def get_partition_device(part)
+    "dummy/partition_device"
+  end
+
+  # Get device label
+  def get_device_label(device)
+    "dummy/device_label"
+  end
+
+  def get_device_label_ext(device, fs_type)
+    "dummy/get_device_label_ext"
+  end
+
+  # Set device label
+  def set_device_label(device, label)
+    puts "set device label"
+    true
+  end
+
+  # Set device label
+  def set_device_label_ext(device, label, fs_type)
+    puts "set device label ext"
+    true
+  end
+
+  # Get filesystem type
+  def get_root_fs_type()
+    "dummy/get_root_fs_type"
+  end
+
+  # Get filesystem type
+  def get_partition_fs_type(part)
+    "get_partition_fs_type"
   end
 
   def is_port_open?(ip, port)
@@ -141,7 +193,7 @@ class MockedRemoteCommandHandler
     @logger.debug "#{e}"
   end
 
-  def remote_rsync(keyfile, source_path, dest_ip, dest_path)
+  def remote_rsync(keyfile, source_path, dest_ip, dest_user, dest_path)
     e = "rsync -rlpgoDzq -e "+'"'+"ssh -o stricthostkeychecking=no -i #{keyfile}"+'"'+" #{source_path} root@#{dest_ip}:#{dest_path}"
     @logger.debug "going to execute #{e}"
   end
@@ -150,6 +202,7 @@ class MockedRemoteCommandHandler
     test_connected()
     e = "cd #{source_path}; zip #{destination_file}/*"
     @logger.debug "#{e}"
+    [e]
   end
 
   def retrieve_os()

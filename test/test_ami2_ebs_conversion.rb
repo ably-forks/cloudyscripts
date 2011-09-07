@@ -10,7 +10,9 @@ require 'test/unit'
 class TestAmi2EbsConversion < Test::Unit::TestCase
   def test_the_execution
     ec2_api = MockedEc2Api.new
-    ec2_api.security_groups = ["default","MatsGroup"]
+    ec2_api.create_security_group(:group_name => "default")
+    ec2_api.create_security_group(:group_name => "MatsGroup")
+    puts "ec2_api.describe_security_groups => #{ec2_api.describe_security_groups.inspect}"
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
     logger = Logger.new(STDOUT)
