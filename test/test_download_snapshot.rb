@@ -10,6 +10,7 @@ require 'test/unit'
 class TestDownloadSnapshot < Test::Unit::TestCase
   def test_execution
     ec2_api = MockedEc2Api.new
+    ec2_api.create_security_group(:group_name => "MatsGroup")
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
     logger = Logger.new(STDOUT)

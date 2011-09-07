@@ -10,7 +10,9 @@ require 'test/unit'
 class TestCopySnapshot < Test::Unit::TestCase
   def test_execution
     ec2_api = MockedEc2Api.new
+    ec2_api.create_security_group(:group_name => "default")
     ec2_target_api = MockedEc2Api.new
+    ec2_target_api.create_security_group(:group_name => "default")
     snap = ec2_api.create_snapshot("x-12345")
     puts "snap = #{snap.inspect}"
     ssh = MockedRemoteCommandHandler.new
