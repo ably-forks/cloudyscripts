@@ -21,7 +21,7 @@ class Ec2Script
     @input_params[:result] = @result
     @input_params.each() do |param_key, param_value|
       if [:logger, :ec2_api_handler, :target_ec2_handler, :remote_command_handler,
-        :source_ssh_keydata, :target_ssh_keydata
+        :source_ssh_keydata, :target_ssh_keydata, :ssh_keydata
         ].include?(param_key.to_s.to_sym)
         @logger.debug("INPUT PARAM #{param_key} is set [but not logged]")
       else
