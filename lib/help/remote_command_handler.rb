@@ -279,7 +279,7 @@ class RemoteCommandHandler
     exec_string = "sh -c 'echo #{push_data} >tmp.txt; #{exec_string} <tmp.txt; rm -f tmp.txt'" unless push_data == nil
     stdout = []
     stderr = []
-    result = remote_exec_helper(exec_string, stdout, stderr)
+    result = remote_exec_helper(exec_string, stdout, stderr, true)
     em = "RemoteCommandHandler: #{exec_string} lead to stderr message: #{stderr.join().strip}"
     @logger.info(em) unless stderr.size == 0
     raise Exception.new(em) unless result == true || raise_exception == false
