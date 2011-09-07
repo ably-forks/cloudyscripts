@@ -41,6 +41,9 @@ class DownloadSnapshot < Ec2Script
     if !ec2_helper.check_open_port(@input_params[:security_group_name], 22)
       raise Exception.new("Port 22 must be opened for security group #{@input_params[:security_group_name]} to connect via SSH")
     end
+    if !ec2_helper.check_open_port(@input_params[:security_group_name], 80)
+      raise Exception.new("Port 80 must be opened for security group #{@input_params[:security_group_name]} to make the download link work")
+    end
     if @input_params[:source_device] == nil
       @input_params[:source_device] = "/dev/sdj1"
     end
