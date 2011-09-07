@@ -34,6 +34,9 @@ class Ami2EbsConversion < Ec2Script
     if @input_params[:security_group_name] == nil
       @input_params[:security_group_name] = "default"
     end
+    if @input_params[:ami_id] == nil && !(@input_params[:ami_id] =~ /^ami-.*$/)
+      raise Exception.new("Invalid AMI ID specified: #{@input_params[:ami_id]}")
+    end
     ec2_helper = Ec2Helper.new(@input_params[:ec2_api_handler])
     if !ec2_helper.check_open_port(@input_params[:security_group_name], 22)
       raise Exception.new("Port 22 must be opened for security group #{@input_params[:security_group_name]} to connect via SSH")
