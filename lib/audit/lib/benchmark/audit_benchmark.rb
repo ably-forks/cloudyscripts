@@ -151,7 +151,8 @@ class AuditBenchmark
 #  end
 
   def duration()
-    execution_order().flatten().each().inject(0) {|result, element| result + element.duration}
+    #execution_order().flatten().each().inject(0) {|result, element| result + element.duration}
+    execution_order().flatten().inject(0) {|result, element| result + element.duration}
   end
 
   def to_hash()

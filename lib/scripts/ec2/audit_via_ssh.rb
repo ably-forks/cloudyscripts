@@ -35,9 +35,9 @@ class AuditViaSsh < Ec2Script
     if @input_params[:sec_grp_name] == nil
       @input_params[:sec_grp_name] = "default"
     end
-    if @input_params[:audit_type] != nil && @input_params[:audit_type].casecmp("SSH")
+    if @input_params[:audit_type] != nil && @input_params[:audit_type].downcase.eql?("ssh")
       @input_params[:benchmark_file] = "./lib/audit/benchmark_ssh.zip"
-    elsif @input_params[:audit_type] != nil && @input_params[:audit_type].casecmp("APACHE")
+    elsif @input_params[:audit_type] != nil && @input_params[:audit_type].downcase.eql?("apache")
       @input_params[:benchmark_file] = "./lib/audit/benchmark_apache.zip"
     else
       raise Exception.new("Invalid Audit '#{@input_params[:audit_type]}' specified")
