@@ -4,7 +4,6 @@ require "help/remote_command_handler"
 require "help/ec2_helper"
 require "audit/lib/audit"
 require "AWS"
-require 'pp'
 
 # Audit an AMI or an instance via an SSH connection using a specific benchmark
 #
@@ -42,6 +41,7 @@ class AuditViaSsh < Ec2Script
     else
       raise Exception.new("Invalid Audit '#{@input_params[:audit_type]}' specified")
     end
+
     ec2_helper = Ec2Helper.new(@input_params[:ec2_api_handler])
     if !ec2_helper.check_open_port(@input_params[:sec_grp_name], 22)
       raise Exception.new("Port 22 must be opened for security group 'default' to connect via SSH")
@@ -81,12 +81,20 @@ class AuditViaSsh < Ec2Script
       @context[:instance_id] = instance_infos[0]
       @context[:public_dns_name] = instance_infos[1]
       @context[:tmp_dir] = tmp_dir
-      #puts "DEBUG: Audit Scripts"
-      #pp @context
 
       Dir::mkdir(tmp_dir)
       if FileTest::directory?(tmp_dir)
         post_message("local temporary directory created")
+      end
+ 
+      if @context[:audit] == nil
+        @context[:audit] = Audit.new(:benchmark => @context[:benchmark_file], :attachment_dir => @context[:tmp_dir],
+                                     :connection_type => :ssh, 
+                                     :connection_params => {:user => @context[:ssh_user],
+                                                            :keys => @context[:ssh_key_file],
+                                                            :host => @context[:public_dns_name],
+                                                            :paranoid => false}, 
+                                     :logger => nil)
       end
 
       LaunchAuditViaSsh.new(@context)
@@ -96,20 +104,21 @@ class AuditViaSsh < Ec2Script
   # Launch the audit via SSH
   class LaunchAuditViaSsh < AuditViaSshState
     def enter
-      audit = Audit.new(:benchmark => @context[:benchmark_file], :attachment_dir => @context[:tmp_dir],
-                        :connection_type => :ssh, 
-                        :connection_params => {:user => @context[:ssh_user],
-                                               :keys => @context[:ssh_key_file],
-                                               :host => @context[:public_dns_name],
-                                               :paranoid => false}, 
+      audit = @context[:audit]
+      #audit = Audit.new(:benchmark => @context[:benchmark_file], :attachment_dir => @context[:tmp_dir],
+      #                  :connection_type => :ssh, 
+      #                  :connection_params => {:user => @context[:ssh_user],
+      #                                         :keys => @context[:ssh_key_file],
+      #                                         :host => @context[:public_dns_name],
+      #                                         :paranoid => false}, 
                                                #:timeout => 120,
                                                #:verbose => :warn},
-                                               :logger => nil)
+      #                                         :logger => nil)
       audit.start(false)
       @context[:result][:audit_test] = []
       audit.results.each() {|key, value|
         if key =~ /^SSH_.*$/ || key =~ /^APACHE2_.*$/
-          #puts "DEBUG: Key: #{key}, Result: #{value.result}, Desc: #{value.rule.description}"
+          puts "DEBUG: Key: #{key}, Result: #{value.result}, Desc: #{value.rule.description}"
           @context[:result][:audit_test] << {:name => key, :desc => value.rule.description, :status => value.result}
           post_message("== > Test #{key}: Status: #{value.result.eql?("pass") ? "OK" : "NOK"}\n  Desc: #{value.rule.description}")
         end
