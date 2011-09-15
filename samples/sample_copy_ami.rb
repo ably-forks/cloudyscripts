@@ -59,8 +59,6 @@ class CopyAmiSampleCode
   def self.run()
     aws_access_key = "MyAccessKey"	# Your AWS access key
     aws_secret_key = "MySecretKey"	# Your AWS secret key
-    aws_access_key = "AKIAI24EOQ7I4DSYWXQQ"
-    aws_secret_key = "+EWJvv8K3vbse3/s83ydszTuL//Eea9FnzbG5INO"
 
     #aws_source_endpoint = "ec2.us-east-1.amazonaws.com"
     aws_source_endpoint = "us-east-1.ec2.amazonaws.com"
