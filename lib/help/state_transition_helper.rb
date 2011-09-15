@@ -637,7 +637,7 @@ module StateTransitionHelper
   # Get root filesytem type
   def get_root_partition_fs_type()
     post_message("Retrieving '/' root partition filesystem type...")
-    @logger.debug "get root partition filesystel type"
+    @logger.debug "get root partition filesystem type"
     # get root device and then its fs type
     root_fs_type = remote_handler().get_root_fs_type()
     @logger.debug "Found '#{root_fs_type}' as root filesystem type"
@@ -652,7 +652,7 @@ module StateTransitionHelper
   # Get root filesytem type and label
   def get_root_partition_fs_type_and_label()
     post_message("Retrieving '/' root partition filesystem type and label...")
-    @logger.debug "get root partition filesystel type"
+    @logger.debug "get root partition filesystem type"
     # get root device and then its fs type
     root_fs_type = remote_handler().get_root_fs_type()
     @logger.debug "Found '#{root_fs_type}' as root filesystem type"
@@ -681,7 +681,7 @@ module StateTransitionHelper
   # Get partition filesytem type
   def get_partition_fs_type(part)
     post_message("Retrieving '#{part}' partition filesystem type...")
-    @logger.debug "get #{part} partition filesystel type"
+    @logger.debug "get #{part} partition filesystem type"
     # get partition device and then its fs type
     part_fs_type = remote_handler().get_partition_fs_type(part)
     @logger.debug "Found '#{part_fs_type}' as filesystem type"
@@ -696,7 +696,7 @@ module StateTransitionHelper
   # Get partition filesytem type and label
   def get_partition_fs_type_and_label(part)
     post_message("Retrieving '#{part}' partition filesystem type...")
-    @logger.debug "get #{part} partition filesystel type"
+    @logger.debug "get #{part} partition filesystem type"
     # get partition device and then its fs type
     part_fs_type = remote_handler().get_partition_fs_type(part)
     @logger.debug "Found '#{part_fs_type}' as filesystem type"

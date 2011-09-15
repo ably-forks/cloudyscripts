@@ -26,11 +26,11 @@ class AwsEc2Helper
 
   #XXX: Basic 32-bit Amazon Linux AMI 2011.02.1 Beta
   def self.get_basic_aws_linux_ami(region)
-    map = {'us-east-1.ec2.amazonaws.com' => 'ami-8c1fece5',
-      'us-west-1.ec2.amazonaws.com' => 'ami-3bc9997e',
-      'eu-west-1.ec2.amazonaws.com' => 'ami-47cefa33',
-      'ap-southeast-1.ec2.amazonaws.com' => 'ami-6af08e38',
-      'ap-northeast-1.ec2.amazonaws.com' => 'ami-300ca731'
+   map = {'us-east-1.ec2.amazonaws.com' => 'ami-09ab6d60', #'ami-8c1fece5',
+      'us-west-1.ec2.amazonaws.com' => 'ami-17eebc52', #'ami-3bc9997e',
+      'eu-west-1.ec2.amazonaws.com' => 'ami-940030e0', #'ami-47cefa33',
+      'ap-southeast-1.ec2.amazonaws.com' => 'ami-cec9b19c', #'ami-6af08e38',
+      'ap-northeast-1.ec2.amazonaws.com' => 'ami-96b50097' #'ami-300ca731'
     }
     if map[region] == nil
       raise Exception.new("region not supported")
@@ -59,6 +59,8 @@ class CopyAmiSampleCode
   def self.run()
     aws_access_key = "MyAccessKey"	# Your AWS access key
     aws_secret_key = "MySecretKey"	# Your AWS secret key
+    aws_access_key = "AKIAI24EOQ7I4DSYWXQQ"
+    aws_secret_key = "+EWJvv8K3vbse3/s83ydszTuL//Eea9FnzbG5INO"
 
     #aws_source_endpoint = "ec2.us-east-1.amazonaws.com"
     aws_source_endpoint = "us-east-1.ec2.amazonaws.com"
@@ -92,7 +94,7 @@ class CopyAmiSampleCode
       :target_ec2_handler => target_ec2_api,
       :source_ssh_username => source_ssh_user,
       :source_key_name => source_ssh_key_name,
-      #:source_ssh_keyfile => source_ssh_key_file,
+      :source_ssh_keyfile => source_ssh_key_file,
       :source_ssh_keydata => File.new(source_ssh_key_file, "r").read,
       :target_ssh_username => target_ssh_user,
       :target_key_name => target_ssh_key_name,
