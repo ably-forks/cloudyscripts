@@ -69,7 +69,7 @@ class MockedVCloudApi < VCloudApiHandler
      "xmlns"=>"urn:tmrk:vCloudExpressExtensions-1.6"}
     iserv = result['InternetService']
     @internet_services.each() {|is|
-      id = rand(1000000)
+      id = is[:id]
       iserv << {
         'Enabled' => ['true'],
         'Protocol' => ['XXX'],
@@ -89,8 +89,8 @@ class MockedVCloudApi < VCloudApiHandler
     @vapps << config
   end
 
-  def _create_internet_service(ip, port)
-    @internet_services << {:ip => ip, :port => port}
+  def _create_internet_service(ip, port, id = rand(10000))
+    @internet_services << {:ip => ip, :port => port, :id => id}
   end
 
 end

@@ -14,7 +14,8 @@ module VCloudTransitionHelper
     res['InternetService'].each() {|is|
       port = is['Port'].first.to_i
       ip = is['PublicIpAddress'].first['Name'].first #TODO: several IPs may be defined here?
-      @context[:vcloud_internet_services] << {:port => port, :ip => ip}
+      id = is['PublicIpAddress'].first['Id'].first
+      @context[:vcloud_internet_services] << {:port => port, :ip => ip, :id => id}
     }
   end
 

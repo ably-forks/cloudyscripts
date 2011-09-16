@@ -7,7 +7,7 @@ require "scripts/vcloud/v_cloud_script"
 # on a propriatary version of the vCloud API implemented by Terremark.
 #
 
-class OpenPortChecker < VCloudScript
+class OpenPortCheckerVm < VCloudScript
   # Input parameters
   # * vcloud_api_handler => object that allows to access the vCloud service
   def initialize(input_params)
@@ -50,13 +50,14 @@ class OpenPortChecker < VCloudScript
       @context[:vcloud_internet_services].each() do |is|
         port = is[:port]
         ip = is[:ip]
+        identifier = is[:id]
         begin
           result = @context[:remote_command_handler].is_port_open?(ip, port)
           post_message("check port #{port} on IP #{ip} => #{result ? "successful" : "failed"}")
         rescue Exception => e
           @logger.warn("exception during executing port check: #{e}")
         end
-        @context[:result][:port_checks] << {:ip => ip,
+        @context[:result][:port_checks] << {:ip => ip, :id => identifier,
           :port => port, :success => result
         }
       end
