@@ -1,11 +1,12 @@
 require "help/state_transition_helper"
+require "help/v_cloud_transition_helper"
 
 # Implements a little state-machine.
 # Usage: for every state you need, extend this class.
 # The method enter() must be implemented for every state you code and
 # return another state.
 class ScriptExecutionState
-  include StateTransitionHelper
+  include StateTransitionHelper, VCloudTransitionHelper
   
   # context information for the state (hash)
   attr_reader :context, :logger

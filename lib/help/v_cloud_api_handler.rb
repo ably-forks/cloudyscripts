@@ -2,11 +2,11 @@ require "base64"
 require "xmlsimple"
 
 class VCloudApiHandler
-  def initialize(username, password, url_endpoint)
+  def initialize(username, password, url_endpoint, logger = Logger.new(STDOUT))
     @username = username
     @password = password
     @url_endpoint = url_endpoint
-    @debug = true
+    @logger = logger
   end
 
   def versions
@@ -16,22 +16,16 @@ class VCloudApiHandler
 
   def login
     url = URI.parse("https://services.vcloudexpress.terremark.com/api/v0.8a-ext1.6/login")    
-    puts "host = #{url.host}"
-    puts "url.path=#{url.path}"
-    puts "url.port=#{url.port}"
     req = Net::HTTP::Post.new(url.path)
     req.basic_auth("#{@username}", "#{@password}")
     req.add_field('Content-Length','0')
     req.add_field('Content-Type', 'application/vdn.vmware.vCloud.orgList+xml')
-    puts "--- Request-Header:"
+    @logger.debug "--- Request-Header:"
     req.each_header do |key, name|
-      puts "#{key}: #{name}"
+      @logger.debug "#{key}: #{name}"
     end
-    puts "------------"
     res = http_request(url, req)
     @vcloud_token = res.get_fields("Set-Cookie")
-    puts "Set-Cookie Field: #{res.get_fields("Set-Cookie")}"
-    puts "---------------------------------------"
     xmlbody = XmlSimple.xml_in(res.body)
     @organization_link = xmlbody["Org"].first["href"]
     return xmlbody
@@ -40,9 +34,8 @@ class VCloudApiHandler
   def org
     res = generic_get_request(@organization_link)
     xmlbody = XmlSimple.xml_in(res.body)
-    puts "---------------------------------------"
     xmlbody["Link"].each() {|info|
-      puts "org: found info on #{info.inspect}"
+      @logger.info "org: found info on #{info.inspect}"
       case info['type']
         when "application/vnd.vmware.vcloud.vdc+xml"
           @vdc_link = info['href']
@@ -53,7 +46,7 @@ class VCloudApiHandler
         when "application/vnd.tmrk.vcloudExpress.keysList+xml"
           @keyslist_link = info['href']
         else
-          puts "could not identify #{info['type']} for org"
+          @logger.info "could not identify #{info['type']} for org"
       end
     }
     return xmlbody
@@ -65,25 +58,25 @@ class VCloudApiHandler
     res = generic_get_request(@vdc_link)
     xmlbody = XmlSimple.xml_in(res.body)    
     xmlbody['ResourceEntities'].first['ResourceEntity'].each() do |info|
-      puts "vdc: found info on #{info.inspect}"
+      @logger.info "vdc: found info on #{info.inspect}"
       case info['type']      
         when "application/vnd.vmware.vcloud.vApp+xml"
           @server_links << info['href']
       else
-        puts "could not identify #{info['type']} for vdc"
+        @logger.info "could not identify #{info['type']} for vdc"
       end
     end
-    puts "@server_links = #{@server_links.inspect}"
+    @logger.debug "@server_links = #{@server_links.inspect}"
     xmlbody['AvailableNetworks'].first['Network'].each() do |info|
-      puts "vdc: found info on #{info.inspect}"
+      @logger.debug "vdc: found info on #{info.inspect}"
       case info['type']
         when "application/vnd.vmware.vcloud.network+xml"
           @network_links << info['href']
       else
-        puts "could not identify #{info['type']} for vdc"
+        @logger.info "could not identify #{info['type']} for vdc"
       end
     end
-    puts "@network_links = #{@network_links.inspect}"
+    @logger.debug "@network_links = #{@network_links.inspect}"
   end
 
   def v_apps
@@ -102,6 +95,8 @@ class VCloudApiHandler
     @internet_services_link = "#{@vdc_link}/internetServices"
     @internet_services_link.gsub!("api/v0.8a-ext1.6","api/extensions/v1.6")
     res = generic_get_request(@internet_services_link)
+    xmlbody = XmlSimple.xml_in(res.body)
+    return xmlbody
   end
 
   def server_ip_address(server_ip)
@@ -109,7 +104,7 @@ class VCloudApiHandler
     res = generic_get_request(server_link)
     xmlbody = XmlSimple.xml_in(res.body)
     ip_address = xmlbody["NetworkConnectionSection"].first["NetworkConnection"].first["IpAddress"]
-    puts "Ip: #{ip_address}"
+    @logger.debug "Ip: #{ip_address}"
     #"NetworkConnectionSection"=>[{"NetworkConnection"=>[{"IpAddress"=>["10.114.117.11"],
     ip_address
   end
@@ -118,12 +113,11 @@ class VCloudApiHandler
     
   end
 
-  private
+  #private
 
   def generic_get_request(full_url)
-    puts "########################"
     raise Exception.new("no url") if full_url == nil
-    puts "url = #{full_url.inspect}"
+    @logger.debug "generic request: url = #{full_url.inspect}"
     url = URI.parse(full_url)
     req = Net::HTTP::Get.new(url.path)
     prepare_request(req)
@@ -135,11 +129,10 @@ class VCloudApiHandler
     request.add_field('Content-Length','0')
     request.add_field('Content-Type', 'application/vdn.vmware.vCloud.orgList+xml')
     request.add_field('Cookie', @vcloud_token)
-    if @debug
-      puts "--- Request-Header:"
-      request.each_header do |key, name|
-        puts "#{key}: #{name}"
-      end
+    
+    @logger.debug "--- Request-Header:"
+    request.each_header do |key, name|
+      @logger.debug "#{key}: #{name}"
     end
   end
 
@@ -150,14 +143,13 @@ class VCloudApiHandler
     res = http_session.start {|http|
       http.request(request)
     }
-    if @debug
-      puts "--- Response-Header:"
-      res.each_header do |key, name|
-        puts "#{key}: #{name}"
-      end
-      xmlbody = XmlSimple.xml_in(res.body)
-      puts "response-body: #{xmlbody.inspect}"
+
+    @logger.debug "--- Response-Header:"
+    res.each_header do |key, name|
+      @logger.debug "#{key}: #{name}"
     end
+    xmlbody = XmlSimple.xml_in(res.body)
+    @logger.debug "response-body: #{xmlbody.inspect}"
     return res
   end
 end
