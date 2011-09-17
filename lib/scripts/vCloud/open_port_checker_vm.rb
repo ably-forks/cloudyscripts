@@ -1,6 +1,6 @@
 require "help/script_execution_state"
 require "help/remote_command_handler"
-require "scripts/vcloud/v_cloud_script"
+require "scripts/vCloud/v_cloud_script"
 
 # Identifies all open internet services and checks if
 # there are actually used by a service. Note: this script depends

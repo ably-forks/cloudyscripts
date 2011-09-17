@@ -2,7 +2,7 @@ require "mock/mocked_v_cloud_api"
 require "mock/mocked_state_change_listener"
 require "mock/mocked_remote_command_handler"
 
-require "scripts/vcloud/open_port_checker_vm"
+require "scripts/vCloud/open_port_checker_vm"
 
 require 'test/unit'
 
