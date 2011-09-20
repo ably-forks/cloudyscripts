@@ -280,6 +280,11 @@ class RemoteCommandHandler
     stdout = []
     stderr = []
     result = remote_exec_helper(exec_string, stdout, stderr, true)
+    #dump stdout in case of error
+    if result == false
+      em = "RemoteCommandHandler: #{exec_string} lead to stdout message: #{stdout.join().strip}"
+      @logger.info(em) unless stdout.size == 0
+    end
     em = "RemoteCommandHandler: #{exec_string} lead to stderr message: #{stderr.join().strip}"
     @logger.info(em) unless stderr.size == 0
     raise Exception.new(em) unless result == true || raise_exception == false
