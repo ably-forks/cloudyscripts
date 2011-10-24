@@ -223,6 +223,7 @@ class MockedEc2Api
       instanceInfos['architecture'] = "i386"
       instanceInfos['instanceType'] = "m1.small"
       instanceInfos['virtualizationType'] = "paravirtual"
+      instanceInfos['rootDeviceName'] = "/dev/sda1"
       instanceInfos['rootDeviceType'] = "ebs"
       blockDeviceMapping = []
       instanceInfos['blockDeviceMapping'] = {}

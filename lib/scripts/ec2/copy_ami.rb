@@ -95,7 +95,7 @@ class CopyAmi < Ec2Script
   class InitialState < CopyAmiState
     def enter()
       @context[:source_instance_id], @context[:source_dns_name], @context[:source_availability_zone], 
-        @context[:kernel_id], @context[:ramdisk_id], @context[:architecture] =
+        @context[:kernel_id], @context[:ramdisk_id], @context[:architecture], @context[:root_device_name] =
         launch_instance(@context[:ami_id], @context[:source_key_name], "default")
       ec2_helper = Ec2Helper.new(@context[:ec2_api_handler])
       puts "get_attached returns: #{ec2_helper.get_attached_volumes(@context[:source_instance_id]).inspect}"
@@ -121,6 +121,22 @@ class CopyAmi < Ec2Script
       mount_point = "/mnt/tmp_#{@context[:source_volume_id]}"
       attach_volume(@context[:source_volume_id], @context[:source_instance_id], device)
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata]) 
+      # detect if there is a shift for device mapping (between AWS and the operating system of the system)
+      root_device_name = get_root_device_name()
+      # detect letters
+      aws_root_device = @context[:root_device_name]
+      aws_letter = aws_root_device.split('/')[2].gsub('sd', '').gsub('xvd', '').gsub(/[0-9]/, '')
+      os_letter = root_device_name.split('/')[2].gsub('sd', '').gsub('xvd', '').gsub(/[0-9]/, '')
+      aws_device_letter = device.split('/')[2].gsub('sd', '').gsub('xvd', '').gsub(/[0-9]/, '')
+      if !aws_letter.eql?(os_letter)
+        post_message("Detected specific kernel with shift between AWS and Kernel OS for device naming")
+      end
+      while !aws_letter.eql?(os_letter)
+        aws_letter.succ!
+        aws_device_letter.succ!
+      end
+      device = "/dev/sd#{aws_device_letter}" 
+      post_message("Using AWS name '#{@context[:temp_device_name]}' and OS name '#{device}'")
       mount_fs(mount_point, device)
       # get root partition label and filesystem type
       #@context[:label] = get_root_partition_label()

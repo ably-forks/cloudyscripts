@@ -143,6 +143,7 @@ module StateTransitionHelper
         kernel_id = res['reservationSet']['item'][0]['instancesSet']['item'][0]['kernelId']
         ramdisk_id = res['reservationSet']['item'][0]['instancesSet']['item'][0]['ramdiskId']
         architecture = res['reservationSet']['item'][0]['instancesSet']['item'][0]['architecture']
+        root_device_name = res['reservationSet']['item'][0]['instancesSet']['item'][0]['rootDeviceName']
       elsif state['code'].to_i != 0
         post_message("instance in state #{state['name']}")
         raise Exception.new('instance failed to start up')
@@ -150,7 +151,7 @@ module StateTransitionHelper
         post_message("instance still starting up...")
       end
     end
-    return instance_id, dns_name, availability_zone, kernel_id, ramdisk_id, architecture
+    return instance_id, dns_name, availability_zone, kernel_id, ramdisk_id, architecture, root_device_name
   end
 
   # Start an instance
@@ -532,7 +533,7 @@ module StateTransitionHelper
       @logger.debug "creating mount point #{mount_point}"
       remote_handler().mkdir(mount_point)
     end
-    #XXX: detect new kernel that have /dev/xvdX device node instaed of /dev/sdX
+    #XXX: detect new kernel that have /dev/xvdX device node instead of /dev/sdX
     if device =~ /\/dev\/sd[a-z]/
       if !remote_handler().file_exists?(device)
         post_message("'#{device}' device node not found, checking for new kernel support...")
@@ -598,6 +599,15 @@ module StateTransitionHelper
       @logger.info "#{msg}"
     end
     post_message("#{msg}")
+  end
+
+  # Get root partition
+  def get_root_device_name()
+    post_message("Retrieving '/' root device name...")
+    @logger.debug "get root device name"
+    root_device = remote_handler().get_root_device()
+    @logger.debug "Found '#{root_device}' as root device"
+    return root_device
   end
 
   # Get root partition label
@@ -788,14 +798,14 @@ module StateTransitionHelper
 
   def disable_ssh_tty(host)
     post_message("going to disable SSH tty on #{host}...")
-    @logger.debug "disable SSH tty on "
+    @logger.debug "disable SSH tty on #{host}"
     remote_handler().disable_sudoers_requiretty()
     post_message("SSH tty disabled")
   end
 
   def enable_ssh_tty(host)
     post_message("going to enable SSH tty on #{host}...")
-    @logger.debug "enable SSH tty on"
+    @logger.debug "enable SSH tty on #{host}"
     remote_handler().enable_sudoers_requiretty()
     post_message("SSH tty enabled")
   end
