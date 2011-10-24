@@ -906,7 +906,10 @@ module StateTransitionHelper
                             'aki-525ea73b' => 'pv-grub-hd00_1.02-i386',
                             'aki-8e5ea7e7' => 'pv-grub-hd00_1.02-x86_64',
                             'aki-805ea7e9' => 'pv-grub-hd0_1.02-i386',
-                            'aki-825ea7eb' => 'pv-grub-hd0_1.02-x86_64'
+                            'aki-825ea7eb' => 'pv-grub-hd0_1.02-x86_64',
+                            #RHEL kernel Amazon Kernel ID
+                            'aki-36ed075f' => 'aki-rhel-i386',
+                            'aki-08ed0761' => 'aki-rhel-x86_64'	
                            }, 
             'us-west-1' => {'aki-9da0f1d8' => 'pv-grub-hd00-V1.01-i386',
                             'aki-9fa0f1da' => 'pv-grub-hd00-V1.01-x86_64',
@@ -915,7 +918,10 @@ module StateTransitionHelper
                             'aki-87396bc2' => 'pv-grub-hd00_1.02-i386',
                             'aki-81396bc4' => 'pv-grub-hd00_1.02-x86_64',
                             'aki-83396bc6' => 'pv-grub-hd0_1.02-i386',
-                            'aki-8d396bc8' => 'pv-grub-hd0_1.02-x86_64'
+                            'aki-8d396bc8' => 'pv-grub-hd0_1.02-x86_64',
+                            #RHEL kernel Amazon Kernel ID
+                            'aki-772c7f32' => 'aki-rhel-i386',
+                            'aki-712c7f34' => 'aki-rhel-x86_64'	
                            },
             'eu-west-1' => {'aki-47eec433' => 'pv-grub-hd00-V1.01-i386',
                             'aki-41eec435' => 'pv-grub-hd00-V1.01-x86_64',
@@ -924,7 +930,10 @@ module StateTransitionHelper
                             'aki-8a6657fe' => 'pv-grub-hd00_1.02-i386',
                             'aki-60695814' => 'pv-grub-hd00_1.02-x86_64',
                             'aki-64695810' => 'pv-grub-hd0_1.02-i386',
-                            'aki-62695816' => 'pv-grub-hd0_1.02-x86_64'
+                            'aki-62695816' => 'pv-grub-hd0_1.02-x86_64',
+                            #RHEL kernel Amazon Kernel ID
+                            'aki-af0a3ddb' => 'aki-rhel-i386',
+                            'aki-a90a3ddd' => 'aki-rhel-x86_64'	
                            },
             'ap-southeast-1' => {'aki-6fd5aa3d' => 'pv-grub-hd00-V1.01-i386',
                                  'aki-6dd5aa3f' => 'pv-grub-hd00-V1.01-x86_64',
@@ -933,7 +942,10 @@ module StateTransitionHelper
                                  'aki-a0225af2' => 'pv-grub-hd00_1.02-i386',
                                  'aki-a6225af4' => 'pv-grub-hd00_1.02-x86_64',
                                  'aki-a4225af6' => 'pv-grub-hd0_1.02-i386',
-                                 'aki-aa225af8' => 'pv-grub-hd0_1.02-x86_64'
+                                 'aki-aa225af8' => 'pv-grub-hd0_1.02-x86_64',
+                                 #RHEL kernel Amazon Kernel ID
+                                 'aki-9c235ace' => 'aki-rhel-i386',
+                                 'aki-82235ad0' => 'aki-rhel-x86_64'	
                            },
             'ap-northeast-1' => {'aki-d209a2d3' => 'pv-grub-hd00-V1.01-i386',
                                  'aki-d409a2d5' => 'pv-grub-hd00-V1.01-x86_64',
@@ -942,7 +954,10 @@ module StateTransitionHelper
                                  'aki-e85df7e9' => 'pv-grub-hd00_1.02-i386',
                                  'aki-ea5df7eb' => 'pv-grub-hd00_1.02-x86_64',
                                  'aki-ec5df7ed' => 'pv-grub-hd0_1.02-i386',
-                                 'aki-ee5df7ef' => 'pv-grub-hd0_1.02-x86_64'
+                                 'aki-ee5df7ef' => 'pv-grub-hd0_1.02-x86_64',
+                                 #RHEL kernel Amazon Kernel ID
+                                 'aki-66c06a67' => 'aki-rhel-i386',
+                                 'aki-68c06a69' => 'aki-rhel-x86_64'	
                            }
           }
     target_aki = ''
