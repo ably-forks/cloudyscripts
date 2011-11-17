@@ -38,7 +38,7 @@ module StateTransitionHelper
   # Returns:
   # * OS of the connected machine
   def connect(dns_name, user_name, ssh_keyfile = nil, ssh_keydata = nil,
-      trials = 5, wait_between_trials = 20)
+      trials = 10, wait_between_trials = 20)
     post_message("connecting '#{user_name}' to #{dns_name}...")
     connected = false
     last_connection_problem = ""
@@ -871,6 +871,15 @@ module StateTransitionHelper
   #    aki-81396bc4 ec2-public-images-us-west-1/pv-grub-hd00_1.02-x86_64.gz.manifest.xml
   #    aki-83396bc6 ec2-public-images-us-west-1/pv-grub-hd0_1.02-i386.gz.manifest.xml
   #    aki-8d396bc8 ec2-public-images-us-west-1/pv-grub-hd0_1.02-x86_64.gz.manifest.xml
+  # * US-West-2
+  #    aki-dee26fee ec2-public-images-us-west-2/pv-grub-hd00-V1.01-i386.gz.manifest.xml
+  #    aki-90e26fa0 ec2-public-images-us-west-2/pv-grub-hd00-V1.01-x86_64.gz.manifest.xml
+  #    aki-dce26fec ec2-public-images-us-west-2/pv-grub-hd0-V1.01-i386.gz.manifest.xml
+  #    aki-ace26f9c ec2-public-images-us-west-2/pv-grub-hd0-V1.01-x86_64.gz.manifest.xml
+  #    aki-c0e26ff0 ec2-public-images-us-west-2/pv-grub-hd00_1.02-i386.gz.manifest.xml
+  #    aki-94e26fa4 ec2-public-images-us-west-2/pv-grub-hd00_1.02-x86_64.gz.manifest.xml
+  #    aki-c2e26ff2 ec2-public-images-us-west-2/pv-grub-hd0_1.02-i386.gz.manifest.xml
+  #    aki-98e26fa8 ec2-public-images-us-west-2/pv-grub-hd0_1.02-x86_64.gz.manifest.xml
   # * EU-West-1
   #    aki-47eec433 ec2-public-images-eu/pv-grub-hd00-V1.01-i386.gz.manifest.xml
   #    aki-41eec435 ec2-public-images-eu/pv-grub-hd00-V1.01-x86_64.gz.manifest.xml
@@ -922,6 +931,18 @@ module StateTransitionHelper
                             #RHEL kernel Amazon Kernel ID
                             'aki-772c7f32' => 'aki-rhel-i386',
                             'aki-712c7f34' => 'aki-rhel-x86_64'	
+                           },
+            'us-west-2' => {'aki-dee26fee' => 'pv-grub-hd00-V1.01-i386',
+                            'aki-90e26fa0' => 'pv-grub-hd00-V1.01-x86_64',
+                            'aki-dce26fec' => 'pv-grub-hd0-V1.01-i386',
+                            'aki-ace26f9c' => 'pv-grub-hd0-V1.01-x86_64',
+                            'aki-c0e26ff0' => 'pv-grub-hd00_1.02-i386',
+                            'aki-94e26fa4' => 'pv-grub-hd00_1.02-x86_64',
+                            'aki-c2e26ff2' => 'pv-grub-hd0_1.02-i386',
+                            'aki-98e26fa8' => 'pv-grub-hd0_1.02-x86_64',
+                            #RHEL kernel Amazon Kernel ID
+                            '' => 'aki-rhel-i386',
+                            '' => 'aki-rhel-x86_64'
                            },
             'eu-west-1' => {'aki-47eec433' => 'pv-grub-hd00-V1.01-i386',
                             'aki-41eec435' => 'pv-grub-hd00-V1.01-x86_64',
@@ -992,7 +1013,9 @@ module StateTransitionHelper
     case endpoint
       when /us-east/
         region = "us-east-1"
-      when /us-west/
+      when /us-west-2/
+        region = "us-west-2"
+      when /us-west-1/
         region = "us-west-1"
       when /eu-west/
         region = "eu-west-1"
