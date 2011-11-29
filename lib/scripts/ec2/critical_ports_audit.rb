@@ -61,13 +61,26 @@ class CriticalPortsAudit < Ec2Script
           next unless permission_info['groups'] == nil #ignore access rights to other groups
           next unless permission_info['ipRanges']['item'][0]['cidrIp'] == "0.0.0.0/0"
           #now check if a critical port is within the port-range
-          @context[:critical_ports].each() do |port|
-            if permission_info['fromPort'].to_i <= port && permission_info['toPort'].to_i >= port
-              @context[:result][:affected_groups] << {:name => group_info['groupName'],
-                :from => permission_info['fromPort'], :to => permission_info['toPort'], 
-                :concerned => port, :prot => permission_info['ipProtocol']}
-              post_message("=> found publically accessible port range that contains "+
-                  "critical port for group #{group_info['groupName']}: #{permission_info['fromPort']}-#{permission_info['toPort']}")
+          #XXX: allow to skip the 'critical port' options if nil
+          if @context[:critical_ports] == nil || @context[:critical_ports].empty?
+            port = nil
+            if permission_info['fromPort'].to_i == permission_info['toPort'].to_i
+              port = permission_info['fromPort'].to_i
+              post_message("=> found unique port #{port}")
+            end
+            @context[:result][:affected_groups] << {:name => group_info['groupName'],
+                  :from =>  permission_info['fromPort'], :to => permission_info['toPort'], 
+                  :concerned => port, :prot => permission_info['ipProtocol']} 
+            post_message("=> found at least one port publicly opened")
+          else
+            @context[:critical_ports].each() do |port|
+              if permission_info['fromPort'].to_i <= port && permission_info['toPort'].to_i >= port
+                @context[:result][:affected_groups] << {:name => group_info['groupName'],
+                  :from => permission_info['fromPort'], :to => permission_info['toPort'], 
+                  :concerned => port, :prot => permission_info['ipProtocol']}
+                post_message("=> found publically accessible port range that contains "+
+                    "critical port for group #{group_info['groupName']}: #{permission_info['fromPort']}-#{permission_info['toPort']}")
+              end
             end
           end
         end
