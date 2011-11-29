@@ -1,6 +1,7 @@
 require 'net/scp'
 require "AWS"
 
+
 # Contains methods that are used by the scripts in the state-machines. Since
 # they are reused by different scripts, they are factored into this module.
 #

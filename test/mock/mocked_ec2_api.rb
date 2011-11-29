@@ -20,6 +20,8 @@ class MockedEc2Api
     @rootDeviceType = "instance-store"
     @security_groups = []
     @permissions = {}
+    @vpcs = []
+    @igws = []
     #create_security_group(:group_name => "default")
   end
 
@@ -46,6 +48,24 @@ class MockedEc2Api
     group_id = "sg-#{rand(999999)}"
     drop "-- mock_ec2_api: create_security_group #{options.inspect} group_id = #{group_id}"
     @security_groups << {:group_name => group_name, :group_id => group_id}
+    @permissions[group_name] = []
+    if options[:empty] == nil
+      options = {:group_name => group_name, :ip_protocol => "tcp", :to_port => 22,
+        :from_port => 22, :cidr_ip => "0.0.0.0/0"}
+      authorize_security_group_ingress(options)
+    end
+  end
+
+  def create_vpc_security_group(options)
+    if options[:group_name] == nil
+      raise Exception.new("must specify :group_name option")
+    end
+    return unless lookup_group(options) == nil
+    group_name = options[:group_name]
+    group_id = "sg-#{rand(999999)}"
+    vpc_id = options[:vpc_id] 
+    drop "-- mock_ec2_api: create_vpc_security_group #{options.inspect} group_id = #{group_id}, vpc_id = #{vpc_id}"
+    @security_groups << {:group_name => group_name, :group_id => group_id, :vpc_id => vpc_id}
     @permissions[group_name] = []
     if options[:empty] == nil
       options = {:group_name => group_name, :ip_protocol => "tcp", :to_port => 22,
@@ -143,6 +163,11 @@ class MockedEc2Api
       group['groupId'] = group_id
       ret['securityGroupInfo']['item'] << group
       group['ownerId'] = "945722764978"
+      # add VPC ID if any
+      if !sg[:vpc_id].nil?
+        puts "Setting VPC ID: #{sg[:vpc_id]}"
+        group['vpcId'] = sg[:vpc_id]
+      end
       group['ipPermissions'] = {}
       group['ipPermissions']['item'] = []
       @permissions[group_name].each() {|p|
@@ -634,6 +659,61 @@ class MockedEc2Api
   def register_image_updated(options)
     @logger.debug "register_image for #{options[:snapshot_id]} name #{options[:name]}"
     {'imageId' => "ami-#{options[:snapshot_id]}"}
+  end
+
+  #VPC support
+  def create_vpc( options = {} )
+    drop "-- mock_ec2_api: create_vpc"
+    @vpcs << {:vpc_id => options[:vpc_id], :cidr_blk => options[:cidr_blk]}
+  end
+
+  def describe_vpcs( options = {} )
+    drop "-- mock_ec2_api: describe_vpc"
+    vpcs = @vpcs
+    res = 
+    ret = {}
+    ret['vpcSet'] = {}
+    items = []
+    ret['vpcSet']['item'] = items
+    vpcs.each() {|vpc|
+      item = {}
+      item['dhcpOptionsId'] = "dopt-12345678"
+      item['instanceTenancy'] = "default"
+      item['cidrBlock'] = "#{vpc[:cidr_blk]}"
+      item['vpcId'] = "#{vpc[:vpc_id]}"
+      item['state'] = "available"
+      items << item
+    }
+    return ret
+  end
+
+  def create_internetgateway( options = {} )
+    drop "-- mock_ec2_api: create_internetgateway"
+    @igws << {:igw_id => options[:igw_id], :vpc_id => options[:vpc_id]}
+  end
+
+  def describe_internetgateways( options = {} )
+    drop "-- mock_ec2_api: describe_internetgateways"
+    igws = @igws
+    res = 
+    ret = {}
+    ret['internetGatewaySet'] = {}
+    items = []
+    ret['internetGatewaySet']['item'] = items
+    igws.each() {|igw|
+      item = {}
+      attachmentSet = {}
+      item['attachmentSet'] = attachmentSet
+      item['attachmentSet']['item'] = []
+      attachments = {}
+      attachments['vpcId'] = "#{igw[:vpc_id]}"
+      attachments['state'] = "available"
+      item['attachmentSet']['item'] << attachments
+      item['tagSet'] = nil
+      item['internetGatewayId'] = "#{igw[:igw_id]}" 
+      items << item
+    }
+    return ret
   end
 
 end

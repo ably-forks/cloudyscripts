@@ -12,6 +12,34 @@ class AWS::EC2::Base
   end
 end
 
+#XXX: use last AWS EC2 API, add VPC function
+module AWS
+  module EC2
+    class Base < AWS::Base
+
+      API_VERSION_HACKED = '2011-11-01'
+
+      def api_version
+        API_VERSION_HACKED
+      end
+
+      def describe_vpcs( options = {} )
+        options = { :vpc_id => [] }.merge(options)
+        params = pathlist("VpcId", options[:vpc_id])
+        return response_generator(:action => "DescribeVpcs", :params => params)
+      end
+
+      def describe_internetgateways( options = {} )
+        options = { :interetgateway_id => [] }.merge(options)
+        params = pathlist("internetGatewayId", options[:interetgateway_id])
+        return response_generator(:action => "DescribeInternetGateways", :params => params)
+      end
+
+    end
+  end
+end
+
+
 class Ec2Helper
   # expects an instance of AWS::EC2::Base from the amazon-ec2 gem
   def initialize(ec2_api)

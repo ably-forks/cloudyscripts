@@ -60,7 +60,6 @@ class CopyAmiSampleCode
     aws_access_key = "MyAccessKey"	# Your AWS access key
     aws_secret_key = "MySecretKey"	# Your AWS secret key
 
-    #aws_source_endpoint = "ec2.us-east-1.amazonaws.com"
     aws_source_endpoint = "us-east-1.ec2.amazonaws.com"
     source_ssh_user = "ubuntu"
     source_ssh_key_file = "/root/fdt_us_east.pem"
@@ -68,7 +67,6 @@ class CopyAmiSampleCode
     aws_ami_id = "ami-06ad526f"		# Your EC2 AMI to Copy
 
     aws_target_endpoint = "us-west-1.ec2.amazonaws.com"
-    #aws_target_endpoint = "ec2.us-west-1.amazonaws.com"
     aws_target_region = "us-west-1.ec2.amazonaws.com"
     target_ssh_user = "ec2-user"
     target_ssh_key_file = "/root/fdt_us_west.pem"

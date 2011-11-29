@@ -21,9 +21,9 @@ class CriticalPortsAudit < Ec2Script
     if @input_params[:ec2_api_handler] == nil
       raise Exception.new("no EC2 handler specified")
     end
-    if @input_params[:critical_ports] == nil
-      raise Exception.new("no ports specified")
-    end
+    #if @input_params[:critical_ports] == nil
+    #  raise Exception.new("no ports specified")
+    #end
   end
 
   def load_initial_state()
@@ -53,6 +53,7 @@ class CriticalPortsAudit < Ec2Script
     def enter
       @context[:result][:affected_groups] = []
       @context[:security_groups]['securityGroupInfo']['item'].each() do |group_info|
+        next if !group_info['vpcId'].nil? && !group_info['vpcId'].empty?
         post_message("checking group '#{group_info['groupName']}'...")
         next if group_info['ipPermissions'] == nil || group_info['ipPermissions']['item'] == nil
         group_info['ipPermissions']['item'].each() do |permission_info|
@@ -64,7 +65,7 @@ class CriticalPortsAudit < Ec2Script
             if permission_info['fromPort'].to_i <= port && permission_info['toPort'].to_i >= port
               @context[:result][:affected_groups] << {:name => group_info['groupName'],
                 :from => permission_info['fromPort'], :to => permission_info['toPort'], 
-                :concerned => port, :prot => permission_info['protocol']}
+                :concerned => port, :prot => permission_info['ipProtocol']}
               post_message("=> found publically accessible port range that contains "+
                   "critical port for group #{group_info['groupName']}: #{permission_info['fromPort']}-#{permission_info['toPort']}")
             end

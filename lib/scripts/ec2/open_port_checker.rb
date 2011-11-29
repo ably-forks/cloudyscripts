@@ -67,6 +67,11 @@ class OpenPortChecker < Ec2Script
         @context[:ec2_instances]['reservationSet']['item'].each() do |instance_info|
           instance_id = ec2_helper.get_instance_id(instance_info)
           @logger.debug("instance_info = #{instance_info.inspect}")
+          vpc_instance = ec2_helper.get_instance_prop(instance_info, 'vpcId')
+          if !vpc_instance.nil? && !vpc_instance.empty?
+            post_message("ignore VPC instance #{instance_id}")
+            next
+          end
           instance_ip = ec2_helper.get_instance_prop(instance_info, 'dnsName')
           instance_state = ec2_helper.get_instance_prop(instance_info, 'instanceState')['name']
           if instance_state != "running"
