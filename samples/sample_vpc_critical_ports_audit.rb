@@ -2,6 +2,7 @@ require 'help/remote_command_handler'
 require 'help/state_change_listener'
 require 'scripts/ec2/vpc_critical_ports_audit'
 require 'AWS'
+require 'yaml'
 
 
 module SecludIT
