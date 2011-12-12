@@ -246,6 +246,20 @@ class RemoteCommandHandler
     remote_exec_helper(e, nil, nil, false) #TODO: handle output in stderr?
   end
 
+  # dump and compress a device in a file locally
+  def local_dump_and_compress(source_device, target_filename)
+    e = "sh -c 'dd if=#{source_device} | gzip > #{target_filename}'"
+    @logger.debug "going to execute #{e}" 
+    status = remote_exec_helper(e, nil, nil, true)
+  end
+
+  # idecompress and a file to a device locally
+  def local_decompress_and_dump(source_filename, target_device)
+    e = "sh -c 'gunzip -c #{source_filename} | dd of=#{target_device}'"
+    @logger.debug "going to execute #{e}" 
+    status = remote_exec_helper(e, nil, nil, true)
+  end
+
   # Zip the complete contents of the source path into the destination file.
   # Returns the an array with stderr output messages.
   def zip(source_path, destination_file)
