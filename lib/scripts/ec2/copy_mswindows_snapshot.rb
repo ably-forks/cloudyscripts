@@ -98,7 +98,6 @@ class CopyMsWindowsSnapshot < Ec2Script
 
     def self.load_state(context)
       InitialState.new(context)
-      
     end
 
     def local_region
@@ -313,8 +312,8 @@ class CopyMsWindowsSnapshot < Ec2Script
       disconnect()
       #
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
-      source_dir = "/mnt/tmp_#{@context[:source_temp_volume_id]}"
-      dest_dir = "/mnt/tmp_#{@context[:target_temp_volume_id]}"
+      source_dir = "/mnt/tmp_#{@context[:source_temp_volume_id]}/"
+      dest_dir = "/mnt/tmp_#{@context[:target_temp_volume_id]}/"
       remote_copy(@context[:source_ssh_username], @context[:target_key_name], source_dir, 
         @context[:target_dns_name], @context[:target_ssh_username], dest_dir)
       disconnect()
@@ -352,7 +351,9 @@ class CopyMsWindowsSnapshot < Ec2Script
       @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], "Created by CloudyScripts - copy_mswindows_ami")
       @context[:result][:snapshot_id] = @context[:new_snapshot_id]
 
-      TargetSnapshotCreatedState.new(@context)
+      #XXX: for testing, bypass cleanup
+      Done.new(@context)
+      #TargetSnapshotCreatedState.new(@context)
     end
   end
 
