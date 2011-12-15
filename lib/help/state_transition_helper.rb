@@ -14,7 +14,7 @@ require "AWS"
 
 class AWS::EC2::Base
   def register_image_updated(options)
-    puts "register_iamge_updated: #{options.inspect}"
+    puts "register_image_updated: #{options.inspect}"
     params = {}
     params["Name"] = options[:name].to_s
     params["BlockDeviceMapping.1.Ebs.SnapshotId"] = options[:snapshot_id].to_s
@@ -797,6 +797,48 @@ module StateTransitionHelper
     post_message("remote copy operation done")
   end
 
+  # dump and compress a device using dd and gzip
+  def local_dump_and_compress_device_to_file(source_device, target_filename)
+    post_message("going to start dumping and compressing source device '#{source_device}' to '#{target_filename}' file. This may take quite a time...")
+    @logger.debug "start dumping and compressing '#{source_device}' to '#{target_filename}'"
+    start_time = Time.new.to_i
+    if remote_handler().tools_installed?("dd") && remote_handler().tools_installed?("gzip")
+      @logger.debug "use dd and gzip command line"
+      status = remote_handler().local_dump_and_compress(source_device, target_filename)
+      if status == false
+        @logger.error "failed to dump and compress device"
+        raise Exception.new("failed to dump and compress device")
+      end
+    else
+      @logger.error "dd and/or gzip tools not installed"
+      raise Exception.new("dd and/or gzip tools not installed")
+    end
+    end_time = Time.new.to_i
+    @logger.info "dump and compress took #{(end_time-start_time)}s"
+    post_message("dumping and compressing done (took #{end_time-start_time})s")
+  end
+
+  # decompress and dump a file using gunzip and dd
+  def local_decompress_and_dump_file_to_device(source_filename, target_device)
+    post_message("going to start decompressing and dumping file '#{source_filename}' to '#{target_device}' target device. This may take quite a time...")
+    @logger.debug "start decompressing and dumping '#{source_filename}' to '#{target_device}'"
+    start_time = Time.new.to_i
+    if remote_handler().tools_installed?("dd") && remote_handler().tools_installed?("gunzip")
+      @logger.debug "use dd and gzip command line"
+      status = remote_handler().local_decompress_and_dump(source_filename, target_device)
+      if status == false
+        @logger.error "failed to decompress and dump file"
+        raise Exception.new("failed to decompress and dump file")
+      end
+    else
+      @logger.error "dd and/or gunzip tools not installed"
+      raise Exception.new("dd and/or gunzip tools not installed")
+    end
+    end_time = Time.new.to_i
+    @logger.info "decompress and dump filetook #{(end_time-start_time)}s"
+    post_message("decompressing and dumping done (took #{end_time-start_time})s")
+  end
+
   def disable_ssh_tty(host)
     post_message("going to disable SSH tty on #{host}...")
     @logger.debug "disable SSH tty on #{host}"
@@ -908,6 +950,11 @@ module StateTransitionHelper
   #    aki-ea5df7eb ec2-public-images-ap-northeast-1/pv-grub-hd00_1.02-x86_64.gz.manifest.xml
   #    aki-ec5df7ed ec2-public-images-ap-northeast-1/pv-grub-hd0_1.02-i386.gz.manifest.xml
   #    aki-ee5df7ef ec2-public-images-ap-northeast-1/pv-grub-hd0_1.02-x86_64.gz.manifest.xml
+  # * SA-East-1
+  #    aki-cc3ce3d1 ec2-public-images-sa-east-1/pv-grub-hd0_1.02-x86_64.gz.manifest.xml
+  #    aki-bc3ce3a1 ec2-public-images-sa-east-1/pv-grub-hd0_1.02-i386.gz.manifest.xml
+  #    aki-d23ce3cf ec2-public-images-sa-east-1/pv-grub-hd00_1.02-x86_64.gz.manifest.xml
+  #    aki-823ce39f ec2-public-images-sa-east-1/pv-grub-hd00_1.02-i386.gz.manifest.xml
   def get_aws_kernel_image_aki(source_endpoint, source_aki, target_endpoint)
     map = { 'us-east-1' => {'aki-4c7d9525' => 'pv-grub-hd00-V1.01-i386',
                             'aki-4e7d9527' => 'pv-grub-hd00-V1.01-x86_64',
@@ -980,6 +1027,18 @@ module StateTransitionHelper
                                  #RHEL kernel Amazon Kernel ID
                                  'aki-66c06a67' => 'aki-rhel-i386',
                                  'aki-68c06a69' => 'aki-rhel-x86_64'	
+                           },
+            'sa-east-1' => {'' => 'pv-grub-hd00-V1.01-i386',
+                            '' => 'pv-grub-hd00-V1.01-x86_64',
+                            '' => 'pv-grub-hd0-V1.01-i386',
+                            '' => 'pv-grub-hd0-V1.01-x86_64',
+                            'aki-bc3ce3a1' => 'pv-grub-hd00_1.02-i386',
+                            'aki-cc3ce3d1' => 'pv-grub-hd00_1.02-x86_64',
+                            'aki-823ce39f' => 'pv-grub-hd0_1.02-i386',
+                            'aki-d23ce3cf' => 'pv-grub-hd0_1.02-x86_64',
+                            #RHEL kernel Amazon Kernel ID
+                            '' => 'aki-rhel-i386',
+                            '' => 'aki-rhel-x86_64'	
                            }
           }
     target_aki = ''
