@@ -1083,6 +1083,8 @@ module StateTransitionHelper
         region = "ap-southeast-1"
       when /ap-northeast/
         region = "ap-northeast-1"
+      when /sa-east-1/
+        region = "sa-east-1"
       else
         region = "us-east-1"
     end
