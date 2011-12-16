@@ -11,9 +11,17 @@ class TestCopySnapshot < Test::Unit::TestCase
   def test_execution
     ec2_api = MockedEc2Api.new
     ec2_api.create_security_group(:group_name => "default")
+    linux_src_ami = ec2_api.create_image(:ami_id => "ami-12345678",
+      :name => "AWS Linux", :desc => "AWS Linux AMI",
+      :root_device_name => "/dev/sda1", :root_device_type => "ebs",
+      :platform => "linux", :arch => "i386")
     ec2_target_api = MockedEc2Api.new
     ec2_target_api.create_security_group(:group_name => "default")
-    snap = ec2_api.create_snapshot("x-12345")
+    linux_tgt_ami = ec2_target_api.create_image(:ami_id => "ami-12345678",
+      :name => "AWS Linux", :desc => "AWS Linux AMI",
+      :root_device_name => "/dev/sda1", :root_device_type => "ebs",
+      :platform => "linux", :arch => "i386")
+    snap = ec2_api.create_snapshot(:volume_id => "vol-87654321")
     puts "snap = #{snap.inspect}"
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
@@ -28,8 +36,8 @@ class TestCopySnapshot < Test::Unit::TestCase
       :target_ssh_keydata => "1234567890",
       :source_key_name => "jungmats",
       :target_key_name => "jungmats",
-      :source_ami_id => "ami-d936d9b0",
-      :target_ami_id => "ami-d936d9b0",
+      :source_ami_id => "ami-12345678",
+      :target_ami_id => "ami-12345678",
       :snapshot_id => snap['snapshotId'],
       :logger => logger,
       :remote_command_handler => ssh

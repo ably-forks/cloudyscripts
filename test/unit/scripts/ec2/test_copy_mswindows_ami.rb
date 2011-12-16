@@ -21,7 +21,7 @@ class TestCopyMsWindowsAmi < Test::Unit::TestCase
       :name => "AWS Linux Source", :desc => "AWS Linux Source Helper AMI", 
       :root_device_name => "/dev/sda1", :root_device_type => "ebs", 
       :platform => "linux", :arch => "i386")
-    win_snap = source_ec2_api.create_snapshot("snap-12345678")
+    win_snap = source_ec2_api.create_snapshot(:volume_id => "vol-12345678", :size => 10)
     # create target
     target_ec2_api = MockedEc2Api.new
     target_ec2_api.create_security_group(:group_name => "default")

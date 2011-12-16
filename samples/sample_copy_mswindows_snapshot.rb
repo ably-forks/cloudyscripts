@@ -1,7 +1,7 @@
 require 'rubygems'
 require 'help/remote_command_handler'
 require 'help/state_change_listener'
-require 'scripts/ec2/copy_mswindows_ami'
+require 'scripts/ec2/copy_mswindows_snapshot'
 require 'AWS'
 
 
@@ -77,23 +77,21 @@ class CopyMsWindowsSnapshotSampleCode
   def self.run()
     aws_access_key = "MyAccessKey"	# Your AWS access key
     aws_secret_key = "MySecretKey"	# Your AWS secret key
-
+  
     aws_source_endpoint = "us-east-1.ec2.amazonaws.com"
     aws_source_region = "us-east-1.ec2.amazonaws.com"
     source_ssh_user = "ec2-user"
-    source_ssh_key_file = "/root/fdt_us_east.pem"
-    source_ssh_key_name = "fdt_us_east"
+    source_ssh_key_file = "/root/secludit_keys/secludit_us_east.pem"
+    source_ssh_key_name = "secludit_us_east"
 
     # sample: Microsoft Windows Server 2008 Base
-    aws_snap_id = ""		# Your EC2 Snapshot to Copy
+    aws_snap_id = "snap-b79bf1d2"		# Your EC2 Snapshot to Copy
 
     aws_target_endpoint = "us-west-1.ec2.amazonaws.com"
     aws_target_region = "us-west-1.ec2.amazonaws.com"
     target_ssh_user = "ec2-user"
-    target_ssh_key_file = "/root/fdt_us_west.pem"
-    target_ssh_key_name = "fdt_us_west"
-    new_ami_name = "CloudyScripts MS Windows AMI copy"
-    new_ami_description = "Copy of MS Windows AMI ami-06ad526f from AWS US-East-1 to US-West-1"
+    target_ssh_key_file = "/root/secludit_keys/secludit_us_west.pem"
+    target_ssh_key_name = "secludit_us_west"
 
     source_ec2_api = AWS::EC2::Base.new(:access_key_id => aws_access_key, :secret_access_key => aws_secret_key, :server => aws_source_endpoint)
     target_ec2_api = AWS::EC2::Base.new(:access_key_id => aws_access_key, :secret_access_key => aws_secret_key, :server => aws_target_endpoint)
@@ -130,8 +128,8 @@ class CopyMsWindowsSnapshotSampleCode
     script.start_script()
     endtime = Time.now.to_i
     #puts "results = #{script.get_execution_result().inspect}"
-    puts "== > Results of Copy AMI: #{script.get_execution_result()[:done]}"
-    puts "New AMI ID: #{script.get_execution_result()[:image_id]}"
+    puts "== > Results of Copy MS SnapShot: #{script.get_execution_result()[:done]}"
+    puts "New MS Snapshot ID: #{script.get_execution_result()[:new_snapshot_id]}"
     puts "done in #{endtime-starttime}s"
   end
 end

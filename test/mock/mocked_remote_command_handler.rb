@@ -25,12 +25,14 @@ class MockedRemoteCommandHandler
   end
 
   def get_root_device()
-    "dummy/root_device"
+    #"dummy/root_device"
+    "/dev/sda1"
   end
 
   # Get partition label
   def get_partition_device(part)
     "dummy/partition_device"
+    "/dev/sdj1"
   end
 
   # Get device label
@@ -56,12 +58,14 @@ class MockedRemoteCommandHandler
 
   # Get filesystem type
   def get_root_fs_type()
-    "dummy/get_root_fs_type"
+    #"dummy/get_root_fs_type"
+    "ext3"
   end
 
   # Get filesystem type
   def get_partition_fs_type(part)
-    "get_partition_fs_type"
+    #"get_partition_fs_type"
+    "ext3"
   end
 
   def is_port_open?(ip, port)
@@ -194,6 +198,7 @@ class MockedRemoteCommandHandler
   end
 
   def remote_rsync(keyfile, source_path, dest_ip, dest_user, dest_path)
+    test_connected()
     e = "rsync -rlpgoDzq -e "+'"'+"ssh -o stricthostkeychecking=no -i #{keyfile}"+'"'+" #{source_path} root@#{dest_ip}:#{dest_path}"
     @logger.debug "going to execute #{e}"
   end
@@ -230,6 +235,21 @@ class MockedRemoteCommandHandler
   def upload(ip, user, key_data, local_file, destination_file, timeout = 30)
     @logger.debug("upload file #{local_file} to #{user}@#{ip}:#{destination_file} [key_length = #{key_data.size}")
   end
+
+  def local_dump_and_compress(source_device, target_filename)
+    @logger.debug("--- mock_remote_cmd_hdl: local_dump_and_compress")
+    test_connected()
+    e = "dd if=#{source_device} | gzip > #{target_filename}"
+    @logger.debug("going to execute: #{e}")
+  end
+
+  def local_decompress_and_dump(source_filename, target_device)
+    @logger.debug("--- mock_remote_cmd_hdl: local_decompress_and_dump")
+    test_connected()
+    e = "gunzip -c #{source_filename} | dd of=#{target_device}"    
+    @logger.debug("going to execute: #{e}")
+  end
+
   
   private
 

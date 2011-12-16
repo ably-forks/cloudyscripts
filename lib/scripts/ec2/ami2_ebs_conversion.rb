@@ -107,7 +107,7 @@ class Ami2EbsConversion < Ec2Script
     end
   end
 
-  # Storage attached. Create a file-system and moun it
+  # Storage attached. Create a file-system and mount it
   class StorageAttached < Ami2EbsConversionState
     def enter
       @context[:result][:os] =

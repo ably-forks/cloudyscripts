@@ -134,6 +134,22 @@ class Ec2Helper
     end
   end
 
+  # Get info from "imagesSet"=>"item"[0]=>"blockDeviceMapping"=>"item"[0]
+  def ami_blkdevmap_ebs_prop(ami_id, prop)
+    amis = @ec2_api.describe_images(:image_id => ami_id)
+    begin
+      if amis['imagesSet']['item'].size == 0
+        raise Exception.new("image #{ami_id} not found")
+      end
+      if amis['imagesSet']['item'][0]['blockDeviceMapping']['item'].size == 0
+        raise Exception.new("blockDeviceMapping not found for image #{ami_id}")
+      end
+      return amis['imagesSet']['item'][0]['blockDeviceMapping']['item'][0]['ebs'][prop.to_s]
+    rescue
+        raise Exception.new("image #{ami_id} not found")
+    end
+  end
+
   def instance_prop(instance_id, prop, instances = nil)
     if instances == nil
       instances = @ec2_api.describe_instances(:instance_id => instance_id)

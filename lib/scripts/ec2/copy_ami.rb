@@ -189,8 +189,12 @@ class CopyAmi < Ec2Script
       path_candidates = ["/#{@context[:source_ssh_username]}/.ssh/",
         "/home/#{@context[:source_ssh_username]}/.ssh/"]
       key_path = determine_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata], path_candidates)
+      #XXX: fix the problem fo key name with white space
+      #upload_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata],
+      #  @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name]}.pem")
       upload_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata],
-        @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name]}.pem")
+        @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name].gsub(/\s+/, '_')}.pem")
+
       post_message("credentials are in place to connect source and target.")
       KeyInPlaceState.new(@context)
     end
@@ -206,7 +210,10 @@ class CopyAmi < Ec2Script
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
       source_dir = "/mnt/tmp_#{@context[:source_volume_id]}/"
       dest_dir = "/mnt/tmp_#{@context[:target_volume_id]}"
-      remote_copy(@context[:source_ssh_username], @context[:target_key_name], source_dir, 
+      #XXX: fix the problem fo key name with white space
+      #remote_copy(@context[:source_ssh_username], @context[:target_key_name], source_dir, 
+      #  @context[:target_dns_name], @context[:target_ssh_username], dest_dir)
+      remote_copy(@context[:source_ssh_username], @context[:target_key_name].gsub(/\s+/, '_'), source_dir, 
         @context[:target_dns_name], @context[:target_ssh_username], dest_dir)
       disconnect()
       #

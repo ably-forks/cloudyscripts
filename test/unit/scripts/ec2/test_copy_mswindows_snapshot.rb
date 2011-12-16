@@ -24,7 +24,7 @@ class TestCopyMsWindowsSnapshot < Test::Unit::TestCase
       :root_device_name => "/dev/sda1", :root_device_type => "ebs", 
       :platform => "linux", :arch => "i386")
 
-    snap = source_ec2_api.create_snapshot("snap-87654321")
+    snap = source_ec2_api.create_snapshot(:volume_id => "vol-87654321", :size => 20)
     puts "snap = #{snap.inspect}"
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new

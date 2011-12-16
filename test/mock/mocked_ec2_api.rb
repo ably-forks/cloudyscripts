@@ -23,6 +23,7 @@ class MockedEc2Api
     @vpcs = []
     @igws = []
     #create_security_group(:group_name => "default")
+    @images = []
   end
 
   def delete_security_group(options)
@@ -219,7 +220,8 @@ class MockedEc2Api
       item = {}
       groupSet = []
       instancesSet = {}
-      item['reservationId'] = "r-"+i[:instance_id]
+      #item['reservationId'] = "r-"+i[:instance_id]
+      item['reservationId'] = "#{i[:image_id].gsub("ami", "r")}"
       item['ownerId'] = "owner-dummy-id"
       item['requesterId'] = 'dummy-requester-id'
       item['groupSet'] = {}
@@ -229,9 +231,11 @@ class MockedEc2Api
       instanceInfos = {}
       instancesSet['item'] << instanceInfos
       instanceInfos['keyName'] = i[:key_name]
-      instanceInfos['ramdiskId'] = 'dummy-ramdisk-id'
+      #instanceInfos['ramdiskId'] = 'dummy-ramdisk-id'
+      instanceInfos['ramdiskId'] = "#{i[:image_id].gsub("ami", "ari")}"
       instanceInfos['productCodes'] = nil #TODO: must be a set
-      instanceInfos['kernelId'] = 'aki-'+i[:instance_id]
+      #instanceInfos['kernelId'] = 'aki-'+i[:instance_id]
+      instanceInfos['kernelId'] = "#{i[:image_id].gsub("ami", "aki")}"
       instanceInfos['launchTime'] = DateTime.new
       instanceInfos['amiLaunchIndex'] = 0 #TODO: count instances?
       instanceInfos['imageId'] = i[:image_id]
@@ -397,15 +401,33 @@ class MockedEc2Api
     end
   end
 
-  def create_snapshot(volume_id)
+  def create_snapshot_old(volume_id)
     cause_failure()
     @logger.debug("MockedEc2API: create snapshot for #{volume_id}")
-    snap = "snap_#{Time.now.to_i.to_s}"
+    #snap = "snap_#{Time.now.to_i.to_s}"
+    puts "--- mock_ec2_api: create_snapshot #{volume_id}"
+    snap = volume_id.gsub("vol","snap")
+    puts "DEBUG: snap: #{snap}"
     s = {"volumeId"=>"#{volume_id}", "snapshotId"=>"#{snap}", "requestId"=>"dummy-request",
-      "progress"=>"100%", "startTime"=>"2009-11-11T17:06:14.000Z",
+      "progress"=>"100%", "startTime"=>"2009-11-11T17:06:14.000Z", "volumeSize"=>"5",
       "status"=>"completed", "xmlns"=>"http://ec2.amazonaws.com/doc/2008-12-01/"}
     @snapshots << s
     s
+  end
+
+  def create_snapshot( options = {} )
+    drop "--- mock_ec2_api: create_snapshot"
+    volume_id = options[:volume_id]
+    snap_id = volume_id.gsub("vol","snap")
+    size = 5
+    if options[:size] != nil
+      size = options[:size]
+    end
+    snap = {"volumeId"=>"#{volume_id}", "snapshotId"=>"#{snap_id}", "requestId"=>"dummy-request",
+      "progress"=>"100%", "startTime"=>"2009-11-11T17:06:14.000Z", "volumeSize"=>"#{size}",
+      "status"=>"completed", "xmlns"=>"http://ec2.amazonaws.com/doc/2008-12-01/"}
+    @snapshots << snap
+    snap
   end
 
   def describe_snapshots(options = {})
@@ -430,7 +452,7 @@ class MockedEc2Api
     res
   end
 
-  def describe_images(options = {})
+  def describe_images_old(options = {})
     image_id = options[:image_id]
     if image_id == nil
       raise Exception.new("no image_id specified")
@@ -510,7 +532,12 @@ class MockedEc2Api
     @logger.debug "create volume with id = #{volume[:volume_id]}"
     volume[:availability_zone] = params[:availability_zone]
     volume[:create_time] = params[:create_time] || Time.now.to_s
-    volume[:volume_id]
+    #volume[:volume_id]
+    if params[:size] != nil
+      volume[:size] = params[:size] 
+    else
+      volume[:size] = 1
+    end
     volume[:attachments] = []
     volume[:state] = "available"
     @volumes << volume
@@ -543,7 +570,12 @@ class MockedEc2Api
         }
       end
       item['createTime'] = v[:create_time]
-      item['size'] = 1 #TODO make configurable?
+      #item['size'] = 1 #TODO make configurable?
+      if v[:size] != nil
+        item['size'] = v[:size]
+      else
+        item['size'] = 1
+      end
       item['volumeId'] = v[:volume_id]
       item['snapshotId'] = nil #TODO: make configurable?
       item['status'] = v[:state]
@@ -670,7 +702,6 @@ class MockedEc2Api
   def describe_vpcs( options = {} )
     drop "-- mock_ec2_api: describe_vpc"
     vpcs = @vpcs
-    res = 
     ret = {}
     ret['vpcSet'] = {}
     items = []
@@ -695,7 +726,6 @@ class MockedEc2Api
   def describe_internetgateways( options = {} )
     drop "-- mock_ec2_api: describe_internetgateways"
     igws = @igws
-    res = 
     ret = {}
     ret['internetGatewaySet'] = {}
     items = []
@@ -714,6 +744,85 @@ class MockedEc2Api
       items << item
     }
     return ret
+  end
+
+  def create_image( options = {} )
+    drop "--- mock_ec2_api: create_image"
+    ami = {}
+    ami[:ami_id] = options[:ami_id]
+    ami[:name] = options[:name]
+    ami[:desc] = options [:desc]
+    ami[:root_device_name] = options[:root_device_name]
+    ami[:root_device_type] = options[:root_device_type]
+    ami[:platform] = options[:platform]
+    ami[:arch] = options[:arch]
+    @images << ami
+    ami
+  end
+
+  def describe_images( options = {} )
+    drop "--- mock_ec2_api: describe_images"
+    images = @images
+    if options[:ami_id] != nil
+      images = images.select() {|ami|
+        ami[:ami_id] == options[:ami_id]
+      }
+    end
+    res = transform_images(images)
+    res
+  end
+
+  def transform_images( images )
+    ret = {}
+    ret['requestId'] = "request-id-dummy"
+    ret['imagesSet'] = {}
+    items = []
+    ret['imagesSet']['item'] = items
+    images.each() {|ami|
+      @logger.debug "start transforming #{ami.inspect}"
+      item = {}
+      item['name'] = "#{ami[:name]}"
+      item['imageType'] = "machine"
+      item['blockDeviceMapping'] = {}
+      item['blockDeviceMapping']['item'] = []
+      blkdevmap = {}
+      blkdevmap['ebs'] = {}
+      ebs = {}
+      ebs['snapshotId'] = "#{ami[:ami_id].gsub("ami", "snap")}"
+      ebs['deleteOnTermination'] = "true"
+      ebs['volumeSize'] = "20"
+      blkdevmap['deviceName'] = "/dev/sda1"
+      blkdevmap['ebs'] = ebs
+      item['blockDeviceMapping']['item'] << blkdevmap
+      item['imageState'] = "available"
+      item['imageId'] = ami[:ami_id]
+      item['rootDeviceName'] = ami[:root_device_name]
+      item['rootDeviceType'] = ami[:root_device_type]
+      item['description'] = ami[:desc]
+      item['imageOwnerAlias'] = "someone"
+      item['isPublic'] = "true"
+      item['imageLocation'] = "somewhere"
+      if ami[:platform].eql?("windows")
+        item['virtualizationType'] = "hvm"
+      else
+        item['virtualizationType'] = "paravirtual"
+      end
+      item['platform'] = ami[:platform]
+      item['architecture'] = ami[:arch]
+      item['imageOwnerId'] = "123412341234"
+      items << item
+    }
+    return ret
+  end
+
+#    res = {"imagesSet"=>{"item"=>[{"imageType"=>"machine", "blockDeviceMapping"=>nil, "ramdiskId"=>"ari-a51cf9cc", "imageState"=>"available", "kernelId"=>"aki-a71cf9ce", "imageId"=>image_id, "rootDeviceType"=> @rootDeviceType, "isPublic"=>"true", "imageLocation"=>"jungmats_testbucket/openvpn.manifest.xml", "architecture"=>"i386", "imageOwnerId"=>"945722764978"}]}, "requestId"=>"625dd61b-53a5-4907-ab2a-a00a7dca05be", "xmlns"=>"http://ec2.amazonaws.com/doc/2009-11-30/"}
+
+  def local_dump_and_compress(source_device, target_filename)
+    drop "--- mock_ec2_api: local_dump_and_compress"
+  end
+
+  def local_decompress_and_dump(source_filename, target_device)
+    drop "--- mock_ec2_api: local_decompress_and_dump"
   end
 
 end

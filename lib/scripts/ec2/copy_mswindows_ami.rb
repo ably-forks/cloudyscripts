@@ -41,6 +41,7 @@ class CopyMsWindowsAmi < Ec2Script
   end
 
   def check_input_parameters()
+    # MS Windows AMI, source and target region
     if @input_params[:ami_id] == nil && !(@input_params[:ami_id] =~ /^ami-.*$/)
       raise Exception.new("Invalid AMI ID specified: #{@input_params[:ami_id]}")
     end
@@ -50,12 +51,23 @@ class CopyMsWindowsAmi < Ec2Script
     if @local_ec2_helper.ami_prop(@input_params[:ami_id], 'platform') != "windows"
       raise Exception.new("Not a MS Windows AMI: #{@local_ec2_helper.ami_prop(@input_params[:ami_id], 'platform')}")
     end
+    if @input_params[:helper_ami_id] == nil && !(@input_params[:helper_ami_id] =~ /^ami-.*$/)
+      raise Exception.new("Invalid Helper AMI ID specified: #{@input_params[:helper_ami_id]}")
+    end
+    if @local_ec2_helper.ami_prop(@input_params[:helper_ami_id], 'rootDeviceType') != "ebs"
+      raise Exception.new("must be an EBS type image")
+    end
+    if @local_ec2_helper.ami_prop(@input_params[:helper_ami_id], 'platform') != "windows"
+      raise Exception.new("Not a MS Windows AMI: #{@local_ec2_helper.ami_prop(@input_params[:helper_ami_id], 'platform')}")
+    end
+    # AWS Linux AMI, source and target region
     if @input_params[:source_ami_id] == nil && !(@input_params[:source_ami_id] =~ /^ami-.*$/)
       raise Exception.new("Invalid source AMI ID specified: #{@input_params[:source_ami_id]}")
     end
     if @input_params[:target_ami_id] == nil && !(@input_params[:target_ami_id] =~ /^ami-.*$/)
       raise Exception.new("Invalid target AMI ID specified: #{@input_params[:target_ami_id]}")
     end
+    # AWS SecurityGroup, source and target regions
     if @input_params[:source_security_groups] == nil
       @input_params[:source_security_groups] = "default"
     end
@@ -68,6 +80,7 @@ class CopyMsWindowsAmi < Ec2Script
     if !@remote_ec2_helper.check_open_port(@input_params[:target_security_groups], 22)
       raise Exception.new("Port 22 must be opened for security group '#{@input_params[:target_security_groups]}' to connect via SSH in target-region")
     end
+    # Device to use for volume
     if @input_params[:root_device_name] == nil
       @input_params[:root_device_name] = "/dev/sda1"
     end
@@ -80,6 +93,7 @@ class CopyMsWindowsAmi < Ec2Script
     if @input_params[:temp_device_name] == @input_params[:device_name]
       raise Exception.new("Device name '#{@input_params[:device_name]}' and temporary device name '#{@input_params[:temp_device_name]}' must be different")
     end
+    # SSH Parameters, source and target region
     if @input_params[:source_ssh_username] == nil
       @input_params[:source_ssh_username] = "root"
     end
@@ -307,8 +321,12 @@ class CopyMsWindowsAmi < Ec2Script
       post_message("upload key of target-instance to source-instance...")
       path_candidates = ["/#{@context[:source_ssh_username]}/.ssh/", "/home/#{@context[:source_ssh_username]}/.ssh/"]
       key_path = determine_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata], path_candidates)
+      #XXX: fix the problem fo key name with white space
+      #upload_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata],
+      #  @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name]}.pem")
       upload_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata],
-        @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name]}.pem")
+        @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name].gsub(/\s+/, '_')}.pem")
+
       post_message("credentials are in place to connect source and target (from source to target).")
 
       KeyInPlaceState.new(@context)
@@ -325,7 +343,10 @@ class CopyMsWindowsAmi < Ec2Script
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
       source_dir = "/mnt/tmp_#{@context[:source_temp_volume_id]}"
       dest_dir = "/mnt/tmp_#{@context[:target_temp_volume_id]}"
-      remote_copy(@context[:source_ssh_username], @context[:target_key_name], source_dir, 
+      #XXX: fix the problem fo key name with white space
+      #remote_copy(@context[:source_ssh_username], @context[:target_key_name], source_dir, 
+      #  @context[:target_dns_name], @context[:target_ssh_username], dest_dir)
+      remote_copy(@context[:source_ssh_username], @context[:target_key_name].gsub(/\s+/, '_'), source_dir, 
         @context[:target_dns_name], @context[:target_ssh_username], dest_dir)
       disconnect()
       #
@@ -360,24 +381,32 @@ class CopyMsWindowsAmi < Ec2Script
       remote_region()
       detach_volume(@context[:target_volume_id], @context[:target_instance_id])
 
-      @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], "Created by CloudyScripts - copy_mswindows_ami")
+      #@context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], "Created by CloudyScripts - copy_mswindows_ami")
 
-      TargetSnapshotCreatedState.new(@context)
+      TargetVolumeCreatedState.new(@context)
     end
   end
 
   # Snapshot Operation done. Now this snapshot must be registered as AMI
   # Steps:
-  #   - launch same AMI as the one we want to copy and stop it (after it has boot up)
+  #   - launch same AMI as the one we want to copy and stop it (after it has boot up): use helper_ami_id
   #   - detach the volume of this instance and attach the new volume
   #   - start the instance to see if everything is good, then stop it
   #   - create an AMi from this instance
-  class TargetSnapshotCreatedState < CopyMsWindowsAmiState
+  class TargetVolumeCreatedState < CopyMsWindowsAmiState
     def enter()
       remote_region()
-      #@context[:result][:image_id] = register_snapshot(@context[:new_snapshot_id], @context[:name],
-      #  @context[:root_device_name], @context[:description], nil,
-      #  nil, @context[:architecture])
+      #XXX: launch instance in the right AZ
+      result = launch_instance(@context[:helper_ami_id], @context[:target_key_name], @context[:target_security_groups])
+      @context[:ihelper_instance_id] = result.first
+      @context[:helper_dns_name] = result[1]
+      @context[:helper_availability_zone] = result[2]
+      @context[:target_root_device_name] = result[6]
+
+      #XXX:
+      #  - wait for it to be running, and then stop it
+      #  - wait for it to be stopped, and then sttart it with the new volume
+      shut_down_instance(@context[:source_instance_id])
 
       AmiRegisteredState.new(@context)
     end

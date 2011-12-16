@@ -85,6 +85,7 @@ class CopyMsWindowsAmiSampleCode
     source_ssh_key_name = "fdt_us_east"
     # sample: Microsoft Windows Server 2008 Base
     aws_ami_id = "ami-fbf93092"		# Your EC2 AMI to Copy
+    aws_helper_ami_id = "ami-ed3768a8"	# AMI in the target region of the same type of the one been converted from the source region
 
     aws_target_endpoint = "us-west-1.ec2.amazonaws.com"
     aws_target_region = "us-west-1.ec2.amazonaws.com"
@@ -106,6 +107,7 @@ class CopyMsWindowsAmiSampleCode
 
     params = {
       :ami_id => aws_ami_id,
+      :helper_ami_id => aws_helper_ami_id,
       :source_ami_id => SecludIT::CloudyScripts::AwsEc2Helper.get_basic_aws_linux_ami(aws_source_region),
       :ec2_api_handler => source_ec2_api,
       :target_ec2_handler => target_ec2_api,
