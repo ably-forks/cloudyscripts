@@ -105,7 +105,7 @@ module StateTransitionHelper
   # * kernel_id => EC2 Kernel ID of the started instance
   # * ramdisk_id => EC2 Ramdisk ID of the started instance
   # * architecture => architecture (e.g. 386i, 64x) of the started instance
-  def launch_instance(ami_id, key_name, security_group_name, ec2_handler = nil, type = nil)
+  def launch_instance(ami_id, key_name, security_group_name, ec2_handler = nil, type = nil, availability_zone = nil)
     ec2_handler = ec2_handler() if ec2_handler == nil
     post_message("starting up instance to execute the script (AMI = #{ami_id}) ...")
     @logger.debug "start up AMI #{ami_id}"
@@ -124,7 +124,8 @@ module StateTransitionHelper
     # now start it
     res = ec2_handler.run_instances(:image_id => ami_id,
       :security_group => security_group_name, :key_name => key_name,
-      :instance_type => instance_type
+      :instance_type => instance_type, 
+      :availability_zone => availability_zone
     )
     instance_id = res['instancesSet']['item'][0]['instanceId']
     @logger.info "started instance #{instance_id}"
@@ -228,6 +229,43 @@ module StateTransitionHelper
       end
     end
     post_message("instance #{instance_id} is terminated")
+  end
+
+  # Stop an instance.
+  # Input Parameters:
+  # * instance_id => ID of the instance to be shut down
+  def stop_instance(instance_id, timeout = 240)
+    post_message("going to stop the temporary instance #{instance_id}...")
+    @logger.debug "stop instance #{instance_id}"
+    res = ec2_handler().stop_instances(:instance_id => instance_id)
+    done = false
+    while timeout > 0 && !done
+      res = ec2_handler().describe_instances(:instance_id => instance_id)
+      state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
+      @logger.debug "instance in state '#{state['name']}' (#{state['code']})"
+      if state['code'].to_i == 80 
+        done = true
+        timeout = 0
+      elsif state['code'].to_i != 0 
+        done = false
+        timeout = 0
+        msg = "instance in state '#{state['name']}'"
+        @logger.error "#{msg}"
+        post_message("#{msg}")
+      end
+      sleep(5)
+      timeout -= 5
+    end
+    msg = ""
+    if !done
+      msg = "Failed to stop instance '#{instance_id}"
+      @logger.error "#{msg}"
+      raise Exception.new("Unable to stop instance '#{instance_id}'}")
+    else
+      msg = "'#{instance_id}' successfully stopped" 
+      @logger.info "#{msg}" 
+    end
+    post_message("#{msg}")
   end
 
   def retrieve_security_groups()
@@ -426,6 +464,26 @@ module StateTransitionHelper
     ec2_handler().delete_snapshot(:snapshot_id => snapshot_id)
     @logger.info("snapshot #{snapshot_id} deleted")
     post_message("snapshot #{snapshot_id} deleted")
+  end
+
+  # Is Snapshot accessible?
+  def snapshot_accessible(snapshot_id)
+    post_message("checking snapshot '#{snapshot_id}' accessibility...")
+    @logger.info("checking snapshot '#{snapshot_id}' accessibility...")
+    begin
+      ec2_handler().describe_snapshots(:snapshot_id => snapshot_id)
+    rescue Exception => e
+      if e.to_str =~ /does not exist/ && e.to_str =~ /#{snapshot_id}/
+        post_message("'#{snapshot_id}' NOT accessible")
+        @logger.info("'#{snapshot_id}' NOT accessible")
+        return false
+      else
+        raise e
+      end
+   end
+   post_message("'#{snapshot_id}' accessible")
+   @logger.info("'#{snapshot_id}' accessible")
+   return true
   end
 
   # Registers a snapshot as EBS-booted AMI.
@@ -731,6 +789,25 @@ module StateTransitionHelper
       post_message("'#{part}' partition label '#{part_label}' for device node '#{part_device}'")
     end
     return part_fs_type, part_label
+  end
+
+  # Retrieve the root volume ID of an instance
+  def get_root_volume_id(instance_id)
+    post_message("getting 'root volume ID' (volume ID attached as RootDeviceName) of '#{instance_id}' instance...")
+    volume_id = nil
+    res = ec2_handler().describe_instances(:instance_id => instance_id)
+    puts "DEBUG"
+    pp res
+    root_device_name = res['reservationSet']['item'][0]['instancesSet']['item'][0]['rootDeviceName']
+    block_device_map = res['reservationSet']['item'][0]['instancesSet']['item'][0]['blockDeviceMapping']['item']
+    block_device_map.each(){|blk_dev|
+      if blk_dev['deviceName'] == root_device_name
+        volume_id = blk_dev['ebs']['volumeId']
+        post_message("found '#{volume_id}' attached as '#{root_device_name}' rootDeviceName")
+        break
+      end
+    }
+    return volume_id
   end
 
   # Copy all files of a running linux distribution via rsync to a mounted directory

@@ -84,6 +84,7 @@ class Ami2EbsConversion < Ec2Script
   # which serves to create 
   class InitialState < Ami2EbsConversionState
     def enter
+      puts "DEBUG: params: #{@context[:ami_id]}, #{@context[:key_name]}, #{@context[:security_group_name]}"
       @context[:instance_id], @context[:dns_name], @context[:availability_zone], 
         @context[:kernel_id], @context[:ramdisk_id], @context[:architecture] =
         launch_instance(@context[:ami_id], @context[:key_name], @context[:security_group_name])

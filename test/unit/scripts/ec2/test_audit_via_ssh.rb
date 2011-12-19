@@ -14,6 +14,11 @@ class TestAuditViaSsh < Test::Unit::TestCase
   def test_execution
     ec2_api = MockedEc2Api.new
     ec2_api.rootDeviceType = "ebs"
+    ec2_api.rootDeviceType = "ebs"
+    linux_src_ami = ec2_api.create_image(:ami_id => "ami-12345678",
+      :name => "AWS Linux", :desc => "AWS Linux AMI",
+      :root_device_name => "/dev/sda1", :root_device_type => "ebs",
+      :platform => "linux", :arch => "i386")
     ec2_target_api = MockedEc2Api.new
     ec2_api.create_security_group(:group_name => "My SecGrp")
     options = {:group_name => "My SecGrp", :ip_protocol => "tcp", :from_port => 22,
@@ -34,7 +39,7 @@ class TestAuditViaSsh < Test::Unit::TestCase
                                :logger => nil)
     puts "describe images: #{ec2_api.describe_images(:image_id => 'ami-who-cares').inspect}"
     params = {
-      :ami_id => "ami-who-cares",
+      :ami_id => "ami-12345678",
       :ec2_api_handler => ec2_api,
       :sec_grp_name => "My SecGrp",
       :source_ssh_keyfile => "/tmp/cloudyscripts_test.pem",

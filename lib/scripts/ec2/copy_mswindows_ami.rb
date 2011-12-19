@@ -54,11 +54,11 @@ class CopyMsWindowsAmi < Ec2Script
     if @input_params[:helper_ami_id] == nil && !(@input_params[:helper_ami_id] =~ /^ami-.*$/)
       raise Exception.new("Invalid Helper AMI ID specified: #{@input_params[:helper_ami_id]}")
     end
-    if @local_ec2_helper.ami_prop(@input_params[:helper_ami_id], 'rootDeviceType') != "ebs"
+    if @remote_ec2_helper.ami_prop(@input_params[:helper_ami_id], 'rootDeviceType') != "ebs"
       raise Exception.new("must be an EBS type image")
     end
-    if @local_ec2_helper.ami_prop(@input_params[:helper_ami_id], 'platform') != "windows"
-      raise Exception.new("Not a MS Windows AMI: #{@local_ec2_helper.ami_prop(@input_params[:helper_ami_id], 'platform')}")
+    if @remote_ec2_helper.ami_prop(@input_params[:helper_ami_id], 'platform') != "windows"
+      raise Exception.new("Not a MS Windows AMI: #{@remote_ec2_helper.ami_prop(@input_params[:helper_ami_id], 'platform')}")
     end
     # AWS Linux AMI, source and target region
     if @input_params[:source_ami_id] == nil && !(@input_params[:source_ami_id] =~ /^ami-.*$/)
@@ -138,6 +138,7 @@ class CopyMsWindowsAmi < Ec2Script
   #   - Volume size from this AMI
   #   - Availability Zone 
   #NB: less modification if we get the AZ from the launched instance
+  #NB: if we do not own this AMI, we have no snapshot, so we must launch an instance
   class InitialState < CopyMsWindowsAmiState 
     def enter()
       local_region()
@@ -149,9 +150,33 @@ class CopyMsWindowsAmi < Ec2Script
       #puts "Setting Source and Target Availability Zone if not set" 
       #@context[:source_availability_zone] = "us-east-1a" unless @context[:source_availability_zone] != nil
       #@context[:target_availability_zone] = "us-west-1a" unless @context[:target_availability_zone] != nil
-      puts "DEBUG: Parameters: #{@context[:snapshot_id]}, #{@context[:volume_size]}, #{@context[:architecture]}, #{@context[:root_device_name]}"
+
+      #try to access snapshot, if not possible, launch and stop an AMI to create one
+      if !snapshot_accessible(@context[:snapshot_id])
+        puts "The AMI's snapshot is NOT accessible, we must launch an instance to create one" 
+        
+      end
   
       #raise Exception.new("DEBUG: FORCED Script exit")   
+      InitialStateDone.new(@context)
+    end
+  end
+
+  # Consitionnal State (launching an instance and creating a snapshot)
+  class InitialStateLaunch < CopyMsWindowsAmiState
+    def enter()
+      local_region()
+      puts "Launching and stopping an instance of the AMI to create a snapshot"
+      result = launch_instance(@context[:ami_id], @context[:source_key_name], @context[:source_security_groups])
+      instance_id = result.first
+      puts "Instance launched with ID: #{instance_id}"
+      puts "Waiting 3 minutes before stopping instance '#{instance_id}' for creating a Snapshot of the rootDevice"
+      sleep(180)
+      stop_instance(instance_id) 
+      puts "Instance '#{instance_id}' stopped, creating snapshot"
+      ebs_volume_id = ec2_helper.get_attached_volumes(instance_id)[0]['volumeId']
+      @context[:snapshot_id] = create_snapshot(ebs_volume_id, "Cloudy_Scripts Snapshot for copying AMIs")
+
       InitialStateDone.new(@context)
     end
   end
@@ -318,7 +343,7 @@ class CopyMsWindowsAmi < Ec2Script
   # a remote copy.
   class TargetVolumeReadyState < CopyMsWindowsAmiState
     def enter()
-      post_message("upload key of target-instance to source-instance...")
+      post_message("Uploading key of target-instance to source-instance...")
       path_candidates = ["/#{@context[:source_ssh_username]}/.ssh/", "/home/#{@context[:source_ssh_username]}/.ssh/"]
       key_path = determine_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata], path_candidates)
       #XXX: fix the problem fo key name with white space
@@ -326,7 +351,6 @@ class CopyMsWindowsAmi < Ec2Script
       #  @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name]}.pem")
       upload_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata],
         @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name].gsub(/\s+/, '_')}.pem")
-
       post_message("credentials are in place to connect source and target (from source to target).")
 
       KeyInPlaceState.new(@context)
@@ -336,6 +360,7 @@ class CopyMsWindowsAmi < Ec2Script
   # Now we can copy.
   class KeyInPlaceState < CopyMsWindowsAmiState
     def enter()
+      post_message("Transfering archive from Source to Target Region...")
       connect(@context[:target_dns_name], @context[:target_ssh_username], nil, @context[:target_ssh_keydata])
       disable_ssh_tty(@context[:target_dns_name])
       disconnect()
@@ -361,6 +386,7 @@ class CopyMsWindowsAmi < Ec2Script
   # Decompress data on the device
   class DataCopiedState < CopyMsWindowsAmiState
     def enter()
+      post_message("Dumping transfered archive to volume...")
       remote_region()
       connect(@context[:target_dns_name], @context[:target_ssh_username], nil, @context[:target_ssh_keydata])
       mount_point = "/mnt/tmp_#{@context[:target_temp_volume_id]}"
@@ -378,10 +404,9 @@ class CopyMsWindowsAmi < Ec2Script
   #XXX: TODO
   class RestoredDataState < CopyMsWindowsAmiState
     def enter()
+      post_message("Detaching migrated volume...")
       remote_region()
       detach_volume(@context[:target_volume_id], @context[:target_instance_id])
-
-      #@context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], "Created by CloudyScripts - copy_mswindows_ami")
 
       TargetVolumeCreatedState.new(@context)
     end
@@ -395,18 +420,27 @@ class CopyMsWindowsAmi < Ec2Script
   #   - create an AMi from this instance
   class TargetVolumeCreatedState < CopyMsWindowsAmiState
     def enter()
+      post_message("Launching Helper AMI '#{@context[:helper_ami_id]}' for attaching migrated volume...")
       remote_region()
       #XXX: launch instance in the right AZ
-      result = launch_instance(@context[:helper_ami_id], @context[:target_key_name], @context[:target_security_groups])
-      @context[:ihelper_instance_id] = result.first
+      result = launch_instance(@context[:helper_ami_id], @context[:target_key_name], @context[:target_security_groups], 
+                               nil, nil, @context[:target_availability_zone])
+      @context[:helper_instance_id] = result.first
       @context[:helper_dns_name] = result[1]
       @context[:helper_availability_zone] = result[2]
-      @context[:target_root_device_name] = result[6]
+      @context[:helper_root_device_name] = result[6]
 
       #XXX:
       #  - wait for it to be running, and then stop it
-      #  - wait for it to be stopped, and then sttart it with the new volume
-      shut_down_instance(@context[:source_instance_id])
+      #  - wait for it to be stopped, and then start it with the new volume
+      stop_instance(@context[:helper_instance_id])
+      root_volume_id = get_root_volume_id(@context[:helper_instance_id])
+      detach_volume(root_volume_id, @context[:helper_instance_id])
+      attach_volume(@context[:target_volume_id], @context[:helper_instance_id], @context[:helper_root_device_name])
+      start_instance(@context[:helper_instance_id])
+
+      #XXX: return running instance for now
+      @context[:result][:image_id] = result.first
 
       AmiRegisteredState.new(@context)
     end
@@ -428,6 +462,7 @@ class CopyMsWindowsAmi < Ec2Script
   #     - delete source and temp volume
   class AmiRegisteredState < CopyMsWindowsAmiState
     def enter()
+      post_message("Cleaning Source and Target Regions...")
       local_region()
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
       mount_point = "/mnt/tmp_#{@context[:source_temp_volume_id]}"
@@ -447,7 +482,7 @@ class CopyMsWindowsAmi < Ec2Script
       detach_volume(@context[:target_temp_volume_id], @context[:target_instance_id])
       shut_down_instance(@context[:target_instance_id])
       delete_volume(@context[:target_temp_volume_id])
-      delete_volume(@context[:target_volume_id])
+      #delete_volume(@context[:target_volume_id])
  
       Done.new(@context)
     end

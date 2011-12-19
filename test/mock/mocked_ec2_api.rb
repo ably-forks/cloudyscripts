@@ -121,9 +121,12 @@ class MockedEc2Api
     instance_id = "i-from-#{options[:image_id]}"
     create_dummy_instance(instance_id, options[:image_id], "running",
       "who.cares", "public.dns.name", options[:key_name], [options[:security_group]])
-    if @rootDeviceType == "ebs"
+    #XXX: create root volume for EBS-backed AMI
+    #if @rootDeviceType == "ebs"
+    ami = describe_images(:image_id => options[:image_id])
+    if ami['imagesSet']['item'][0]['rootDeviceType'].eql?("ebs")
       vol_id = create_dummy_volume("vol-ebs-for-#{instance_id}", "timezone")['volumeId']
-      attach_volume(:volume_id => vol_id, :instance_id =>instance_id)
+      attach_volume(:volume_id => vol_id, :instance_id =>instance_id, :device => ami['imagesSet']['item'][0]['rootDeviceName'])
       #drop "instances now #{describe_instances(:instance_id => instance_id).inspect}"
       puts "instances now #{describe_instances(:instance_id => instance_id).inspect}"
       #drop "volumes now #{describe_volumes(:volume_id => vol_id).inspect}"
@@ -267,6 +270,8 @@ class MockedEc2Api
         elem = {}
         elem['ebs'] = {}
         elem['ebs']['volumeId'] = vol[:volume_id]
+        elem['ebs']['status'] = "attached"
+        elem['deviceName'] = "/dev/sda1"
         #TODO: more info
         blockDeviceMapping << elem
       }
@@ -302,6 +307,8 @@ class MockedEc2Api
       return 48
     when "terminating"
       return 32
+    when "stopped"
+      return 80
     else
       return -1
     end
@@ -326,7 +333,8 @@ class MockedEc2Api
   def create_instance(instance_id, groups, tag_set = ['tag-set'])
     instance = {}
     instance[:instance_id] = instance_id
-    instance[:image_id] = "dummy image"
+    #instance[:image_id] = "dummy image"
+    instance[:image_id] = instance_id.gsub("i-", "ami-")
     instance[:volumes] = []
     instance[:tagSet] = tag_set
     instance[:instance_state] = "running"
@@ -338,6 +346,10 @@ class MockedEc2Api
         create_security_group({:group_name => group})
       end
     }
+    #XXX: create at least one root volume associated to the instance
+    volume = create_volume(:volume_id => instance_id.gsub("i-", "vol-"), :availability_zone => "us-east-1a")
+    attach_volume(:instance_id => instance_id, :volume_id => volume[:volume_id], :device => "/dev/sda1")
+    instance[:volumes] << volume
     instance
   end
 
@@ -407,7 +419,6 @@ class MockedEc2Api
     #snap = "snap_#{Time.now.to_i.to_s}"
     puts "--- mock_ec2_api: create_snapshot #{volume_id}"
     snap = volume_id.gsub("vol","snap")
-    puts "DEBUG: snap: #{snap}"
     s = {"volumeId"=>"#{volume_id}", "snapshotId"=>"#{snap}", "requestId"=>"dummy-request",
       "progress"=>"100%", "startTime"=>"2009-11-11T17:06:14.000Z", "volumeSize"=>"5",
       "status"=>"completed", "xmlns"=>"http://ec2.amazonaws.com/doc/2008-12-01/"}

@@ -25,10 +25,15 @@ class TestCopyMsWindowsAmi < Test::Unit::TestCase
     # create target
     target_ec2_api = MockedEc2Api.new
     target_ec2_api.create_security_group(:group_name => "default")
+    win_hlp_ami = target_ec2_api.create_image(:ami_id => "ami-87654321", 
+      :name => "MS Windows 2008 Server", :desc => "MS Windows Helper AMI", 
+      :root_device_name => "/dev/sda1", :root_device_type => "ebs", 
+      :platform => "windows", :arch => "i386")
     linux_tgt_ami = target_ec2_api.create_image(:ami_id => "ami-013a6544", 
       :name => "AWS Linux Target", :desc => "AWS Linux Target Helper AMI", 
       :root_device_name => "/dev/sda1", :root_device_type => "ebs", 
       :platform => "linux", :arch => "i386")
+    #win_hlp_snap = target_ec2_api.create_snapshot(:volume_id => "vol-12345678", :size => 10)
     # check Mocked API
     puts "Snapshot:"
     pp win_snap
@@ -36,6 +41,8 @@ class TestCopyMsWindowsAmi < Test::Unit::TestCase
     pp source_ec2_api.describe_images(:ami_id => win_ami[:ami_id])
     puts "Linux Source Helper AMI:"
     pp source_ec2_api.describe_images(:ami_id => linux_src_ami[:ami_id])
+    puts "MS Windows helper AMI:"
+    pp target_ec2_api.describe_images(:ami_id => win_hlp_ami[:ami_id])
     puts "Linux Target Helper AMI:"
     pp target_ec2_api.describe_images(:ami_id => linux_tgt_ami[:ami_id])
 
@@ -46,6 +53,7 @@ class TestCopyMsWindowsAmi < Test::Unit::TestCase
     puts "describe images: #{source_ec2_api.describe_images(:image_id => 'ami-who-cares').inspect}"
     params = {
       :ami_id => "ami-12345678",
+      :helper_ami_id => "ami-87654321",
       :source_ami_id => "ami-23f53c4a",
       :ec2_api_handler => source_ec2_api,
       :target_ec2_handler => target_ec2_api,

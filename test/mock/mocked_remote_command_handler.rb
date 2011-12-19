@@ -186,7 +186,6 @@ class MockedRemoteCommandHandler
       exclusion_regexp = exclude_path.gsub(' ', '|')
       e = "for dir in $(ls -d #{source_path}* | grep -E -v '#{exclusion_regexp}'); do cp -Rpv $dir #{dest_path}; done"
     end
-    puts "DEBUG: mocked_ssh_api: local_rcopy: #{e}"
     @logger.debug "#{e}"
   end
 

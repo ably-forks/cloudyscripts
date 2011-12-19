@@ -13,6 +13,11 @@ class TestDownloadSnapshot < Test::Unit::TestCase
     ec2_api.create_security_group(:group_name => "MatsGroup")
     ec2_api.authorize_security_group_ingress(:group_name => "MatsGroup",
       :ip_protocol => "tcp", :from_port => 80, :to_port => 80, :cidr_ip => "0.0.0.0/0")
+    ec2_api.rootDeviceType = "ebs"
+    linux_src_ami = ec2_api.create_image(:ami_id => "ami-12345678",
+      :name => "AWS Linux", :desc => "AWS Linux AMI",
+      :root_device_name => "/dev/sda1", :root_device_type => "ebs",
+      :platform => "linux", :arch => "i386")
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
     logger = Logger.new(STDOUT)
@@ -23,7 +28,7 @@ class TestDownloadSnapshot < Test::Unit::TestCase
       :remote_command_handler => ssh,
       :ssh_keyfile => "/Users/mats/.ssh/jungmats.pem",
       :key_name => "jungmats",
-      :ami_id => "ami-d936d9b0",
+      :ami_id => "ami-12345678",
       :snapshot_id => "snap-12345",
       :wait_time => 30,
       :logger => logger

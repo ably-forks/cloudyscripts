@@ -12,13 +12,18 @@ class TestAmi2EbsConversion < Test::Unit::TestCase
     ec2_api = MockedEc2Api.new
     ec2_api.create_security_group(:group_name => "default")
     ec2_api.create_security_group(:group_name => "MatsGroup")
+    ec2_api.rootDeviceType = "ebs"
+    linux_src_ami = ec2_api.create_image(:ami_id => "ami-12345678",
+      :name => "AWS Linux", :desc => "AWS Linux AMI",
+      :root_device_name => "/dev/sda1", :root_device_type => "ebs",
+      :platform => "linux", :arch => "i386")
     puts "ec2_api.describe_security_groups => #{ec2_api.describe_security_groups.inspect}"
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
     logger = Logger.new(STDOUT)
     logger.level = Logger::DEBUG
     params = {
-      :ami_id => "ami-8729cfee",
+      :ami_id => "ami-12345678",
       :ec2_api_handler => ec2_api,
       :security_group_name => "MatsGroup",
       :remote_command_handler => ssh,
@@ -42,7 +47,7 @@ class TestAmi2EbsConversion < Test::Unit::TestCase
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
     params = {
-      :ami_id => "ami-8729cfee",
+      :ami_id => "ami-12345678",
       :ec2_api_handler => ec2_api,
       :security_group_name => "MatsGroup",
       :remote_command_handler => ssh,
@@ -51,7 +56,7 @@ class TestAmi2EbsConversion < Test::Unit::TestCase
     }
 
     params[:instance_id] = "i-5f567837"
-    ec2_api.create_dummy_instance("i-5f567837", "ami-8729cfee", "running", "who.cares", "public.dns", "jungmats", ["MatsGroup"])
+    ec2_api.create_dummy_instance("i-5f567837", "ami-1245678", "running", "who.cares", "public.dns", "jungmats", ["MatsGroup"])
     params[:device] = "/dev/sdj"
     params[:volume_id] = "vol-d461a6bd"
     ec2_api.create_dummy_volume("vol-d461a6bd", "timezone")
