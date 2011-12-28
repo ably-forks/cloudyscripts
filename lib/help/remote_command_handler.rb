@@ -66,12 +66,14 @@ class RemoteCommandHandler
 
   # Get root partition label
   def get_root_device()
-    get_output("cat /etc/mtab | grep -E '[[:blank:]]+\/[[:blank:]]+' | cut -d ' ' -f 1").strip
+    #get_output("cat /etc/mtab | grep -E '[[:blank:]]+\/[[:blank:]]+' | cut -d ' ' -f 1").strip
+    get_output("mount | grep -E '[[:blank:]]+\/[[:blank:]]+' | cut -d ' ' -f 1").strip
   end
 
   # Get partition label
   def get_partition_device(part)
-    get_output("cat /etc/mtab | grep -E '[[:blank:]]+" + "#{part}" + "[[:blank:]]+' | cut -d ' ' -f 1").strip
+    #get_output("cat /etc/mtab | grep -E '[[:blank:]]+" + "#{part}" + "[[:blank:]]+' | cut -d ' ' -f 1").strip
+    get_output("mount | grep -E '[[:blank:]]+" + "#{part}" + "[[:blank:]]+' | cut -d ' ' -f 1").strip
   end
 
   # Get device label

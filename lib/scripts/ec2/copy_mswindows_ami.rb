@@ -366,8 +366,8 @@ class CopyMsWindowsAmi < Ec2Script
       disconnect()
       #
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
-      source_dir = "/mnt/tmp_#{@context[:source_temp_volume_id]}"
-      dest_dir = "/mnt/tmp_#{@context[:target_temp_volume_id]}"
+      source_dir = "/mnt/tmp_#{@context[:source_temp_volume_id]}/"
+      dest_dir = "/mnt/tmp_#{@context[:target_temp_volume_id]}/"
       #XXX: fix the problem fo key name with white space
       #remote_copy(@context[:source_ssh_username], @context[:target_key_name], source_dir, 
       #  @context[:target_dns_name], @context[:target_ssh_username], dest_dir)
@@ -417,7 +417,7 @@ class CopyMsWindowsAmi < Ec2Script
   #   - launch same AMI as the one we want to copy and stop it (after it has boot up): use helper_ami_id
   #   - detach the volume of this instance and attach the new volume
   #   - start the instance to see if everything is good, then stop it
-  #   - create an AMi from this instance
+  #   - create an AMI from this instance
   class TargetVolumeCreatedState < CopyMsWindowsAmiState
     def enter()
       post_message("Launching Helper AMI '#{@context[:helper_ami_id]}' for attaching migrated volume...")
@@ -440,7 +440,15 @@ class CopyMsWindowsAmi < Ec2Script
       start_instance(@context[:helper_instance_id])
 
       #XXX: return running instance for now
-      @context[:result][:image_id] = result.first
+      @context[:result][:instance_id] = result.first
+
+      #XXX: stop this instance
+      stop_instance(@context[:helper_instance_id])
+
+      #XXX: register as AMI
+      new_ami_id = create_image(:instance_id => @context[:helper_instance_id], 
+        :name => @context[:name], :description => @context[:description])
+      @context[:result][:image_id] = new_ami_id
 
       AmiRegisteredState.new(@context)
     end

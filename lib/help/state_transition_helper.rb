@@ -246,7 +246,7 @@ module StateTransitionHelper
       if state['code'].to_i == 80 
         done = true
         timeout = 0
-      elsif state['code'].to_i != 0 
+      elsif state['code'].to_i != 64 
         done = false
         timeout = 0
         msg = "instance in state '#{state['name']}'"
@@ -350,15 +350,15 @@ module StateTransitionHelper
   # * volume_id => EC2 ID for the EBS Volume to be attached
   # * instance_id => EC2 ID for the instance to which the volume is supposed to be attached to
   # * temp_device_name => device name to be used for attaching (e.g. /dev/sdj1)
-  def attach_volume(volume_id, instance_id, temp_device_name)
+  def attach_volume(volume_id, instance_id, temp_device_name, timeout = 240)
     post_message("going to attach volume #{volume_id} to instance #{instance_id} on device #{temp_device_name}...")
-    @logger.info "attach volume #{volume_id} to instance #{instance_id} on device #{temp_device_name}"
+    @logger.info "attach volume #{volume_id} to instance #{instance_id} on device #{temp_device_name} (using a timeout of #{timeout})s"
     ec2_handler().attach_volume(:volume_id => volume_id,
       :instance_id => instance_id,
       :device => temp_device_name
     )
     done = false
-    timeout = 120
+    #timeout = 120
     while timeout > 0
       res = ec2_handler().describe_volumes(:volume_id => volume_id)
       vol_state = res['volumeSet']['item'][0]['status']
@@ -390,14 +390,14 @@ module StateTransitionHelper
   # Input Parameters:
   # * volume_id => EC2 ID for the EBS Volume to be detached
   # * instance_id => EC2 ID for the instance to detach from
-  def detach_volume(volume_id, instance_id)
+  def detach_volume(volume_id, instance_id, timeout = 240)
     post_message("going to detach volume #{volume_id} from instance #{instance_id}...")
-    @logger.info "detach volume #{volume_id} from instance #{instance_id}"
+    @logger.info "detach volume #{volume_id} from instance #{instance_id} (using a timeout of #{timeout})s"
     ec2_handler().detach_volume(:volume_id => volume_id,
       :instance_id => instance_id
     )
     done = false
-    timeout = 120
+    #timeout = 120
     while timeout > 0
       sleep(3)
       res = ec2_handler().describe_volumes(:volume_id => volume_id)
@@ -796,8 +796,6 @@ module StateTransitionHelper
     post_message("getting 'root volume ID' (volume ID attached as RootDeviceName) of '#{instance_id}' instance...")
     volume_id = nil
     res = ec2_handler().describe_instances(:instance_id => instance_id)
-    puts "DEBUG"
-    pp res
     root_device_name = res['reservationSet']['item'][0]['instancesSet']['item'][0]['rootDeviceName']
     block_device_map = res['reservationSet']['item'][0]['instancesSet']['item'][0]['blockDeviceMapping']['item']
     block_device_map.each(){|blk_dev|

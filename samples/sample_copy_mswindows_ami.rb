@@ -49,6 +49,7 @@ class AwsEc2Helper
       'eu-west-1.ec2.amazonaws.com' => 'ami-f3c3fe87', #'ami-940030e0', #'ami-47cefa33',
       'ap-southeast-1.ec2.amazonaws.com' => 'ami-b4f18be6', #'ami-cec9b19c', #'ami-6af08e38',
       'ap-northeast-1.ec2.amazonaws.com' => 'ami-8a07b38b', #'ami-96b50097' #'ami-300ca731'
+      'sa-east-1.ec2.amazonaws.com' => 'ami-1e34eb03'
     }
     if map[region] == nil
       raise Exception.new("region not supported")
@@ -86,16 +87,18 @@ class CopyMsWindowsAmiSampleCode
 
     # sample: Microsoft Windows Server 2008 Base
     aws_ami_id = "ami-7dd60314"		# Your EC2 AMI to Copy
-    aws_helper_ami_id = "ami-ed3768a8"	# AMI in the target region of the same type of the one been converted from the source region
+    #aws_helper_ami_id = "ami-ed3768a8"	# AMI in the target region of the same type of the one been converted from the source region
+    aws_helper_ami_id = "ami-863be49b"
 
-    aws_target_endpoint = "us-west-1.ec2.amazonaws.com"
-    aws_target_region = "us-west-1.ec2.amazonaws.com"
+    #aws_target_endpoint = "us-west-1.ec2.amazonaws.com"
+    aws_target_endpoint = "sa-east-1.ec2.amazonaws.com"
+    aws_target_region = "sa-east-1.ec2.amazonaws.com"
     target_ssh_user = "ec2-user"
-    target_ssh_key_file = "/root/secludit_keys/secludit_us_west.pem"
-    target_ssh_key_name = "secludit_us_west"
+    target_ssh_key_file = "/root/secludit_keys/secludit_sa_east_1.pem"
+    target_ssh_key_name = "secludit_sa_east_1"
 
     new_ami_name = "CloudyScripts MS Windows AMI copy"
-    new_ami_description = "Copy of MS Windows AMI ami-06ad526f from AWS US-East-1 to US-West-1"
+    new_ami_description = "Copy of MS Windows AMI #{aws_ami_id} from AWS US-East-1 to SA-East-1"
 
     source_ec2_api = AWS::EC2::Base.new(:access_key_id => aws_access_key, :secret_access_key => aws_secret_key, :server => aws_source_endpoint)
     target_ec2_api = AWS::EC2::Base.new(:access_key_id => aws_access_key, :secret_access_key => aws_secret_key, :server => aws_target_endpoint)
