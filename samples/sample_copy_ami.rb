@@ -24,13 +24,17 @@ class AwsEc2Helper
     map[region]
   end
 
-  #XXX: Basic 32-bit Amazon Linux AMI 2011.02.1 Beta
+  # Public CloudyScripts AMI: Basic 32-bit Amazon Linux AMI 2011.02.1 Beta
+  # XXX: Update on 11/11/2011 based on
+  #  - Basic 32-bit Amazon Linux AMI 2011.09 (amazon/amzn-ami-2011.09.2.i386-ebs)
   def self.get_basic_aws_linux_ami(region)
-   map = {'us-east-1.ec2.amazonaws.com' => 'ami-09ab6d60', #'ami-8c1fece5',
-      'us-west-1.ec2.amazonaws.com' => 'ami-17eebc52', #'ami-3bc9997e',
-      'eu-west-1.ec2.amazonaws.com' => 'ami-940030e0', #'ami-47cefa33',
-      'ap-southeast-1.ec2.amazonaws.com' => 'ami-cec9b19c', #'ami-6af08e38',
-      'ap-northeast-1.ec2.amazonaws.com' => 'ami-96b50097' #'ami-300ca731'
+    map = {'us-east-1.ec2.amazonaws.com' => 'ami-23f53c4a', #'ami-09ab6d60', #'ami-8c1fece5',
+      'us-west-1.ec2.amazonaws.com' => 'ami-013a6544', #'ami-17eebc52', #'ami-3bc9997e',
+      'us-west-2.ec2.amazonaws.com' => 'ami-42f77a72',
+      'eu-west-1.ec2.amazonaws.com' => 'ami-f3c3fe87', #'ami-940030e0', #'ami-47cefa33',
+      'ap-southeast-1.ec2.amazonaws.com' => 'ami-b4f18be6', #'ami-cec9b19c', #'ami-6af08e38',
+      'ap-northeast-1.ec2.amazonaws.com' => 'ami-8a07b38b', #'ami-96b50097' #'ami-300ca731'
+      'sa-east-1.ec2.amazonaws.com' => 'ami-1e34eb03'
     }
     if map[region] == nil
       raise Exception.new("region not supported")
