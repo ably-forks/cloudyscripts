@@ -446,9 +446,10 @@ class CopyMsWindowsAmi < Ec2Script
       stop_instance(@context[:helper_instance_id])
 
       #XXX: register as AMI
-      new_ami_id = create_image(:instance_id => @context[:helper_instance_id], 
-        :name => @context[:name], :description => @context[:description])
+      #new_ami_id = create_image(:instance_id => @context[:helper_instance_id], 
+      new_ami_id = create_image_from_instance(@context[:helper_instance_id], @context[:name], @context[:description])
       @context[:result][:image_id] = new_ami_id
+      #@context[:result][:image_id] = "ami-99999999"
 
       AmiRegisteredState.new(@context)
     end

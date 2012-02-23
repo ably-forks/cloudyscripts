@@ -513,6 +513,15 @@ module StateTransitionHelper
     return image_id
   end
 
+  # Create an AMI from an EC2 instance
+  def create_image_from_instance(instance_id, name, description)
+    post_message("going to create AMI from instance #{instance_id}...")
+    @logger.debug "create AMI from instance #{instance_id} as #{name}"
+    res = ec2_handler().create_image(:instance_id => instance_id, :name => name, :description => description)
+    image_id = res['imageId']
+    return image_id
+  end
+
   # Create a file-system on a given machine (assumes to be connected already).
   # Input Parameters:
   # * dns_name => IP used
