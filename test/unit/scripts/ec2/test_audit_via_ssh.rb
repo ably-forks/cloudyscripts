@@ -1,9 +1,9 @@
-require "mock/mocked_ec2_api"
-require "mock/mocked_remote_command_handler"
-require "mock/mocked_state_change_listener"
-require "help/remote_command_handler"
-require "mock/mocked_audit_lib"
-require "scripts/ec2/audit_via_ssh"
+require "test/mock/mocked_ec2_api"
+require "test/mock/mocked_remote_command_handler"
+require "test/mock/mocked_state_change_listener"
+require "lib/help/remote_command_handler"
+require "test/mock/mocked_audit_lib"
+require "lib/scripts/ec2/audit_via_ssh"
 
 require 'test/unit'
 
@@ -15,7 +15,7 @@ class TestAuditViaSsh < Test::Unit::TestCase
     ec2_api = MockedEc2Api.new
     ec2_api.rootDeviceType = "ebs"
     ec2_api.rootDeviceType = "ebs"
-    linux_src_ami = ec2_api.create_image(:ami_id => "ami-12345678",
+    linux_src_ami = ec2_api.create_dummy_image(:ami_id => "ami-12345678",
       :name => "AWS Linux", :desc => "AWS Linux AMI",
       :root_device_name => "/dev/sda1", :root_device_type => "ebs",
       :platform => "linux", :arch => "i386")

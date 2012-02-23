@@ -1,9 +1,9 @@
-require "mock/mocked_ec2_api"
-require "mock/mocked_remote_command_handler"
-require "mock/mocked_state_change_listener"
-require "help/remote_command_handler"
+require "test/mock/mocked_ec2_api"
+require "test/mock/mocked_remote_command_handler"
+require "test/mock/mocked_state_change_listener"
+require "lib/help/remote_command_handler"
 
-require "scripts/ec2/copy_mswindows_snapshot"
+require "lib/scripts/ec2/copy_mswindows_snapshot"
 
 require 'test/unit'
 
@@ -12,20 +12,29 @@ class TestCopyMsWindowsSnapshot < Test::Unit::TestCase
     # create source
     source_ec2_api = MockedEc2Api.new
     source_ec2_api.create_security_group(:group_name => "default")
-    linux_src_ami = source_ec2_api.create_image(:ami_id => "ami-12345678",
+    linux_src_ami = source_ec2_api.create_dummy_image(:ami_id => "ami-12345678",
       :name => "AWS Linux Source", :desc => "AWS Linux Source Helper AMI",
       :root_device_name => "/dev/sda1", :root_device_type => "ebs",
       :platform => "linux", :arch => "i386")
     # create target
     target_ec2_api = MockedEc2Api.new
     target_ec2_api.create_security_group(:group_name => "default")
-    linux_tgt_ami = target_ec2_api.create_image(:ami_id => "ami-013a6544", 
+    linux_tgt_ami = target_ec2_api.create_dummy_image(:ami_id => "ami-87654321",
       :name => "AWS Linux Target", :desc => "AWS Linux Target Helper AMI", 
       :root_device_name => "/dev/sda1", :root_device_type => "ebs", 
       :platform => "linux", :arch => "i386")
 
     snap = source_ec2_api.create_snapshot(:volume_id => "vol-87654321", :size => 20)
     puts "snap = #{snap.inspect}"
+
+    # check Mocked API
+    puts "Snapshot:"
+    pp snap
+    puts "Linux Source Helper AMI:"
+    pp source_ec2_api.describe_images(:image_id => linux_src_ami[:ami_id])
+    puts "Linux Target Helper AMI:"
+    pp target_ec2_api.describe_images(:image_id => linux_tgt_ami[:ami_id])
+
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
     logger = Logger.new(STDOUT)
@@ -40,7 +49,7 @@ class TestCopyMsWindowsSnapshot < Test::Unit::TestCase
       :source_key_name => "jungmats",
       :target_key_name => "jungmats",
       :source_ami_id => "ami-12345678",
-      :target_ami_id => "ami-12345678",
+      :target_ami_id => "ami-87654321",
       :snapshot_id => snap['snapshotId'],
       :logger => logger,
       :remote_command_handler => ssh

@@ -1,4 +1,4 @@
-require "help/state_change_listener"
+require "lib/help/state_change_listener"
 
 class MockedStateChangeListener < StateChangeListener
 

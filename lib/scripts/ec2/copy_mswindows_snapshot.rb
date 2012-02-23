@@ -120,12 +120,8 @@ class CopyMsWindowsSnapshot < Ec2Script
   class InitialState < CopyMsWindowsSnapshotState 
     def enter()
       local_region()
-      puts "Retrieving AMI parammeters"
+      post_message("Retrieving Snapshot parammeters (volume size)")
       @context[:volume_size] = @local_ec2_helper.snapshot_prop(@context[:snapshot_id], :volumeSize).to_i
-      #puts "Setting Source and Target Availability Zone if not set" 
-      #@context[:source_availability_zone] = "us-east-1a" unless @context[:source_availability_zone] != nil
-      #@context[:target_availability_zone] = "us-west-1a" unless @context[:target_availability_zone] != nil
-      puts "DEBUG: Parameters: #{@context[:snapshot_id]}, #{@context[:volume_size]}"
   
       InitialStateDone.new(@context)
     end
@@ -135,13 +131,12 @@ class CopyMsWindowsSnapshot < Ec2Script
   class InitialStateDone < CopyMsWindowsSnapshotState 
     def enter()
       local_region()
+      post_mesage("Lunching an Helper instance in source Region...")
       result = launch_instance(@context[:source_ami_id], @context[:source_key_name], @context[:source_security_groups])
       @context[:source_instance_id] = result.first
       @context[:source_dns_name] = result[1]
       @context[:source_availability_zone] = result[2]
-      #@context[:source_root_device_name] = @local_ec2_helper.ami_prop(@context[:source_ami_id], 'rootDeviceName')
       @context[:source_root_device_name] = result[6]
-      puts "DEBUG: Parameters: #{@context[:source_instance_id]}, #{@context[:source_dns_name]}, #{@context[:source_availability_zone]}, #{@context[:source_root_device_name]}"
 
       SourceInstanceLaunchedState.new(@context)
     end
@@ -226,9 +221,7 @@ class CopyMsWindowsSnapshot < Ec2Script
       @context[:target_instance_id] = result.first
       @context[:target_dns_name] = result[1]
       @context[:target_availability_zone] = result[2]
-      #@context[:remote_root_device_name] = @remote_ec2_helper.ami_prop(@context[:target_ami_id], 'rootDeviceName')
       @context[:target_root_device_name] = result[6]
-      puts "DEBUG: Parameters: #{@context[:target_instance_id]}, #{@context[:target_dns_name]}, #{@context[:target_availability_zone]}, #{@context[:target_root_device_name]}"
 
       TargetInstanceLaunchedState.new(@context)
     end

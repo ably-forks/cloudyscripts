@@ -1,9 +1,9 @@
-require "mock/mocked_ec2_api"
-require "mock/mocked_remote_command_handler"
-require "mock/mocked_state_change_listener"
-require "help/remote_command_handler"
+require "test/mock/mocked_ec2_api"
+require "test/mock/mocked_remote_command_handler"
+require "test/mock/mocked_state_change_listener"
+require "lib/help/remote_command_handler"
 
-require "scripts/ec2/ami2_ebs_conversion"
+require "lib/scripts/ec2/ami2_ebs_conversion"
 
 require 'test/unit'
 
@@ -13,7 +13,7 @@ class TestAmi2EbsConversion < Test::Unit::TestCase
     ec2_api.create_security_group(:group_name => "default")
     ec2_api.create_security_group(:group_name => "MatsGroup")
     ec2_api.rootDeviceType = "ebs"
-    linux_src_ami = ec2_api.create_image(:ami_id => "ami-12345678",
+    linux_src_ami = ec2_api.create_dummy_image(:ami_id => "ami-12345678",
       :name => "AWS Linux", :desc => "AWS Linux AMI",
       :root_device_name => "/dev/sda1", :root_device_type => "ebs",
       :platform => "linux", :arch => "i386")

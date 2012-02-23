@@ -1,9 +1,9 @@
-require "mock/mocked_ec2_api"
-require "mock/mocked_remote_command_handler"
-require "mock/mocked_state_change_listener"
-require "help/remote_command_handler"
+require "test/mock/mocked_ec2_api"
+require "test/mock/mocked_remote_command_handler"
+require "test/mock/mocked_state_change_listener"
+require "lib/help/remote_command_handler"
 
-require "scripts/ec2/download_snapshot"
+require "lib/scripts/ec2/download_snapshot"
 
 require 'test/unit'
 
@@ -14,7 +14,7 @@ class TestDownloadSnapshot < Test::Unit::TestCase
     ec2_api.authorize_security_group_ingress(:group_name => "MatsGroup",
       :ip_protocol => "tcp", :from_port => 80, :to_port => 80, :cidr_ip => "0.0.0.0/0")
     ec2_api.rootDeviceType = "ebs"
-    linux_src_ami = ec2_api.create_image(:ami_id => "ami-12345678",
+    linux_src_ami = ec2_api.create_dummy_image(:ami_id => "ami-12345678",
       :name => "AWS Linux", :desc => "AWS Linux AMI",
       :root_device_name => "/dev/sda1", :root_device_type => "ebs",
       :platform => "linux", :arch => "i386")

@@ -1,8 +1,9 @@
-require "mock/mocked_ec2_api"
-require "mock/mocked_state_change_listener"
-require "mock/mocked_remote_command_handler"
+require "test/mock/mocked_ec2_api"
+require "test/mock/mocked_remote_command_handler"
+require "test/mock/mocked_state_change_listener"
+require "lib/help/remote_command_handler"
 
-require "scripts/ec2/open_port_checker"
+require "lib/scripts/ec2/open_port_checker"
 
 require 'test/unit'
 

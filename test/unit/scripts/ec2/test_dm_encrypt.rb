@@ -1,10 +1,9 @@
-$:.unshift File.join(File.dirname(__FILE__),'..','lib')
+require "test/mock/mocked_ec2_api"
+require "test/mock/mocked_remote_command_handler"
+require "test/mock/mocked_state_change_listener"
+require "lib/help/remote_command_handler"
 
-require "mock/mocked_ec2_api"
-require "mock/mocked_remote_command_handler"
-require "mock/mocked_state_change_listener"
-
-require "scripts/ec2/dm_encrypt"
+require "lib/scripts/ec2/dm_encrypt"
 
 require 'test/unit'
 #require 'dm_encrypt'

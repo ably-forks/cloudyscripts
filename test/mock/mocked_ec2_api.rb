@@ -1,4 +1,5 @@
 require 'logger'
+require 'pp'
 
 # Already uses groupId in groups and instances, but still uses group_names for permissions
 
@@ -6,7 +7,7 @@ class MockedEc2Api
   attr_accessor :volumes, :next_volume_id, :fail, :logger, :rootDeviceType, :provoke_authfailure
 
   def drop(a)
-    
+    puts "#{a}"  
   end
 
   def initialize
@@ -760,6 +761,22 @@ class MockedEc2Api
   def create_image( options = {} )
     drop "--- mock_ec2_api: create_image"
     ami = {}
+    ami[:ami_id] = "ami-from-#{options [:instance_id]}"
+    ami[:name] = options[:name]
+    ami[:desc] = options [:desc]
+    instanceset = describe_instances(:instance_id => options [:instance_id])
+    instance_info = instanceset['reservationSet']['item'][0]['instancesSet']['item'][0]
+    ami[:root_device_name] = instance_info['rootDeviceName']
+    ami[:root_device_type] = instance_info['rootDeviceType']
+    ami[:arch] = instance_info['architecture'] 
+    @images << ami
+    images = describe_images(:image_id => ami[:ami_id])
+    images['imagesSet']['item'][0]
+  end
+
+  def create_dummy_image( options = {} )
+    drop "--- mock_ec2_api: create_dummy_image"
+    ami = {}
     ami[:ami_id] = options[:ami_id]
     ami[:name] = options[:name]
     ami[:desc] = options [:desc]
@@ -774,9 +791,9 @@ class MockedEc2Api
   def describe_images( options = {} )
     drop "--- mock_ec2_api: describe_images"
     images = @images
-    if options[:ami_id] != nil
+    if options[:image_id] != nil
       images = images.select() {|ami|
-        ami[:ami_id] == options[:ami_id]
+        ami[:ami_id] == options[:image_id]
       }
     end
     res = transform_images(images)

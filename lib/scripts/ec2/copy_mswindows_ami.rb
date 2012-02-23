@@ -4,7 +4,6 @@ require "help/remote_command_handler"
 require "help/dm_crypt_helper"
 require "help/ec2_helper"
 require "AWS"
-require 'pp'
 
 # Copy a given snapshot to another region
 # * start up instance in source-region, create a snapshot from the mounted EBS
@@ -141,23 +140,19 @@ class CopyMsWindowsAmi < Ec2Script
   #NB: if we do not own this AMI, we have no snapshot, so we must launch an instance
   class InitialState < CopyMsWindowsAmiState 
     def enter()
+      post_message("Retrieving AMI parammeters (snapshot ID, volume size, architecture)...")
       local_region()
-      puts "Retrieving AMI parammeters"
       @context[:snapshot_id] = @local_ec2_helper.ami_blkdevmap_ebs_prop(@context[:ami_id], 'snapshotId')
       @context[:volume_size] = @local_ec2_helper.ami_blkdevmap_ebs_prop(@context[:ami_id], 'volumeSize')
       @context[:architecture] = @local_ec2_helper.ami_prop(@context[:ami_id], 'architecture')
       @context[:root_device_name] = @local_ec2_helper.ami_prop(@context[:ami_id], 'rootDeviceName')
-      #puts "Setting Source and Target Availability Zone if not set" 
-      #@context[:source_availability_zone] = "us-east-1a" unless @context[:source_availability_zone] != nil
-      #@context[:target_availability_zone] = "us-west-1a" unless @context[:target_availability_zone] != nil
-
+     
       #try to access snapshot, if not possible, launch and stop an AMI to create one
       if !snapshot_accessible(@context[:snapshot_id])
-        puts "The AMI's snapshot is NOT accessible, we must launch an instance to create one" 
-        
+        post_message("The AMI's snapshot is NOT accessible, we must launch an instance to create one")
+        InitialStateLaunch.new(@context)
       end
   
-      #raise Exception.new("DEBUG: FORCED Script exit")   
       InitialStateDone.new(@context)
     end
   end
@@ -165,15 +160,15 @@ class CopyMsWindowsAmi < Ec2Script
   # Consitionnal State (launching an instance and creating a snapshot)
   class InitialStateLaunch < CopyMsWindowsAmiState
     def enter()
+      post_message("Launching and stopping an instance of the AMI to create a snapshot")
       local_region()
-      puts "Launching and stopping an instance of the AMI to create a snapshot"
       result = launch_instance(@context[:ami_id], @context[:source_key_name], @context[:source_security_groups])
       instance_id = result.first
-      puts "Instance launched with ID: #{instance_id}"
-      puts "Waiting 3 minutes before stopping instance '#{instance_id}' for creating a Snapshot of the rootDevice"
+      post_message("Instance launched with ID: #{instance_id}")
+      post_message("Waiting 3 minutes before stopping instance '#{instance_id}' for creating a Snapshot of the rootDevice")
       sleep(180)
       stop_instance(instance_id) 
-      puts "Instance '#{instance_id}' stopped, creating snapshot"
+      post_message("Instance '#{instance_id}' stopped, creating snapshot")
       ebs_volume_id = ec2_helper.get_attached_volumes(instance_id)[0]['volumeId']
       @context[:snapshot_id] = create_snapshot(ebs_volume_id, "Cloudy_Scripts Snapshot for copying AMIs")
 
@@ -184,14 +179,13 @@ class CopyMsWindowsAmi < Ec2Script
   # Initial state: Launch an Amazon Linux AMI in the source Region
   class InitialStateDone < CopyMsWindowsAmiState 
     def enter()
+      post_message("Launching an Helper instance in the source Region...")
       local_region()
       result = launch_instance(@context[:source_ami_id], @context[:source_key_name], @context[:source_security_groups])
       @context[:source_instance_id] = result.first
       @context[:source_dns_name] = result[1]
       @context[:source_availability_zone] = result[2]
-      #@context[:source_root_device_name] = @local_ec2_helper.ami_prop(@context[:source_ami_id], 'rootDeviceName')
       @context[:source_root_device_name] = result[6]
-      puts "DEBUG: Parameters: #{@context[:source_instance_id]}, #{@context[:source_dns_name]}, #{@context[:source_availability_zone]}, #{@context[:source_root_device_name]}"
 
       SourceInstanceLaunchedState.new(@context)
     end
@@ -205,6 +199,7 @@ class CopyMsWindowsAmi < Ec2Script
   #   - dump and compress the entire drive to the temp volume
   class SourceInstanceLaunchedState < CopyMsWindowsAmiState
     def enter()
+      post_message("Attaching volumes to the helper instance in the source Region...")
       local_region()
       # Step1: create and attach a volume from the Snapshot of the AMI to copy
       @context[:source_volume_id] = create_volume_from_snapshot(@context[:snapshot_id],
@@ -276,9 +271,7 @@ class CopyMsWindowsAmi < Ec2Script
       @context[:target_instance_id] = result.first
       @context[:target_dns_name] = result[1]
       @context[:target_availability_zone] = result[2]
-      #@context[:remote_root_device_name] = @remote_ec2_helper.ami_prop(@context[:target_ami_id], 'rootDeviceName')
       @context[:target_root_device_name] = result[6]
-      puts "DEBUG: Parameters: #{@context[:target_instance_id]}, #{@context[:target_dns_name]}, #{@context[:target_availability_zone]}, #{@context[:target_root_device_name]}"
 
       TargetInstanceLaunchedState.new(@context)
     end
@@ -430,6 +423,7 @@ class CopyMsWindowsAmi < Ec2Script
       @context[:helper_availability_zone] = result[2]
       @context[:helper_root_device_name] = result[6]
 
+      post_message("Creating NEW AMI using instance #{@context[:helper_instance_id]}...")
       #XXX:
       #  - wait for it to be running, and then stop it
       #  - wait for it to be stopped, and then start it with the new volume
@@ -446,10 +440,9 @@ class CopyMsWindowsAmi < Ec2Script
       stop_instance(@context[:helper_instance_id])
 
       #XXX: register as AMI
-      #new_ami_id = create_image(:instance_id => @context[:helper_instance_id], 
       new_ami_id = create_image_from_instance(@context[:helper_instance_id], @context[:name], @context[:description])
+      post_message("New AMI created with ID: #{new_ami_id}")
       @context[:result][:image_id] = new_ami_id
-      #@context[:result][:image_id] = "ami-99999999"
 
       AmiRegisteredState.new(@context)
     end

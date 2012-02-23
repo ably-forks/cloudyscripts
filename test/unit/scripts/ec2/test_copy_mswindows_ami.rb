@@ -1,9 +1,9 @@
-require "mock/mocked_ec2_api"
-require "mock/mocked_remote_command_handler"
-require "mock/mocked_state_change_listener"
-require "help/remote_command_handler"
+require "test/mock/mocked_ec2_api"
+require "test/mock/mocked_remote_command_handler"
+require "test/mock/mocked_state_change_listener"
+require "lib/help/remote_command_handler"
 
-require "scripts/ec2/copy_mswindows_ami"
+require "lib/scripts/ec2/copy_mswindows_ami"
 
 require 'test/unit'
 require 'pp'
@@ -13,11 +13,11 @@ class TestCopyMsWindowsAmi < Test::Unit::TestCase
     # create source
     source_ec2_api = MockedEc2Api.new
     source_ec2_api.create_security_group(:group_name => "default")
-    win_ami = source_ec2_api.create_image(:ami_id => "ami-12345678", 
+    win_ami = source_ec2_api.create_dummy_image(:ami_id => "ami-12345678", 
       :name => "MS Windows 2008 Server", :desc => "MS Windows AMI to convert", 
       :root_device_name => "/dev/sda1", :root_device_type => "ebs", 
       :platform => "windows", :arch => "i386")
-    linux_src_ami = source_ec2_api.create_image(:ami_id => "ami-23f53c4a", 
+    linux_src_ami = source_ec2_api.create_dummy_image(:ami_id => "ami-23f53c4a", 
       :name => "AWS Linux Source", :desc => "AWS Linux Source Helper AMI", 
       :root_device_name => "/dev/sda1", :root_device_type => "ebs", 
       :platform => "linux", :arch => "i386")
@@ -25,11 +25,11 @@ class TestCopyMsWindowsAmi < Test::Unit::TestCase
     # create target
     target_ec2_api = MockedEc2Api.new
     target_ec2_api.create_security_group(:group_name => "default")
-    win_hlp_ami = target_ec2_api.create_image(:ami_id => "ami-87654321", 
+    win_hlp_ami = target_ec2_api.create_dummy_image(:ami_id => "ami-87654321", 
       :name => "MS Windows 2008 Server", :desc => "MS Windows Helper AMI", 
       :root_device_name => "/dev/sda1", :root_device_type => "ebs", 
       :platform => "windows", :arch => "i386")
-    linux_tgt_ami = target_ec2_api.create_image(:ami_id => "ami-013a6544", 
+    linux_tgt_ami = target_ec2_api.create_dummy_image(:ami_id => "ami-013a6544", 
       :name => "AWS Linux Target", :desc => "AWS Linux Target Helper AMI", 
       :root_device_name => "/dev/sda1", :root_device_type => "ebs", 
       :platform => "linux", :arch => "i386")
@@ -38,13 +38,13 @@ class TestCopyMsWindowsAmi < Test::Unit::TestCase
     puts "Snapshot:"
     pp win_snap
     puts "MS Windows AMI:"
-    pp source_ec2_api.describe_images(:ami_id => win_ami[:ami_id])
+    pp source_ec2_api.describe_images(:image_id => win_ami[:ami_id])
     puts "Linux Source Helper AMI:"
-    pp source_ec2_api.describe_images(:ami_id => linux_src_ami[:ami_id])
+    pp source_ec2_api.describe_images(:image_id => linux_src_ami[:ami_id])
     puts "MS Windows helper AMI:"
-    pp target_ec2_api.describe_images(:ami_id => win_hlp_ami[:ami_id])
+    pp target_ec2_api.describe_images(:image_id => win_hlp_ami[:ami_id])
     puts "Linux Target Helper AMI:"
-    pp target_ec2_api.describe_images(:ami_id => linux_tgt_ami[:ami_id])
+    pp target_ec2_api.describe_images(:image_id => linux_tgt_ami[:ami_id])
 
     ssh = MockedRemoteCommandHandler.new
     listener = MockedStateChangeListener.new
