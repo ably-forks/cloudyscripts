@@ -178,7 +178,7 @@ module StateTransitionHelper
       @logger.debug "start instance #{instance_id}"
       ec2_handler().start_instances(:instance_id => instance_id)
     end
-      while timeout > 0 && !done
+    while timeout > 1 && !done
       res = ec2_handler().describe_instances(:instance_id => instance_id)
       state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
       @logger.debug "instance in state '#{state['name']}' (#{state['code']})"
@@ -207,6 +207,36 @@ module StateTransitionHelper
     end
     post_message("#{msg}")
     return instance_id, dns_name
+  end
+
+  def describe_instance(instance_id)
+    res = ec2_handler.describe_instances(:instance_id => instance_id)
+    state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
+    @logger.info "instance is in state #{state['name']} (#{state['code']})"
+    dns_name = ""
+    availability_zone = ""
+    kernel_id = ""
+    ramdisk_id = ""
+    architecture = ""
+    root_device_name = ""
+    if state['code'].to_i == 16
+      started = true
+      post_message("instance is up and running")
+      dns_name = res['reservationSet']['item'][0]['instancesSet']['item'][0]['dnsName']
+      availability_zone = res['reservationSet']['item'][0]['instancesSet']['item'][0]['placement']['availabilityZone']
+      kernel_id = res['reservationSet']['item'][0]['instancesSet']['item'][0]['kernelId']
+      ramdisk_id = res['reservationSet']['item'][0]['instancesSet']['item'][0]['ramdiskId']
+      architecture = res['reservationSet']['item'][0]['instancesSet']['item'][0]['architecture']
+      root_device_name = res['reservationSet']['item'][0]['instancesSet']['item'][0]['rootDeviceName']
+    else
+      post_message("instance is not up and running: code #{state['code'].to_i}")
+      availability_zone = res['reservationSet']['item'][0]['instancesSet']['item'][0]['placement']['availabilityZone']
+      kernel_id = res['reservationSet']['item'][0]['instancesSet']['item'][0]['kernelId']
+      ramdisk_id = res['reservationSet']['item'][0]['instancesSet']['item'][0]['ramdiskId']
+      architecture = res['reservationSet']['item'][0]['instancesSet']['item'][0]['architecture']
+      root_device_name = res['reservationSet']['item'][0]['instancesSet']['item'][0]['rootDeviceName']
+    end
+    return instance_id, dns_name, availability_zone, kernel_id, ramdisk_id, architecture, root_device_name
   end
    
   # Shuts down an instance.
