@@ -43,9 +43,10 @@ class RemoteCommandHandler
   # * ip: ip address of the machine to connect to
   # * user: user name
   # * key_data: key_data to be used for authentication
+  # NB: set paranoid to false in order to avoid server key verification, thus avoiding probleme when IP are reused
   def connect(ip, user, key_data, timeout = 30)
     @use_sudo = false
-    @ssh_session = Net::SSH.start(ip, user, :key_data => [key_data], :timeout => timeout, :verbose => :warn)
+    @ssh_session = Net::SSH.start(ip, user, :key_data => [key_data], :timeout => timeout, :paranoid => false, :verbose => :warn)
     @use_sudo = true unless user.strip == 'root'
   end
 
