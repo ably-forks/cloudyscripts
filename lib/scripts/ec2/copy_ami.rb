@@ -65,7 +65,7 @@ class CopyAmi < Ec2Script
     if @input_params[:target_ssh_username] == nil
       @input_params[:target_ssh_username] = "root"
     end
-    if @input_params[:description] == nil
+    if @input_params[:description] == nil || check_string_alnum(@input_params[:description])
       @input_params[:description] = "Created by Cloudy_Scripts - copy_ami"
     end
   end

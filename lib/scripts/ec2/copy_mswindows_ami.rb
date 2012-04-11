@@ -102,7 +102,7 @@ class CopyMsWindowsAmi < Ec2Script
     if @input_params[:fs_type] == nil
       @input_params[:fs_type] = "ext3"
     end
-    if @input_params[:description] == nil
+    if @input_params[:description] == nil || check_string_alnum(@input_params[:description])
       @input_params[:description] = "Created by Cloudy_Scripts - copy_mswindows_ami"
     end
   end
