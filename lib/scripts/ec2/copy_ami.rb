@@ -65,6 +65,9 @@ class CopyAmi < Ec2Script
     if @input_params[:target_ssh_username] == nil
       @input_params[:target_ssh_username] = "root"
     end
+    if @input_params[:description] == nil
+      @input_params[:description] = "Created by Cloudy_Scripts - copy_ami"
+    end
   end
 
   # Load the initial state for the script.
@@ -230,7 +233,8 @@ class CopyAmi < Ec2Script
   class DataCopiedState < CopyAmiState
     def enter()
       remote_region()
-      @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], "Created by Cloudy_Scripts - copy_snapshot")
+      #@context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], "Created by Cloudy_Scripts - copy_ami")
+      @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], @context[:description])
       TargetSnapshotCreatedState.new(@context)
     end
   end
