@@ -134,7 +134,7 @@ class CopyMsWindowsSnapshot < Ec2Script
   class InitialStateDone < CopyMsWindowsSnapshotState 
     def enter()
       local_region()
-      post_mesage("Lunching an Helper instance in source Region...")
+      post_message("Lunching an Helper instance in source Region...")
       result = launch_instance(@context[:source_ami_id], @context[:source_key_name], @context[:source_security_groups])
       @context[:source_instance_id] = result.first
       @context[:source_dns_name] = result[1]
