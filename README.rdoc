@@ -19,9 +19,13 @@
 # =Scripts
 # Here are the scripts implemented so far:
 # * #DmEncrypt (encrypt Amazon EBS Storage using dm-encrypt)
+# * #CopyAmi (copy Amazon AMI between Regions)
+# * #CopySnapshot (copy Amazon Snapshot between Regions)
+# * #Ami2EbsConversion (create an EBS-Backed Amazon AMI from an Instance-Store Amazon AMI)
+# * #CriticalPortsAudit (check Amazon SecurityGroups for publicly opened critical ports)
+# * #OpenPortChecker (check Amazon SecurityGroups and Instances to found opened port without service running behind)
 #
 # =Questions and Suggestions
-# Matthias Jung
-# matthias.jung@gmail.com
+# Frederic Donnat
+# frederic.donnat@secludit.com
 # http://elastic-security.com
-
