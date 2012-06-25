@@ -4,7 +4,7 @@ require "help/remote_command_handler"
 require "help/dm_crypt_helper"
 require "help/ec2_helper"
 require "AWS"
-require 'pp'
+#require 'pp'
 
 # Copy a given snapshot to another region
 # * start up instance in source-region, create a snapshot from the mounted EBS
@@ -125,7 +125,7 @@ class CopyMsWindowsSnapshot < Ec2Script
       local_region()
       post_message("Retrieving Snapshot parammeters (volume size)")
       @context[:volume_size] = @local_ec2_helper.snapshot_prop(@context[:snapshot_id], :volumeSize).to_i
-  
+ 
       InitialStateDone.new(@context)
     end
   end

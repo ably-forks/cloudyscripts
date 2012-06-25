@@ -4,7 +4,7 @@ require "help/remote_command_handler"
 #require "help/dm_crypt_helper"
 require "help/ec2_helper"
 require "AWS"
-require 'pp'
+#require 'pp'
 
 # Checks for all security groups if sensible ports are opened for the wide
 # public.
