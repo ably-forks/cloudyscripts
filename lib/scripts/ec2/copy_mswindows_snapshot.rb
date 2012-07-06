@@ -135,7 +135,8 @@ class CopyMsWindowsSnapshot < Ec2Script
     def enter()
       local_region()
       post_message("Lunching an Helper instance in source Region...")
-      result = launch_instance(@context[:source_ami_id], @context[:source_key_name], @context[:source_security_groups])
+      result = launch_instance(@context[:source_ami_id], @context[:source_key_name], @context[:source_security_groups], 
+                               nil, @context[:instance_type])
       @context[:source_instance_id] = result.first
       @context[:source_dns_name] = result[1]
       @context[:source_availability_zone] = result[2]
@@ -220,7 +221,8 @@ class CopyMsWindowsSnapshot < Ec2Script
   class BackupedDataState < CopyMsWindowsSnapshotState 
     def enter()
       remote_region()
-      result = launch_instance(@context[:target_ami_id], @context[:target_key_name], @context[:target_security_groups])
+      result = launch_instance(@context[:target_ami_id], @context[:target_key_name], @context[:target_security_groups], 
+                               nil, @context[:instance_type])
       @context[:target_instance_id] = result.first
       @context[:target_dns_name] = result[1]
       @context[:target_availability_zone] = result[2]
