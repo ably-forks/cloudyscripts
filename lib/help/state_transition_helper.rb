@@ -358,6 +358,7 @@ module StateTransitionHelper
   def create_volume_from_snapshot(snapshot_id, availability_zone)
     post_message("going to create a new EBS volume from the specified snapshot...")
     @logger.debug "create volume in zone #{availability_zone}"
+    start_time = Time.new.to_i
     res = ec2_handler().create_volume(:snapshot_id => snapshot_id, :availability_zone => availability_zone)
     volume_id = res['volumeId']
     started = false
@@ -371,7 +372,9 @@ module StateTransitionHelper
         started = true
       end
     end
-    post_message("EBS volume #{volume_id} is ready")
+    end_time = Time.new.to_i
+    @logger.info "create volume from snapshot took #{(end_time-start_time)}s"
+    post_message("EBS volume #{volume_id} is ready (took #{end_time-start_time}s)")
     return volume_id
   end
 
@@ -469,6 +472,7 @@ module StateTransitionHelper
   def create_snapshot(volume_id, description = "")
     post_message("going to create a snapshot for volume #{volume_id}...")
     @logger.debug "create snapshot for volume #{volume_id}"
+    start_time = Time.new.to_i
     res = ec2_handler().create_snapshot(:volume_id => volume_id,
       :description => description)
     snapshot_id = res['snapshotId']
@@ -483,7 +487,9 @@ module StateTransitionHelper
         done = true
       end
     end
-    post_message("snapshot is done with ID=#{snapshot_id}")
+    end_time = Time.new.to_i
+    @logger.info "create snapshot took #{(end_time-start_time)}s"
+    post_message("snapshot is done with ID=#{snapshot_id} (took #{(end_time-start_time)}s)")
     return snapshot_id
   end
 
@@ -914,7 +920,7 @@ module StateTransitionHelper
   # dump and compress a device using dd and gzip
   def local_dump_and_compress_device_to_file(source_device, target_filename)
     post_message("going to start dumping and compressing source device '#{source_device}' to '#{target_filename}' file. This may take quite a time...")
-    @logger.debug "start dumping and compressing '#{source_device}' to '#{target_filename}'"
+    @logger.info "start dumping and compressing '#{source_device}' to '#{target_filename}'"
     start_time = Time.new.to_i
     if remote_handler().tools_installed?("dd") && remote_handler().tools_installed?("gzip")
       @logger.debug "use dd and gzip command line"
@@ -929,13 +935,13 @@ module StateTransitionHelper
     end
     end_time = Time.new.to_i
     @logger.info "dump and compress took #{(end_time-start_time)}s"
-    post_message("dumping and compressing done (took #{end_time-start_time})s")
+    post_message("dumping and compressing done (took #{end_time-start_time}s)")
   end
 
   # decompress and dump a file using gunzip and dd
   def local_decompress_and_dump_file_to_device(source_filename, target_device)
     post_message("going to start decompressing and dumping file '#{source_filename}' to '#{target_device}' target device. This may take quite a time...")
-    @logger.debug "start decompressing and dumping '#{source_filename}' to '#{target_device}'"
+    @logger.info "start decompressing and dumping '#{source_filename}' to '#{target_device}'"
     start_time = Time.new.to_i
     if remote_handler().tools_installed?("dd") && remote_handler().tools_installed?("gunzip")
       @logger.debug "use dd and gzip command line"
@@ -950,26 +956,28 @@ module StateTransitionHelper
     end
     end_time = Time.new.to_i
     @logger.info "decompress and dump filetook #{(end_time-start_time)}s"
-    post_message("decompressing and dumping done (took #{end_time-start_time})s")
+    post_message("decompressing and dumping done (took #{end_time-start_time}s)")
   end
 
   def disable_ssh_tty(host)
     post_message("going to disable SSH tty on #{host}...")
-    @logger.debug "disable SSH tty on #{host}"
+    @logger.info "disable SSH tty on #{host}"
     remote_handler().disable_sudoers_requiretty()
     post_message("SSH tty disabled")
   end
 
   def enable_ssh_tty(host)
     post_message("going to enable SSH tty on #{host}...")
-    @logger.debug "enable SSH tty on #{host}"
+    @logger.info "enable SSH tty on #{host}"
     remote_handler().enable_sudoers_requiretty()
     post_message("SSH tty enabled")
   end
 
   def remote_copy(user_name, keyname, source_dir, dest_machine, dest_user, dest_dir)
     post_message("going to remote copy all files from volume. This may take some time...")
+    @logger.info "going to remote copy all files from volume. This may take some time..."
     key_path_candidates = ["/#{user_name}/.ssh/", "/home/#{user_name}/.ssh/"]
+    start_time = Time.new.to_i
     key_path_candidates.each() {|key_path|
       key_file = "#{key_path}#{keyname}.pem"
       if remote_handler().file_exists?(key_path)
@@ -983,7 +991,9 @@ module StateTransitionHelper
         break
       end
     }
-    post_message("remote copy operation done")
+    end_time = Time.new.to_i
+    @logger.info "remote copy operation took #{(end_time-start_time)}s"
+    post_message("remote copy operation done (took #{end_time-start_time}s)")
   end
 
   def upload_file(ip, user, key_data, file, target_file)
@@ -1078,6 +1088,11 @@ module StateTransitionHelper
                             'aki-8e5ea7e7' => 'pv-grub-hd00_1.02-x86_64',
                             'aki-805ea7e9' => 'pv-grub-hd0_1.02-i386',
                             'aki-825ea7eb' => 'pv-grub-hd0_1.02-x86_64',
+                            'aki-b6aa75df' => 'pv-grub-hd0_1.03-i386',
+                            'aki-88aa75e1' => 'pv-grub-hd0_1.03-x86_64',
+                            'aki-b2aa75db' => 'pv-grub-hd00_1.03-i386',
+                            'aki-b4aa75dd' => 'pv-grub-hd00_1.03-x86_64',
+
                             #RHEL kernel Amazon Kernel ID
                             'aki-36ed075f' => 'aki-rhel-i386',
                             'aki-08ed0761' => 'aki-rhel-x86_64'	
@@ -1090,9 +1105,14 @@ module StateTransitionHelper
                             'aki-81396bc4' => 'pv-grub-hd00_1.02-x86_64',
                             'aki-83396bc6' => 'pv-grub-hd0_1.02-i386',
                             'aki-8d396bc8' => 'pv-grub-hd0_1.02-x86_64',
-                            #RHEL kernel Amazon Kernel ID
-                            'aki-772c7f32' => 'aki-rhel-i386',
-                            'aki-712c7f34' => 'aki-rhel-x86_64'	
+                            'aki-f57e26b0' => 'pv-grub-hd0_1.03-i386',
+                            'aki-f77e26b2' => 'pv-grub-hd0_1.03-x86_64',
+                            'aki-e97e26ac' => 'pv-grub-hd00_1.03-i386',
+                            'aki-eb7e26ae' => 'pv-grub-hd00_1.03-x86_64',
+
+                            #RHEL kernel Amazon Kernel ID:
+                            'aki-772c7f32' => 'aki-rhel-i386',	# RH-pv-grub-hd0-V1.01-i386
+                            'aki-712c7f34' => 'aki-rhel-x86_64'	# RH-pv-grub-hd0-V1.01-x86_64
                            },
             'us-west-2' => {'aki-dee26fee' => 'pv-grub-hd00-V1.01-i386',
                             'aki-90e26fa0' => 'pv-grub-hd00-V1.01-x86_64',
@@ -1102,9 +1122,14 @@ module StateTransitionHelper
                             'aki-94e26fa4' => 'pv-grub-hd00_1.02-x86_64',
                             'aki-c2e26ff2' => 'pv-grub-hd0_1.02-i386',
                             'aki-98e26fa8' => 'pv-grub-hd0_1.02-x86_64',
+                            'aki-fa37baca' => 'pv-grub-hd0_1.03-i386',
+                            'aki-fc37bacc' => 'pv-grub-hd0_1.03-x86_64',
+                            'aki-f637bac6' => 'pv-grub-hd00_1.03-i386',
+                            'aki-f837bac8' => 'pv-grub-hd00_1.03-x86_64',
+
                             #RHEL kernel Amazon Kernel ID
-                            '' => 'aki-rhel-i386',
-                            '' => 'aki-rhel-x86_64'
+                            'aki-2efa771e' => 'aki-rhel-i386',
+                            'aki-10fa7720' => 'aki-rhel-x86_64'
                            },
             'eu-west-1' => {'aki-47eec433' => 'pv-grub-hd00-V1.01-i386',
                             'aki-41eec435' => 'pv-grub-hd00-V1.01-x86_64',
@@ -1114,6 +1139,11 @@ module StateTransitionHelper
                             'aki-60695814' => 'pv-grub-hd00_1.02-x86_64',
                             'aki-64695810' => 'pv-grub-hd0_1.02-i386',
                             'aki-62695816' => 'pv-grub-hd0_1.02-x86_64',
+                            'aki-75665e01' => 'pv-grub-hd0_1.03-i386',
+                            'aki-71665e05' => 'pv-grub-hd0_1.03-x86_64',
+                            'aki-89655dfd' => 'pv-grub-hd00_1.03-i386',
+                            'aki-8b655dff' => 'pv-grub-hd00_1.03-x86_64',
+
                             #RHEL kernel Amazon Kernel ID
                             'aki-af0a3ddb' => 'aki-rhel-i386',
                             'aki-a90a3ddd' => 'aki-rhel-x86_64'	
@@ -1126,6 +1156,11 @@ module StateTransitionHelper
                                  'aki-a6225af4' => 'pv-grub-hd00_1.02-x86_64',
                                  'aki-a4225af6' => 'pv-grub-hd0_1.02-i386',
                                  'aki-aa225af8' => 'pv-grub-hd0_1.02-x86_64',
+                                 'aki-f81354aa' => 'pv-grub-hd0_1.03-i386',
+                                 'aki-fe1354ac' => 'pv-grub-hd0_1.03-x86_64',
+                                 'aki-f41354a6' => 'pv-grub-hd00_1.03-i386',
+                                 'aki-fa1354a8' => 'pv-grub-hd00_1.03-x86_64',
+
                                  #RHEL kernel Amazon Kernel ID
                                  'aki-9c235ace' => 'aki-rhel-i386',
                                  'aki-82235ad0' => 'aki-rhel-x86_64'	
@@ -1138,9 +1173,14 @@ module StateTransitionHelper
                                  'aki-ea5df7eb' => 'pv-grub-hd00_1.02-x86_64',
                                  'aki-ec5df7ed' => 'pv-grub-hd0_1.02-i386',
                                  'aki-ee5df7ef' => 'pv-grub-hd0_1.02-x86_64',
+                                 'aki-42992843' => 'pv-grub-hd0_1.03-i386',
+                                 'aki-44992845' => 'pv-grub-hd0_1.03-x86_64',
+                                 'aki-3e99283f' => 'pv-grub-hd00_1.03-i386',
+                                 'aki-40992841' => 'pv-grub-hd00_1.03-x86_64',
+
                                  #RHEL kernel Amazon Kernel ID
                                  'aki-66c06a67' => 'aki-rhel-i386',
-                                 'aki-68c06a69' => 'aki-rhel-x86_64'	
+                                 'aki-68c06a69' => 'aki-rhel-x86_64'
                            },
             'sa-east-1' => {'aki-803ce39d' => 'pv-grub-hd00-V1.01-i386',
                             'aki-d03ce3cd' => 'pv-grub-hd00-V1.01-x86_64',
@@ -1150,9 +1190,14 @@ module StateTransitionHelper
                             'aki-cc3ce3d1' => 'pv-grub-hd00_1.02-x86_64',
                             'aki-823ce39f' => 'pv-grub-hd0_1.02-i386',
                             'aki-d23ce3cf' => 'pv-grub-hd0_1.02-x86_64',
+                            'aki-ca8f51d7' => 'pv-grub-hd0_1.03-i386',
+                            'aki-c48f51d9' => 'pv-grub-hd0_1.03-x86_64',
+                            'aki-ce8f51d3' => 'pv-grub-hd00_1.03-i386',
+                            'aki-c88f51d5' => 'pv-grub-hd00_1.03-x86_64',
+
                             #RHEL kernel Amazon Kernel ID
-                            '' => 'aki-rhel-i386',
-                            '' => 'aki-rhel-x86_64'	
+                            'aki-1a38e707' => 'aki-rhel-i386',
+                            'aki-1438e709' => 'aki-rhel-x86_64'
                            }
           }
     target_aki = ''
