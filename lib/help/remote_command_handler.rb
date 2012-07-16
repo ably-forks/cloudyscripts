@@ -60,6 +60,10 @@ class RemoteCommandHandler
     remote_execute("ls #{path}")
   end
 
+  def file_size(file)
+    get_output("ls -lh #{file} | cut -d ' ' -f 5").strip
+  end
+
   # Returns the result of uname -a (Linux)
   def retrieve_os()
     get_output("uname -r").strip
@@ -256,12 +260,6 @@ class RemoteCommandHandler
     @logger.debug "going to execute #{e}" 
     status = remote_exec_helper(e, nil, nil, true)
   end
-  # dump a device in a file locally
-  def local_dump(source_device, target_filename)
-    e = "sh -c 'dd if=#{source_device} of=#{target_filename} bs=512k'"
-    @logger.debug "going to execute #{e}" 
-    status = remote_exec_helper(e, nil, nil, true)
-  end
 
   # dump a file to a device locally
   def local_decompress_and_dump(source_filename, target_device)
@@ -271,9 +269,9 @@ class RemoteCommandHandler
     status = remote_exec_helper(e, nil, nil, true)
   end
 
-  # dump a file to a device locally
-  def local_decompress(source_filename, target_device)
-    e = "sh -c 'dd if=#{source_filename} of=#{target_device} bs=512k'"
+  # dump a device in a local file or a dump local file to a device
+  def local_dump(source_device, target_filename)
+    e = "sh -c 'dd if=#{source_device} of=#{target_filename} bs=1M'"
     @logger.debug "going to execute #{e}" 
     status = remote_exec_helper(e, nil, nil, true)
   end

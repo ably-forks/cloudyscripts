@@ -86,6 +86,11 @@ class CopyMsWindowsSnapshot < Ec2Script
     if @input_params[:description] == nil || check_string_alnum(@input_params[:description])
       @input_params[:description] = "Created by Cloudy_Scripts - copy_mswindows_snapshot"
     end
+    if @input_params[:compression] != nil && (@input_params[:compression] =~ /^on$/i)
+      @input_params[:compression] = true
+    else
+      @input_params[:compression] = false
+    end
   end
 
   # Load the initial state for the script.
@@ -179,7 +184,11 @@ class CopyMsWindowsSnapshot < Ec2Script
       post_message("Using AWS name source device '#{@context[:device_name]}' and OS name '#{source_device}'")
       @context[:source_device_name] = source_device
       # Step2: create and attach a temp volume of the same size to dump and compress the entire drive
-      @context[:source_temp_volume_id] = create_volume(@context[:source_availability_zone], @context[:volume_size])
+      if @context[:compression]
+        @context[:source_temp_volume_id] = create_volume(@context[:source_availability_zone], @context[:volume_size])
+      else
+        @context[:source_temp_volume_id] = create_volume(@context[:source_availability_zone], @context[:volume_size] + 4)
+      end
       temp_device = @context[:temp_device_name] 
       attach_volume(@context[:source_temp_volume_id], @context[:source_instance_id], temp_device)
       aws_device_letter = temp_device.split('/')[2].gsub('sd', '').gsub('xvd', '').gsub(/[0-9]/, '')
@@ -207,8 +216,13 @@ class CopyMsWindowsSnapshot < Ec2Script
       local_region()
       connect(@context[:source_dns_name], @context[:source_ssh_username], nil, @context[:source_ssh_keydata])
       mount_point = "/mnt/tmp_#{@context[:source_temp_volume_id]}"
-      @context[:source_filename] = "#{mount_point}" + "/" + "#{@context[:snapshot_id]}" + ".gz"
-      local_dump_and_compress_device_to_file(@context[:source_device_name], @context[:source_filename])
+      if @context[:compression]
+        @context[:source_filename] = "#{mount_point}" + "/" + "#{@context[:snapshot_id]}" + ".img.gz"
+        local_dump_and_compress_device_to_file(@context[:source_device_name], @context[:source_filename])
+      else
+        @context[:source_filename] = "#{mount_point}" + "/" + "#{@context[:snapshot_id]}" + ".img"
+        local_dump_device_to_file(@context[:source_device_name], @context[:source_filename]) 
+      end
       disconnect()
 
       BackupedDataState.new(@context)
@@ -241,7 +255,11 @@ class CopyMsWindowsSnapshot < Ec2Script
     def enter()
       remote_region()
       # Step1: create and attach a temp volume for receiving archive of the drive
-      @context[:target_temp_volume_id] = create_volume(@context[:target_availability_zone], @context[:volume_size])
+      if @context[:compression]
+        @context[:target_temp_volume_id] = create_volume(@context[:target_availability_zone], @context[:volume_size])
+      else
+        @context[:target_temp_volume_id] = create_volume(@context[:target_availability_zone], @context[:volume_size] + 4)
+      end
       temp_device = @context[:temp_device_name] 
       attach_volume(@context[:target_temp_volume_id], @context[:target_instance_id], temp_device)
       connect(@context[:target_dns_name], @context[:target_ssh_username], nil, @context[:target_ssh_keydata]) 
@@ -337,8 +355,13 @@ class CopyMsWindowsSnapshot < Ec2Script
       remote_region()
       connect(@context[:target_dns_name], @context[:target_ssh_username], nil, @context[:target_ssh_keydata])
       mount_point = "/mnt/tmp_#{@context[:target_temp_volume_id]}"
-      @context[:source_filename] = "#{mount_point}" + "/" + "#{@context[:snapshot_id]}" + ".gz"
-      local_decompress_and_dump_file_to_device(@context[:source_filename], @context[:target_device_name])
+      if @context[:compression]
+        @context[:source_filename] = "#{mount_point}" + "/" + "#{@context[:snapshot_id]}" + ".img.gz"
+        local_decompress_and_dump_file_to_device(@context[:source_filename], @context[:target_device_name])
+      else
+        @context[:source_filename] = "#{mount_point}" + "/" + "#{@context[:snapshot_id]}" + ".img"
+        local_dump_file_to_device(@context[:source_filename], @context[:target_device_name])
+      end
       disconnect()
 
       RestoredDataState.new(@context)

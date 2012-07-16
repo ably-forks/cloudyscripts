@@ -385,7 +385,7 @@ module StateTransitionHelper
   # * temp_device_name => device name to be used for attaching (e.g. /dev/sdj1)
   def attach_volume(volume_id, instance_id, temp_device_name, timeout = 240)
     post_message("going to attach volume #{volume_id} to instance #{instance_id} on device #{temp_device_name}...")
-    @logger.info "attach volume #{volume_id} to instance #{instance_id} on device #{temp_device_name} (using a timeout of #{timeout})s"
+    @logger.info "attach volume #{volume_id} to instance #{instance_id} on device #{temp_device_name} (using a timeout of #{timeout}s)"
     ec2_handler().attach_volume(:volume_id => volume_id,
       :instance_id => instance_id,
       :device => temp_device_name
@@ -425,7 +425,7 @@ module StateTransitionHelper
   # * instance_id => EC2 ID for the instance to detach from
   def detach_volume(volume_id, instance_id, timeout = 240)
     post_message("going to detach volume #{volume_id} from instance #{instance_id}...")
-    @logger.info "detach volume #{volume_id} from instance #{instance_id} (using a timeout of #{timeout})s"
+    @logger.info "detach volume #{volume_id} from instance #{instance_id} (using a timeout of #{timeout}s)"
     ec2_handler().detach_volume(:volume_id => volume_id,
       :instance_id => instance_id
     )
@@ -934,8 +934,31 @@ module StateTransitionHelper
       raise Exception.new("dd and/or gzip tools not installed")
     end
     end_time = Time.new.to_i
-    @logger.info "dump and compress took #{(end_time-start_time)}s"
-    post_message("dumping and compressing done (took #{end_time-start_time}s)")
+    filesize = remote_handler().file_size(target_filename)
+    @logger.info "dump and compress to a #{filesize} file took #{(end_time-start_time)}s"
+    post_message("dumping and compressing to a #{filesize} file done (took #{end_time-start_time}s)")
+  end
+
+  # dump a device using dd
+  def local_dump_device_to_file(source_device, target_filename)
+    post_message("going to start dumping source device '#{source_device}' to '#{target_filename}' file. This may take quite a time...")
+    @logger.info "start dumping '#{source_device}' to '#{target_filename}'"
+    start_time = Time.new.to_i
+    if remote_handler().tools_installed?("dd")
+      @logger.debug "use dd command line"
+      status = remote_handler().local_dump(source_device, target_filename)
+      if status == false
+        @logger.error "failed to dump device"
+        raise Exception.new("failed to dump device")
+      end
+    else
+      @logger.error "dd tool not installed"
+      raise Exception.new("dd tool not installed")
+    end
+    end_time = Time.new.to_i
+    filesize = remote_handler().file_size(target_filename)
+    @logger.info "dump to a #{filesize} file took #{(end_time-start_time)}s"
+    post_message("dumping to a #{filesize} file done (took #{end_time-start_time}s)")
   end
 
   # decompress and dump a file using gunzip and dd
@@ -955,8 +978,31 @@ module StateTransitionHelper
       raise Exception.new("dd and/or gunzip tools not installed")
     end
     end_time = Time.new.to_i
-    @logger.info "decompress and dump filetook #{(end_time-start_time)}s"
-    post_message("decompressing and dumping done (took #{end_time-start_time}s)")
+    filesize = remote_handler().file_size(source_filename)
+    @logger.info "decompress and dump file of #{filesize} took #{(end_time-start_time)}s"
+    post_message("decompressing and dumping file of #{filesize} done (took #{end_time-start_time}s)")
+  end
+
+  # dump a file using dd
+  def local_dump_file_to_device(source_filename, target_device)
+    post_message("going to start dumping file '#{source_filename}' to '#{target_device}' target device. This may take quite a time...")
+    @logger.info "start dumping '#{source_filename}' to '#{target_device}'"
+    start_time = Time.new.to_i
+    if remote_handler().tools_installed?("dd")
+      @logger.debug "use dd command line"
+      status = remote_handler().local_dump(source_filename, target_device)
+      if status == false
+        @logger.error "failed to dump file"
+        raise Exception.new("failed to dump file")
+      end
+    else
+      @logger.error "dd tool not installed"
+      raise Exception.new("dd tool not installed")
+    end
+    end_time = Time.new.to_i
+    filesize = remote_handler().file_size(source_filename)
+    @logger.info "dump file of #{filesize} took #{(end_time-start_time)}s"
+    post_message("dumping file of #{filesize} done (took #{end_time-start_time}s)")
   end
 
   def disable_ssh_tty(host)
