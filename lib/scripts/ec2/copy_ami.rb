@@ -4,6 +4,8 @@ require "help/remote_command_handler"
 require "help/dm_crypt_helper"
 require "help/ec2_helper"
 require "AWS"
+require "help/helper"
+
 
 # Copy a given snapshot to another region
 # * start up instance in source-region, create a snapshot from the mounted EBS
