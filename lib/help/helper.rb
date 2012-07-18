@@ -6,9 +6,9 @@
 # Check if string is not more than 255 character and contains wide char
 def check_string_alnum(str)
   if str.match(/^[0-9a-z\-\_\ ]{1,255}$/i)
-    return 0
+    return true
   else
-    return 1
+    return false
   end
-  return 1
+  return true
 end

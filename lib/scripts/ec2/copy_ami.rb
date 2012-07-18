@@ -67,8 +67,8 @@ class CopyAmi < Ec2Script
     if @input_params[:target_ssh_username] == nil
       @input_params[:target_ssh_username] = "root"
     end
-    if @input_params[:description] == nil || check_string_alnum(@input_params[:description])
-      @input_params[:description] = "Created by Cloudy_Scripts - copy_ami"
+    if @input_params[:description] == nil || !check_string_alnum(@input_params[:description])
+      @input_params[:description] = "Created by CloudyScripts - #{self.class.name}"
     end
   end
 
@@ -109,10 +109,11 @@ class CopyAmi < Ec2Script
     end
   end
 
- # Source is started. Create a snapshot on the volume that is linked to the instance.
+  # Source is started. Create a snapshot on the volume that is linked to the instance.
   class SourceInstanceLaunchedState < CopyAmiState
     def enter()
-      @context[:snapshot_id] = create_snapshot(@context[:ebs_volume_id], "Cloudy_Scripts Snapshot for copying AMIs")
+      @context[:snapshot_id] = create_snapshot(@context[:ebs_volume_id], 
+        "Created by CloudyScripts - #{self.class.name} from #{@context[:ebs_volume_id]}")
       AmiSnapshotCreatedState.new(@context)
     end
   end
@@ -235,8 +236,8 @@ class CopyAmi < Ec2Script
   class DataCopiedState < CopyAmiState
     def enter()
       remote_region()
-      #@context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], "Created by Cloudy_Scripts - copy_ami")
-      @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], @context[:description])
+      @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], 
+        "Created by CloudyScripts - #{self.class.name} from #{@context[:target_volume_id]}")
       TargetSnapshotCreatedState.new(@context)
     end
   end

@@ -84,8 +84,8 @@ class CopyMsWindowsSnapshot < Ec2Script
     if @input_params[:fs_type] == nil
       @input_params[:fs_type] = "ext3"
     end
-    if @input_params[:description] == nil || check_string_alnum(@input_params[:description])
-      @input_params[:description] = "Created by Cloudy_Scripts - copy_mswindows_snapshot"
+    if @input_params[:description] == nil || !check_string_alnum(@input_params[:description])
+      @input_params[:description] = "Created by CloudyScripts - #{self.class.name}"
     end
     if @input_params[:compression] != nil && (@input_params[:compression] =~ /^on$/i)
       @input_params[:compression] = true
@@ -377,7 +377,6 @@ class CopyMsWindowsSnapshot < Ec2Script
     def enter()
       remote_region()
       detach_volume(@context[:target_volume_id], @context[:target_instance_id])
-      #@context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], "Created by CloudyScripts - copy_mswindows_ami")
       @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], @context[:description])
       @context[:result][:snapshot_id] = @context[:new_snapshot_id]
 

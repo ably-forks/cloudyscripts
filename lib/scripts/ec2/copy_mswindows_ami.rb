@@ -104,8 +104,8 @@ class CopyMsWindowsAmi < Ec2Script
     if @input_params[:fs_type] == nil
       @input_params[:fs_type] = "ext3"
     end
-    if @input_params[:description] == nil || check_string_alnum(@input_params[:description])
-      @input_params[:description] = "Created by Cloudy_Scripts - copy_mswindows_ami"
+    if @input_params[:description] == nil || !check_string_alnum(@input_params[:description])
+      @input_params[:description] = "Created by CloudyScripts - #{self.class.name}"
     end
   end
 
@@ -175,7 +175,8 @@ class CopyMsWindowsAmi < Ec2Script
       stop_instance(instance_id) 
       post_message("Instance '#{instance_id}' stopped, creating snapshot")
       ebs_volume_id = ec2_helper.get_attached_volumes(instance_id)[0]['volumeId']
-      @context[:snapshot_id] = create_snapshot(ebs_volume_id, "Cloudy_Scripts Snapshot for copying AMIs")
+      @context[:snapshot_id] = create_snapshot(ebs_volume_id, 
+        "Created by CloudyScripts - #{self.class.name} from #{ebs_volume_id}")
 
       InitialStateDone.new(@context)
     end
