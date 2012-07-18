@@ -226,6 +226,13 @@ class MockedRemoteCommandHandler
     true
   end
 
+  def file_size(file)
+    @logger.debug("--- mock_remote_cmd_hdl: file_size")
+    test_connected()
+    e = "ls -lh #{file} | cut -d ' ' -f 5"
+    @logger.debug("going to execute: #{e}")
+  end
+
   def echo(data, file)
     test_connected()
     @logger.debug("echo #{data} > file")
@@ -247,6 +254,13 @@ class MockedRemoteCommandHandler
     test_connected()
     e = "gunzip -c #{source_filename} | dd of=#{target_device}"    
     @logger.debug("going to execute: #{e}")
+  end
+
+  def local_dump(source_device, target_filename)
+    @logger.debug("--- mock_remote_cmd_hdl: local_dump")
+    test_connected()
+    e = "sh -c 'dd if=#{source_device} of=#{target_filename} bs=1M'"
+    @logger.debug "going to execute #{e}" 
   end
 
   
