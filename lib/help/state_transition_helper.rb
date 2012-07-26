@@ -535,7 +535,7 @@ module StateTransitionHelper
   # * image_id => ID of the AMI created and registered
   def register_snapshot(snapshot_id, name, root_device_name, description, kernel_id, ramdisk_id, architecture)
     post_message("going to register snapshot #{snapshot_id}...")
-    @logger.debug "register snapshot #{snapshot_id} as #{name} using AKI '#{kernel_id}' ARI '#{ramdisk_id}' and arch '#{architecture}'"
+    @logger.debug "register snapshot #{snapshot_id} as #{name} using AKI '#{kernel_id}', ARI '#{ramdisk_id}', arch '#{architecture}' and RootDevice '#{root_device_name}'"
     res = ec2_handler().register_image_updated(:snapshot_id => snapshot_id,
       :kernel_id => kernel_id, :architecture => architecture,
       :root_device_name => root_device_name,
@@ -703,6 +703,70 @@ module StateTransitionHelper
       @logger.info "#{msg}"
     end
     post_message("#{msg}")
+  end
+
+  # Get partition count
+  def get_partition_count(device)
+    post_message("Checking partition on device '#{device}'...")
+    #XXX: detect new kernel that have /dev/xvdX device node instead of /dev/sdX
+    if device =~ /\/dev\/sd[a-z]/
+      if !remote_handler().file_exists?(device)
+        post_message("'#{device}' device node not found, checking for new kernel support...")
+        @logger.debug "'#{device}' device node not found, checking for new kernel support" 
+        new_device = device.gsub('sd', 'xvd')
+        if remote_handler().file_exists?(new_device)
+          post_message("'#{new_device}' device node found")
+          @logger.debug "'#{new_device}' device node found"
+          device = new_device
+        end
+      end
+    end
+    parts = remote_handler().get_device_partition(device).split(/[[:space:]]+/)
+    @logger.debug "Found '#{parts}' on device '#{device}'"
+    return parts.size()
+  end
+
+  # Get partition table
+  def get_partition_table(device)
+    post_message("Retrieving the partition table of device '#{device}'...")
+    #XXX: detect new kernel that have /dev/xvdX device node instead of /dev/sdX
+    if device =~ /\/dev\/sd[a-z]/
+      if !remote_handler().file_exists?(device)
+        post_message("'#{device}' device node not found, checking for new kernel support...")
+        @logger.debug "'#{device}' device node not found, checking for new kernel support" 
+        new_device = device.gsub('sd', 'xvd')
+        if remote_handler().file_exists?(new_device)
+          post_message("'#{new_device}' device node found")
+          @logger.debug "'#{new_device}' device node found"
+          device = new_device
+        end
+      end
+    end
+    partition_table = remote_handler().get_partition_table(device)
+    # remove ^M char
+    partition_table.gsub!("\015", "")
+    @logger.debug "Found the following partition table on device '#{device}'\n#{partition_table}"
+    return partition_table
+  end
+
+  # Set partition table
+  def set_partition_table(device, partition_table)
+    post_message("Setting the partition table of device '#{device}'...")
+    #XXX: detect new kernel that have /dev/xvdX device node instead of /dev/sdX
+    if device =~ /\/dev\/sd[a-z]/
+      if !remote_handler().file_exists?(device)
+        post_message("'#{device}' device node not found, checking for new kernel support...")
+        @logger.debug "'#{device}' device node not found, checking for new kernel support" 
+        new_device = device.gsub('sd', 'xvd')
+        if remote_handler().file_exists?(new_device)
+          post_message("'#{new_device}' device node found")
+          @logger.debug "'#{new_device}' device node found"
+          device = new_device
+        end
+      end
+    end
+    remote_handler().set_partition_table(device, partition_table.gsub(/\/dev\/(s|xv)d[a-z]/, "#{device}"))
+    @logger.debug "Partition table set on device '#{device}'"
   end
 
   # Get root partition

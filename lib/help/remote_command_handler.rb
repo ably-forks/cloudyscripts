@@ -69,13 +69,29 @@ class RemoteCommandHandler
     get_output("uname -r").strip
   end
 
+  # Return all the partitions of a device
+  def get_device_partition(device)
+    get_output("ls #{device}*").strip
+  end
+
+  # Get the partition table of a device
+  def get_partition_table(device)
+    get_output("sfdisk -d #{device}")
+  end
+
+  # GSet the partition table of a device
+  def set_partition_table(device, partition_table)
+    push_data = "\"" + partition_table.gsub(/\/dev\/(s|xv)d[a-z]/, "#{device}") + "\""
+    remote_execute("sfdisk -f #{device}", push_data, nil)
+  end
+
   # Get root partition label
   def get_root_device()
     #get_output("cat /etc/mtab | grep -E '[[:blank:]]+\/[[:blank:]]+' | cut -d ' ' -f 1").strip
     get_output("mount | grep -E '[[:blank:]]+\/[[:blank:]]+' | cut -d ' ' -f 1").strip
   end
 
-  # Get partition label
+  # Get the device of a specific partition
   def get_partition_device(part)
     #get_output("cat /etc/mtab | grep -E '[[:blank:]]+" + "#{part}" + "[[:blank:]]+' | cut -d ' ' -f 1").strip
     get_output("mount | grep -E '[[:blank:]]+" + "#{part}" + "[[:blank:]]+' | cut -d ' ' -f 1").strip
@@ -351,7 +367,7 @@ class RemoteCommandHandler
 
   def upload(ip, user, key_data, local_file, destination_file, timeout = 60)
     Timeout::timeout(timeout) {
-      Net::SCP.start(ip, user, {:key_data => [key_data], :timeout => timeout}) do |scp|
+      Net::SCP.start(ip, user, {:key_data => [key_data], :timeout => timeout, :paranoid => false, :verbose => :warn}) do |scp|
         scp.upload!(local_file, destination_file)
       end
     }
