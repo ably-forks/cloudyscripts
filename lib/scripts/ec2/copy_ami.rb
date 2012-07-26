@@ -113,7 +113,7 @@ class CopyAmi < Ec2Script
   class SourceInstanceLaunchedState < CopyAmiState
     def enter()
       @context[:snapshot_id] = create_snapshot(@context[:ebs_volume_id], 
-        "Created by CloudyScripts - #{self.class.name} from #{@context[:ebs_volume_id]}")
+        "Created by CloudyScripts - #{self.get_superclass_name()} from #{@context[:ebs_volume_id]}")
       AmiSnapshotCreatedState.new(@context)
     end
   end
@@ -135,13 +135,31 @@ class CopyAmi < Ec2Script
       os_letter = root_device_name.split('/')[2].gsub('sd', '').gsub('xvd', '').gsub(/[0-9]/, '')
       aws_device_letter = device.split('/')[2].gsub('sd', '').gsub('xvd', '').gsub(/[0-9]/, '')
       if !aws_letter.eql?(os_letter)
-        post_message("Detected specific kernel with shift between AWS and Kernel OS for device naming")
+        post_message("Detected specific kernel with shift between AWS and Kernel OS for device naming: '#{aws_root_device}' vs '#{root_device_name}'")
       end
       while !aws_letter.eql?(os_letter)
         aws_letter.succ!
         aws_device_letter.succ!
       end
-      device = "/dev/sd#{aws_device_letter}" 
+
+      device = "/dev/sd#{aws_device_letter}"
+      # detect root partition vs root volume: simply check if we have several /dev/sdx* entries
+      parts_count = get_partition_count(device)
+      if parts_count >= 2
+        # retrieve partition table, in order to restore it in the target region
+        post_message("Detected specific volume with a valid partition table on device '#{device}'...")
+        partition_table = get_partition_table(device)
+        @context[:partition_table] = partition_table
+        #XXX: HANDLE at a LOWER LEVEL
+        # update partition table with device
+        # s/device/@context[:temp_device_name]/ on partition table 
+        #@context[:partition_table] = partition_table.gsub("#{device}", "#{@context[:temp_device_name]}")
+        # retrieve the root partition number
+        os_nb = root_device_name.split('/')[2].gsub('sd', '').gsub('xvd', '').gsub(/[a-z]/, '')
+        device = device + os_nb
+        @context[:root_partition_nb] = os_nb
+        post_message("Using root partition: '#{device}'...")
+      end
       post_message("Using AWS name '#{@context[:temp_device_name]}' and OS name '#{device}'")
       mount_fs(mount_point, device)
       # get root partition label and filesystem type
@@ -179,6 +197,17 @@ class CopyAmi < Ec2Script
       mount_point = "/mnt/tmp_#{@context[:target_volume_id]}"
       attach_volume(@context[:target_volume_id], @context[:target_instance_id], device)
       connect(@context[:target_dns_name], @context[:target_ssh_username], nil, @context[:target_ssh_keydata])
+      # check if we need to create a partition table
+      if !(@context[:partition_table] == nil)
+        post_message("Creating a partition table on device '#{device}'...")
+        set_partition_table(device, @context[:partition_table])
+        #XXX: HANDLE at a LOWER LEVEL
+        # before adding partition table, adjust device name
+        #set_partition_table(device, @context[:partition_table].gsub(/\/dev\/(s|xv)d[a-z]/, "#{@context[:temp_device_name]}"))
+        # adjust partition to mount
+        device = device + @context[:root_partition_nb]
+      end
+      # make root partition
       create_labeled_fs(@context[:target_dns_name], device, @context[:fs_type], @context[:label])
       mount_fs(mount_point, device)
       disconnect()
@@ -237,7 +266,7 @@ class CopyAmi < Ec2Script
     def enter()
       remote_region()
       @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], 
-        "Created by CloudyScripts - #{self.class.name} from #{@context[:target_volume_id]}")
+        "Created by CloudyScripts - #{self.get_superclass_name()} from #{@context[:target_volume_id]}")
       TargetSnapshotCreatedState.new(@context)
     end
   end
@@ -249,9 +278,13 @@ class CopyAmi < Ec2Script
       # Get Amazon Kernel Image ID
       aki = get_aws_kernel_image_aki(@context[:source_availability_zone], @context[:kernel_id],
         @context[:target_availability_zone])
+      device = @context[:root_device_name]
+      if !(@context[:partition_table] == nil)
+        device.gsub!(/[0-9]/, '')
+        post_message("Using BlockDevice for snapshot registration rather than RootDevice '#{device}' due to a valid partition table on device...")
+      end
       @context[:result][:image_id] = register_snapshot(@context[:new_snapshot_id], @context[:name],
-        @context[:root_device_name], @context[:description], aki,
-        nil, @context[:architecture])
+        device, @context[:description], aki, nil, @context[:architecture])
       AmiRegisteredState.new(@context)
     end
   end

@@ -24,6 +24,27 @@ class MockedRemoteCommandHandler
     puts "enable_sudoers_requiretty"
   end
 
+  def get_device_partition(device)
+    puts "get_device_partition: #{device}"
+    "/dev/sda /dev/sda1"
+  end
+
+  def get_partition_table(device)
+    puts "get_partition_table: #{device}"
+    "# partition table of /dev/sdg
+unit: sectors
+
+/dev/sdg1 : start=       63, size= 83875302, Id=83
+/dev/sdg2 : start=        0, size=        0, Id= 0
+/dev/sdg3 : start=        0, size=        0, Id= 0
+/dev/sdg4 : start=        0, size=        0, Id= 0
+"
+  end
+
+  def set_partition_table(device, partition_table)
+    puts "set_partition_table: #{device}"
+  end
+
   def get_root_device()
     #"dummy/root_device"
     "/dev/sda1"
