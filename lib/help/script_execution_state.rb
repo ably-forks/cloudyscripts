@@ -74,6 +74,10 @@ class ScriptExecutionState
     s.sub(/.*\:\:/,'')
   end
 
+  def get_superclass_name
+    self.class.name.split('::').first()
+  end
+
   private
 
   # Notifies all listeners of state changes
