@@ -7,8 +7,11 @@ require 'timeout'
 class RemoteCommandHandler
   attr_accessor :logger, :ssh_session, :use_sudo
   def initialize()
-    @logger = Logger.new(STDOUT)
-    @use_sudo = false
+    @logger = context[:logger]
+    if @logger == nil
+      @logger = Logger.new(STDOUT)
+      @logger.level = Logger::WARN
+    end
   end
 
   # Checks for a given IP/port if there's a response on that port.
@@ -203,7 +206,7 @@ class RemoteCommandHandler
   # exclude_path: a space separated list of directory
   def local_rcopy(source_path, dest_path, exclude_path = nil)
     e = ""
-    if exclude_path.nil? || exclude_path.empty? 
+    if exclude_path.nil? || exclude_path.empty?
       e = "cp -Rpv #{source_path} #{dest_path}"
     else
       # only one level of exclusion
@@ -273,7 +276,7 @@ class RemoteCommandHandler
   def local_dump_and_compress(source_device, target_filename)
     #e = "sh -c 'dd if=#{source_device} | gzip > #{target_filename}'"
     e = "sh -c 'dd if=#{source_device} bs=512k | gzip -1 > #{target_filename}'"
-    @logger.debug "going to execute #{e}" 
+    @logger.debug "going to execute #{e}"
     status = remote_exec_helper(e, nil, nil, true)
   end
 
@@ -281,14 +284,14 @@ class RemoteCommandHandler
   def local_decompress_and_dump(source_filename, target_device)
     #e = "sh -c 'gunzip -c #{source_filename} | dd of=#{target_device}'"
     e = "sh -c 'gunzip -1 -c #{source_filename} | dd of=#{target_device} bs=512k'"
-    @logger.debug "going to execute #{e}" 
+    @logger.debug "going to execute #{e}"
     status = remote_exec_helper(e, nil, nil, true)
   end
 
   # dump a device in a local file or a dump local file to a device
   def local_dump(source_device, target_filename)
     e = "sh -c 'dd if=#{source_device} of=#{target_filename} bs=1M'"
-    @logger.debug "going to execute #{e}" 
+    @logger.debug "going to execute #{e}"
     status = remote_exec_helper(e, nil, nil, true)
   end
 
@@ -425,7 +428,7 @@ class RemoteCommandHandler
           end
           ch.on_request "exit-signal" do |ch, data|
             @logger.debug("process terminated with exit-signal: #{data.read_string}")
-          end       
+          end
         else
           stderr << "the remote command could not be invoked!" unless stderr == nil
           result = false
