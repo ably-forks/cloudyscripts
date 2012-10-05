@@ -6,11 +6,11 @@ require 'timeout'
 # Provides methods to be executed via ssh to remote instances.
 class RemoteCommandHandler
   attr_accessor :logger, :ssh_session, :use_sudo
-  def initialize()
-    @logger = context[:logger]
-    if @logger == nil
+  def initialize(options = {})
+    if options && options.is_a?(Hash) && options[:logger]
+      @logger = options[:logger]
+    else
       @logger = Logger.new(STDOUT)
-      @logger.level = Logger::WARN
     end
   end
 
