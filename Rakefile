@@ -10,6 +10,8 @@ require 'rake/gempackagetask'
 require 'rake/rdoctask'
 require 'rake/testtask'
 
+require_relative './lib/help/version'
+
 spec = Gem::Specification.new do |s|
   s.name = 'CloudyScripts'
   s.version = CloudyScripts::VERSION #<number cloud-stacks supported>.<number cloud-scripts>.<counting releases>

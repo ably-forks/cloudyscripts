@@ -1,4 +1,5 @@
 $LOAD_PATH.unshift File.expand_path('../lib', __FILE__)
+require 'help/version'
 require 'cloudyscripts'
 
 Gem::Specification.new 'CloudyScripts', CloudyScripts::VERSION do |s|
