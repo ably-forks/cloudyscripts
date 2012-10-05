@@ -1,7 +1,7 @@
 $LOAD_PATH.unshift File.expand_path('../lib', __FILE__)
 require 'cloudyscripts'
 
-Gem::Specification.new 'CloudyScripts', '2.14.61' do |s|
+Gem::Specification.new 'CloudyScripts', CloudyScripts::VERSION do |s|
   s.description       = "Scripts to facilitate programming for infrastructure clouds."
   s.summary           = "Scripts to facilitate programming for infrastructure clouds."
   s.authors           = ["Matthias Jung"]

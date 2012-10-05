@@ -23,4 +23,5 @@ require 'AWS'
 # * #Scripts::EC2::DmEncrypt (encrypt Amazon EBS Storage using dm-encrypt)
 #
 class CloudyScripts
+  VERSION = '2.14.63'
 end
