@@ -1,31 +1,35 @@
-# =About
-# CloudyScripts is a library that implements tasks that support common
-# usecases on Cloud Computing Infrastructures (such as Amazon EC2 or Rackspace).
-# It aims to facilitate the implementation of usecases that are not directly
-# available via the providers' API (e.g. like encrypting storage,
-# migrating instances betweem accounts, activating HTTPS). The scripts typically
-# use the provider APIs plus remote access to command-line tools installed on
-# the instances themselves.
-#
-# =Installation and Usage
-# ==Installation
-# <tt>gem install CloudyScripts</tt>
-#
-# ==Usage
-# All scripts are available under /lib/scripts/<provider>
-# They are initialized with a set of parameters and return a well-define
-# set of return values.
-#
-# =Scripts
-# Here are the scripts implemented so far:
-# * #DmEncrypt (encrypt Amazon EBS Storage using dm-encrypt)
-# * #CopyAmi (copy Amazon AMI between Regions)
-# * #CopySnapshot (copy Amazon Snapshot between Regions)
-# * #Ami2EbsConversion (create an EBS-Backed Amazon AMI from an Instance-Store Amazon AMI)
-# * #CriticalPortsAudit (check Amazon SecurityGroups for publicly opened critical ports)
-# * #OpenPortChecker (check Amazon SecurityGroups and Instances to found opened port without service running behind)
-#
-# =Questions and Suggestions
-# Frederic Donnat
-# frederic.donnat@secludit.com
-# http://elastic-security.com
+=Prefix
+Please note that this Github repo is a fork of the master at http://rubyforge.org/projects/cloudyscripts
+This version is very likely to be out of date, and is customised for my purposes.  I would not advise you to use this repo for any other reason than cherry picking commits.
+
+=About
+CloudyScripts is a library that implements tasks that support common
+usecases on Cloud Computing Infrastructures (such as Amazon EC2 or Rackspace).
+It aims to facilitate the implementation of usecases that are not directly
+available via the providers' API (e.g. like encrypting storage,
+migrating instances betweem accounts, activating HTTPS). The scripts typically
+use the provider APIs plus remote access to command-line tools installed on
+the instances themselves.
+
+=Installation and Usage
+==Installation
+<tt>gem install CloudyScripts</tt>
+
+==Usage
+All scripts are available under /lib/scripts/<provider>
+They are initialized with a set of parameters and return a well-define
+set of return values.
+
+=Scripts
+Here are the scripts implemented so far:
+* #DmEncrypt (encrypt Amazon EBS Storage using dm-encrypt)
+* #CopyAmi (copy Amazon AMI between Regions)
+* #CopySnapshot (copy Amazon Snapshot between Regions)
+* #Ami2EbsConversion (create an EBS-Backed Amazon AMI from an Instance-Store Amazon AMI)
+* #CriticalPortsAudit (check Amazon SecurityGroups for publicly opened critical ports)
+* #OpenPortChecker (check Amazon SecurityGroups and Instances to found opened port without service running behind)
+
+=Questions and Suggestions
+Frederic Donnat
+frederic.donnat@secludit.com
+http://elastic-security.com
