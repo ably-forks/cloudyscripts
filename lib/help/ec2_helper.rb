@@ -90,7 +90,7 @@ class Ec2Helper
       # puts "attachments: #{instances['reservationSet']['item'][0]['instancesSet']['item'][0]['blockDeviceMapping']['item'].inspect}"
       attached = instances['reservationSet']['item'][0]['instancesSet']['item'][0]['blockDeviceMapping']['item'].collect() { |item|
         #
-        puts "item = #{item['ebs'].inspect}"
+        # puts "item = #{item['ebs'].inspect}"
         item['ebs']
       }
       # puts "going to return #{attached.size.to_s}"

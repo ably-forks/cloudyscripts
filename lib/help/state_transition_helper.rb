@@ -14,7 +14,7 @@ require "AWS"
 
 class AWS::EC2::Base
   def register_image_updated(options)
-    puts "register_image_updated: #{options.inspect}"
+    # puts "register_image_updated: #{options.inspect}"
     params = {}
     params["Name"] = options[:name].to_s
     params["BlockDeviceMapping.1.Ebs.SnapshotId"] = options[:snapshot_id].to_s
