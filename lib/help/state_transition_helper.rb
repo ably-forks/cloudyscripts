@@ -118,18 +118,13 @@ module StateTransitionHelper
     image_props = ec2_handler.describe_images(:image_id => ami_id)
     architecture = image_props['imagesSet']['item'][0]['architecture']
     instance_type = "m1.small"
-    #instance_type = "t1.micro"
-    if architecture != "i386"
-      instance_type = "m1.large"
-    end
-    instance_type = type if type != nil
     arch_log_msg = "Architecture of image #{ami_id} is #{architecture}. Use instance_type #{instance_type}."
     @logger.info arch_log_msg
     post_message(arch_log_msg)
     # now start it
     res = ec2_handler.run_instances(:image_id => ami_id,
       :security_group => security_group_name, :key_name => key_name,
-      :instance_type => instance_type, 
+      :instance_type => instance_type,
       :availability_zone => availability_zone
     )
     instance_id = res['instancesSet']['item'][0]['instanceId']
@@ -174,7 +169,7 @@ module StateTransitionHelper
     res = ec2_handler().describe_instances(:instance_id => instance_id)
     state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
     if state['code'].to_i == 16
-      dns_name = res['reservationSet']['item'][0]['instancesSet']['item'][0]['dnsName'] 
+      dns_name = res['reservationSet']['item'][0]['instancesSet']['item'][0]['dnsName']
       msg = "instance '#{instance_id}' already started"
       @logger.warn "#{msg}"
       post_message("#{msg}")
@@ -187,11 +182,11 @@ module StateTransitionHelper
       res = ec2_handler().describe_instances(:instance_id => instance_id)
       state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
       @logger.debug "instance in state '#{state['name']}' (#{state['code']})"
-      if state['code'].to_i == 16 
+      if state['code'].to_i == 16
         done = true
         timeout = 0
         dns_name = res['reservationSet']['item'][0]['instancesSet']['item'][0]['dnsName']
-      elsif state['code'].to_i != 0 
+      elsif state['code'].to_i != 0
         done = false
         timeout = 0
         msg = "instance in state '#{state['name']}'"
@@ -207,8 +202,8 @@ module StateTransitionHelper
       @logger.error "#{msg}"
       raise Exception.new("Unable to start instance '#{instance_id}'}")
     else
-      msg = "'#{instance_id}' successfully started" 
-      @logger.info "#{msg}" 
+      msg = "'#{instance_id}' successfully started"
+      @logger.info "#{msg}"
     end
     post_message("#{msg}")
     return instance_id, dns_name
@@ -243,7 +238,7 @@ module StateTransitionHelper
     end
     return instance_id, dns_name, availability_zone, kernel_id, ramdisk_id, architecture, root_device_name
   end
-   
+
   # Shuts down an instance.
   # Input Parameters:
   # * instance_id => ID of the instance to be shut down
@@ -278,10 +273,10 @@ module StateTransitionHelper
       res = ec2_handler().describe_instances(:instance_id => instance_id)
       state = res['reservationSet']['item'][0]['instancesSet']['item'][0]['instanceState']
       @logger.debug "instance in state '#{state['name']}' (#{state['code']})"
-      if state['code'].to_i == 80 
+      if state['code'].to_i == 80
         done = true
         timeout = 0
-      elsif state['code'].to_i != 64 
+      elsif state['code'].to_i != 64
         done = false
         timeout = 0
         msg = "instance in state '#{state['name']}'"
@@ -297,8 +292,8 @@ module StateTransitionHelper
       @logger.error "#{msg}"
       raise Exception.new("Unable to stop instance '#{instance_id}'}")
     else
-      msg = "'#{instance_id}' successfully stopped" 
-      @logger.info "#{msg}" 
+      msg = "'#{instance_id}' successfully stopped"
+      @logger.info "#{msg}"
     end
     post_message("#{msg}")
   end
@@ -326,7 +321,7 @@ module StateTransitionHelper
     @logger.info("found #{n} instances")
     @context[:ec2_instances] = inst
   end
-  
+
   # Creates a new EBS volume.
   # Input Parameters:
   # * availability_zone => availability zone for the volume
@@ -405,7 +400,7 @@ module StateTransitionHelper
         attachment_state = res['volumeSet']['item'][0]['attachmentSet']['item'][0]['status']
       end
       @logger.debug "storage attaching: volume state: #{vol_state}, attachment state: #{attachment_state}"
-      if vol_state == 'in-use' && attachment_state == 'attached' 
+      if vol_state == 'in-use' && attachment_state == 'attached'
         done = true
         timeout = 0
       end
@@ -418,7 +413,7 @@ module StateTransitionHelper
       @logger.error "#{msg}"
       raise Exception.new("volume #{volume_id} not attached")
     else
-      msg = "volume #{volume_id} successfully attached" 
+      msg = "volume #{volume_id} successfully attached"
       @logger.info "#{msg}"
     end
     post_message("#{msg}")
@@ -453,7 +448,7 @@ module StateTransitionHelper
       @logger.error "#{msg}"
       raise Exception.new("volume #{volume_id} not detached")
     else
-      msg = "volume #{volume_id} successfully detached" 
+      msg = "volume #{volume_id} successfully detached"
       @logger.info "#{msg}"
     end
     post_message("#{msg}")
@@ -570,7 +565,7 @@ module StateTransitionHelper
       res = ec2_handler().describe_security_groups(:group_name => name)
       if res['securityGroupInfo']['item'].size > 0
         @logger.warn "'#{name}' Security Group found. Another Security Group already exists with the same name. Deleting it first."
-        res = ec2_handler().delete_security_group(:group_name => name) 
+        res = ec2_handler().delete_security_group(:group_name => name)
       end
     rescue AWS::InvalidGroupNotFound => e
       @logger.debug "'#{name}' Security Group not found."
@@ -589,7 +584,7 @@ module StateTransitionHelper
     res = ec2_handler().describe_security_groups(:group_name => name)
     if res['securityGroupInfo']['item'].size > 0
       @logger.debug "'#{name}' Security Group found."
-      res = ec2_handler().delete_security_group(:group_name => name) 
+      res = ec2_handler().delete_security_group(:group_name => name)
     else
       @logger.warn "'#{name}' Security Group not found."
     end
@@ -679,7 +674,7 @@ module StateTransitionHelper
     if device =~ /\/dev\/sd[a-z]/
       if !remote_handler().file_exists?(device)
         post_message("'#{device}' device node not found, checking for new kernel support...")
-        @logger.debug "'#{device}' device node not found, checking for new kernel support" 
+        @logger.debug "'#{device}' device node not found, checking for new kernel support"
         new_device = device.gsub('sd', 'xvd')
         if remote_handler().file_exists?(new_device)
           post_message("'#{new_device}' device node found")
@@ -707,7 +702,7 @@ module StateTransitionHelper
       @logger.error "#{msg}"
       raise Exception.new("device #{device} not mounted")
     else
-      msg = "device #{device} successfully mounted" 
+      msg = "device #{device} successfully mounted"
       @logger.info "#{msg}"
     end
     post_message("#{msg}")
@@ -737,7 +732,7 @@ module StateTransitionHelper
       @logger.error "#{msg}"
       raise Exception.new("#{mount_point} still mounted")
     else
-      msg = "#{mount_point} successfully unmounted" 
+      msg = "#{mount_point} successfully unmounted"
       @logger.info "#{msg}"
     end
     post_message("#{msg}")
@@ -750,7 +745,7 @@ module StateTransitionHelper
     if device =~ /\/dev\/sd[a-z]/
       if !remote_handler().file_exists?(device)
         post_message("'#{device}' device node not found, checking for new kernel support...")
-        @logger.debug "'#{device}' device node not found, checking for new kernel support" 
+        @logger.debug "'#{device}' device node not found, checking for new kernel support"
         new_device = device.gsub('sd', 'xvd')
         if remote_handler().file_exists?(new_device)
           post_message("'#{new_device}' device node found")
@@ -771,7 +766,7 @@ module StateTransitionHelper
     if device =~ /\/dev\/sd[a-z]/
       if !remote_handler().file_exists?(device)
         post_message("'#{device}' device node not found, checking for new kernel support...")
-        @logger.debug "'#{device}' device node not found, checking for new kernel support" 
+        @logger.debug "'#{device}' device node not found, checking for new kernel support"
         new_device = device.gsub('sd', 'xvd')
         if remote_handler().file_exists?(new_device)
           post_message("'#{new_device}' device node found")
@@ -794,7 +789,7 @@ module StateTransitionHelper
     if device =~ /\/dev\/sd[a-z]/
       if !remote_handler().file_exists?(device)
         post_message("'#{device}' device node not found, checking for new kernel support...")
-        @logger.debug "'#{device}' device node not found, checking for new kernel support" 
+        @logger.debug "'#{device}' device node not found, checking for new kernel support"
         new_device = device.gsub('sd', 'xvd')
         if remote_handler().file_exists?(new_device)
           post_message("'#{new_device}' device node found")
@@ -1247,7 +1242,7 @@ module StateTransitionHelper
 
                             #Ubuntu kernel Amazon Kernel ID
                             'aki-5f15f636' => 'aki-ubuntu-karmic-v2.6.31-302.i386'
-                           }, 
+                           },
             'us-west-1' => {'aki-9da0f1d8' => 'pv-grub-hd00-V1.01-i386',
                             'aki-9fa0f1da' => 'pv-grub-hd00-V1.01-x86_64',
                             'aki-99a0f1dc' => 'pv-grub-hd0-V1.01-i386',
@@ -1306,7 +1301,7 @@ module StateTransitionHelper
                             'aki-a90a3ddd' => 'aki-rhel-x86_64',	# RH-pv-grub-hd0-V1.01-x86_64
 
                             #Ubuntu kernel Amazon Kernel ID
-                            'aki-b02a01c4' => 'aki-ubuntu-karmic-v2.6.31-302.i386'	
+                            'aki-b02a01c4' => 'aki-ubuntu-karmic-v2.6.31-302.i386'
                            },
             'ap-southeast-1' => {'aki-6fd5aa3d' => 'pv-grub-hd00-V1.01-i386',
                                  'aki-6dd5aa3f' => 'pv-grub-hd00-V1.01-x86_64',
@@ -1397,7 +1392,7 @@ module StateTransitionHelper
   end
 
   def get_aws_region_from_endpoint(endpoint)
-    region = "us-east-1" 
+    region = "us-east-1"
     case endpoint
       when /us-east/
         region = "us-east-1"
