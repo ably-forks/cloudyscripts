@@ -86,14 +86,14 @@ class Ec2Helper
       if instances['reservationSet']['item'][0]['instancesSet']['item'].size == 0
         raise Exception.new("instance #{instance_id} not found")
       end
-      puts "instances = #{instances.inspect}"
-      puts "attachments: #{instances['reservationSet']['item'][0]['instancesSet']['item'][0]['blockDeviceMapping']['item'].inspect}"
+      # puts "instances = #{instances.inspect}"
+      # puts "attachments: #{instances['reservationSet']['item'][0]['instancesSet']['item'][0]['blockDeviceMapping']['item'].inspect}"
       attached = instances['reservationSet']['item'][0]['instancesSet']['item'][0]['blockDeviceMapping']['item'].collect() { |item|
         #
         puts "item = #{item['ebs'].inspect}"
         item['ebs']
       }
-      puts "going to return #{attached.size.to_s}"
+      # puts "going to return #{attached.size.to_s}"
       return attached
     rescue Exception => e
       puts "exception: #{e.inspect}"
@@ -216,7 +216,7 @@ class Ec2Helper
   # instance, retrieve the names of the security groups belonging to that instance.
   def lookup_security_group_names(instance_info)
     group_names = []
-    puts "lookup_security_group_names(#{instance_info.inspect})"
+    # puts "lookup_security_group_names(#{instance_info.inspect})"
     instance_info['groupSet']['item'].each() {|group_info|
       group_name = group_info['groupName'] || group_info['groupId']
       group_names << group_name
@@ -227,9 +227,9 @@ class Ec2Helper
   # From the information retrieved via EC2::describe_security_groups, look up
   # all open ports for the group specified
   def lookup_open_ports(group_name, group_infos)
-    puts "group_infos = #{group_infos.inspect}"
+    # puts "group_infos = #{group_infos.inspect}"
     group_info = get_security_group_info(group_name, group_infos)
-    puts "group_info for #{group_name} = #{group_info.inspect}"
+    # puts "group_info for #{group_name} = #{group_info.inspect}"
     open_ports = []
     group_info['ipPermissions']['item'].each() {|permission|
       if permission['ipRanges'] == nil
@@ -253,14 +253,14 @@ class Ec2Helper
   # Looks up the instanceId for the output retrieved by EC2::describe_instances(:instance_id => xxx)
   # without the reservation set.
   def get_instance_id(instance_info)
-    puts "look up instanceId in #{instance_info.inspect}"
+    # puts "look up instanceId in #{instance_info.inspect}"
     instance_info['instancesSet']['item'][0]['instanceId']
   end
 
   # Looks up the instanceId for the output retrieved by EC2::describe_instances(:instance_id => xxx)
   # without the reservation set.
   def get_instance_prop(instance_info, prop)
-    puts "look up #{prop} in #{instance_info.inspect}"
+    # puts "look up #{prop} in #{instance_info.inspect}"
     instance_info['instancesSet']['item'][0][prop.to_s]
   end
 
