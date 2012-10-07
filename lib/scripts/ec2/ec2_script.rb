@@ -1,5 +1,9 @@
 # Base class for any script on EC2.
 class Ec2Script
+
+  CS_SEC_GRP_NAME = "CloudyScripts Opened Security Group"
+  CS_SEC_GRP_DESC = "Security Group used for CloudyScripts (Opened SSH). PLEASE DO NOT MODIFY !!!"
+
   # Initialization. Common Input parameters:
   # * aws_access_key => the Amazon AWS Access Key (see Your Account -> Security Credentials)
   # * aws_secret_key => the Amazon AWS Secret Key

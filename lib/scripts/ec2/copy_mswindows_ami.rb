@@ -69,17 +69,25 @@ class CopyMsWindowsAmi < Ec2Script
       raise Exception.new("Invalid target AMI ID specified: #{@input_params[:target_ami_id]}")
     end
     # AWS SecurityGroup, source and target regions
-    if @input_params[:source_security_groups] == nil
-      @input_params[:source_security_groups] = "default"
+    if @input_params[:source_security_group] == nil
+      @input_params[:source_security_group] = "default"
     end
-    if !@local_ec2_helper.check_open_port(@input_params[:source_security_groups], 22)
-      raise Exception.new("Port 22 must be opened for security group '#{@input_params[:source_security_groups]}' to connect via SSH in source-region")
+    if !@local_ec2_helper.check_open_port(@input_params[:source_security_group], 22)
+      #raise Exception.new("Port 22 must be opened for security group '#{@input_params[:source_security_group]}' to connect via SSH in source region")
+      post_message("'#{@input_params[:source_security_group]}' Security Group not opened port 22 for connect via SSH in source region")
+      @input_params[:source_security_group] = nil
+    else
+      post_message("'#{@input_params[:source_security_group]}' Security Group opened port 22 for connect via SSH in source region")
     end
-    if @input_params[:target_security_groups] == nil
-      @input_params[:target_security_groups] = "default"
+    if @input_params[:target_security_group] == nil
+      @input_params[:target_security_group] = "default"
     end
-    if !@remote_ec2_helper.check_open_port(@input_params[:target_security_groups], 22)
-      raise Exception.new("Port 22 must be opened for security group '#{@input_params[:target_security_groups]}' to connect via SSH in target-region")
+    if !@remote_ec2_helper.check_open_port(@input_params[:target_security_group], 22)
+      #raise Exception.new("Port 22 must be opened for security group '#{@input_params[:target_security_group]}' to connect via SSH in target region")
+      post_message("'#{@input_params[:target_security_group]}' Security Group not opened port 22 for connect via SSH in target region")
+      @input_params[:target_security_group] = nil
+    else
+      post_message("'#{@input_params[:target_security_group]}' Security Group opened port 22 for connect via SSH in target region")
     end
     # Device to use for volume
     if @input_params[:root_device_name] == nil
@@ -104,8 +112,11 @@ class CopyMsWindowsAmi < Ec2Script
     if @input_params[:fs_type] == nil
       @input_params[:fs_type] = "ext3"
     end
-    if @input_params[:description] == nil || !check_string_alnum(@input_params[:description])
+    if @input_params[:description] == nil || !check_aws_desc(@input_params[:description])
       @input_params[:description] = "Created by CloudyScripts - #{self.class.name}"
+    end
+    if @input_params[:name] == nil || !check_aws_name(@input_params[:name])
+      @input_params[:name] = "Created_by_CloudyScripts/#{self.class.name}_from_#{@input_params[:ami_id]}"
     end
   end
 
@@ -122,7 +133,6 @@ class CopyMsWindowsAmi < Ec2Script
 
     def self.load_state(context)
       InitialState.new(context)
-      
     end
 
     def local_region
@@ -145,7 +155,7 @@ class CopyMsWindowsAmi < Ec2Script
   #NB: if we do not own this AMI, we have no snapshot, so we must launch an instance
   class InitialState < CopyMsWindowsAmiState 
     def enter()
-      post_message("Retrieving AMI parammeters (snapshot ID, volume size, architecture)...")
+      post_message("Retrieving AMI parameters (snapshot ID, volume size, architecture)...")
       local_region()
       @context[:snapshot_id] = @local_ec2_helper.ami_blkdevmap_ebs_prop(@context[:ami_id], 'snapshotId')
       @context[:volume_size] = @local_ec2_helper.ami_blkdevmap_ebs_prop(@context[:ami_id], 'volumeSize')
@@ -167,7 +177,15 @@ class CopyMsWindowsAmi < Ec2Script
     def enter()
       post_message("Launching and stopping an instance of the AMI to create a snapshot")
       local_region()
-      result = launch_instance(@context[:ami_id], @context[:source_key_name], @context[:source_security_groups])
+      #XXX: create a CloudyScripts Security Group with TCP port 22 publicly opened
+      if @context[:source_security_group] == nil
+        @context[:source_security_group] = Ec2Script::CS_SEC_GRP_NAME
+        create_security_group_with_rules(@context[:source_security_group], Ec2Script::CS_SEC_GRP_DESC,
+          [{:ip_protocol => "tcp", :from_port => 22, :to_port => 22, :cidr_ip => "0.0.0.0/0"}])
+        post_message("'#{@context[:source_security_group]}' Security Group created with TCP port 22 publicly opened.")
+      end
+
+      result = launch_instance(@context[:ami_id], @context[:source_key_name], @context[:source_security_group])
       instance_id = result.first
       post_message("Instance launched with ID: #{instance_id}")
       post_message("Waiting 3 minutes before stopping instance '#{instance_id}' for creating a Snapshot of the rootDevice")
@@ -187,7 +205,15 @@ class CopyMsWindowsAmi < Ec2Script
     def enter()
       post_message("Launching an Helper instance in the source Region...")
       local_region()
-      result = launch_instance(@context[:source_ami_id], @context[:source_key_name], @context[:source_security_groups])
+      #XXX: create a CloudyScripts Security Group with TCP port 22 publicly opened
+      if @context[:source_security_group] == nil
+        @context[:source_security_group] = Ec2Script::CS_SEC_GRP_NAME
+        create_security_group_with_rules(@context[:source_security_group], Ec2Script::CS_SEC_GRP_DESC,
+          [{:ip_protocol => "tcp", :from_port => 22, :to_port => 22, :cidr_ip => "0.0.0.0/0"}])
+        post_message("'#{@context[:source_security_group]}' Security Group created with TCP port 22 publicly opened.")
+      end
+
+      result = launch_instance(@context[:source_ami_id], @context[:source_key_name], @context[:source_security_group])
       @context[:source_instance_id] = result.first
       @context[:source_dns_name] = result[1]
       @context[:source_availability_zone] = result[2]
@@ -273,7 +299,15 @@ class CopyMsWindowsAmi < Ec2Script
   class BackupedDataState < CopyMsWindowsAmiState 
     def enter()
       remote_region()
-      result = launch_instance(@context[:target_ami_id], @context[:target_key_name], @context[:target_security_groups])
+      #XXX: create a CloudyScripts Security Group with TCP port 22 publicly opened
+      if @context[:target_security_group] == nil
+        @context[:target_security_group] = Ec2Script::CS_SEC_GRP_NAME
+        create_security_group_with_rules(@context[:target_security_group], Ec2Script::CS_SEC_GRP_DESC,
+          [{:ip_protocol => "tcp", :from_port => 22, :to_port => 22, :cidr_ip => "0.0.0.0/0"}])
+        post_message("'#{@context[:target_security_group]}' Security Group created with TCP port 22 publicly opened.")
+      end
+
+      result = launch_instance(@context[:target_ami_id], @context[:target_key_name], @context[:target_security_group])
       @context[:target_instance_id] = result.first
       @context[:target_dns_name] = result[1]
       @context[:target_availability_zone] = result[2]
@@ -422,7 +456,7 @@ class CopyMsWindowsAmi < Ec2Script
       post_message("Launching Helper AMI '#{@context[:helper_ami_id]}' for attaching migrated volume...")
       remote_region()
       #XXX: launch instance in the right AZ
-      result = launch_instance(@context[:helper_ami_id], @context[:target_key_name], @context[:target_security_groups], 
+      result = launch_instance(@context[:helper_ami_id], @context[:target_key_name], @context[:target_security_group], 
                                nil, nil, @context[:target_availability_zone])
       @context[:helper_instance_id] = result.first
       @context[:helper_dns_name] = result[1]
@@ -481,6 +515,11 @@ class CopyMsWindowsAmi < Ec2Script
       shut_down_instance(@context[:source_instance_id])
       delete_volume(@context[:source_temp_volume_id])
       delete_volume(@context[:source_volume_id])
+      #XXX: delete Security Group according to its name
+      if @context[:source_security_group].eql?(Ec2Script::CS_SEC_GRP_NAME)
+        delete_security_group(@context[:source_security_group])
+      end
+
       #
       remote_region()
       connect(@context[:target_dns_name], @context[:target_ssh_username], nil, @context[:target_ssh_keydata])
@@ -491,6 +530,10 @@ class CopyMsWindowsAmi < Ec2Script
       shut_down_instance(@context[:target_instance_id])
       delete_volume(@context[:target_temp_volume_id])
       #delete_volume(@context[:target_volume_id])
+      #XXX: delete Security Group according to its name
+      if @context[:target_security_group].eql?(Ec2Script::CS_SEC_GRP_NAME)
+        delete_security_group(@context[:target_security_group])
+      end
  
       Done.new(@context)
     end

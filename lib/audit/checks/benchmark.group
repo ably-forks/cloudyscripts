@@ -1,1 +1,3 @@
-benchmark.group.ssh
+ID: BENCHMARK
+Children: 
+   - SSH

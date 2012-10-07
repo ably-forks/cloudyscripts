@@ -78,8 +78,13 @@ module StateTransitionHelper
     end
     os = remote_handler().retrieve_os()
     sudo = remote_handler().use_sudo ? " [sudo]" : ""
+    if os =~ /^Please login as .+$/i
+      post_message("not connected to #{dns_name}#{sudo} due to an invalid user.")
+      @logger.error "not connected to #{dns_name}#{sudo} due to an invalid user."
+      raise Exception.new("invalid user: #{os}")
+    end
     post_message("connected to #{dns_name}#{sudo}. OS installed is #{os}")
-    @logger.info "connected to #{dns_name}#{sudo}"
+    @logger.info "connected to #{dns_name}#{sudo} OS installed is #{os}"
     return os
   end
 
@@ -558,6 +563,39 @@ module StateTransitionHelper
     return image_id
   end
 
+  def create_security_group_with_rules(name, desc, rules)
+    post_message("going to create '#{name}' Security Group...")
+    @logger.debug "create Security Group (name: #{name}, desc: #{desc})"
+    begin
+      res = ec2_handler().describe_security_groups(:group_name => name)
+      if res['securityGroupInfo']['item'].size > 0
+        @logger.warn "'#{name}' Security Group found. Another Security Group already exists with the same name. Deleting it first."
+        res = ec2_handler().delete_security_group(:group_name => name) 
+      end
+    rescue AWS::InvalidGroupNotFound => e
+      @logger.debug "'#{name}' Security Group not found."
+    end
+    res = ec2_handler().create_security_group(:group_name => name, :group_description => desc)
+    rules.each(){ |rule|
+      ec2_handler().authorize_security_group_ingress(:group_name => name,
+        :ip_protocol => rule[:ip_protocol], :from_port => rule[:from_port], :to_port => rule[:to_port], :cidr_ip => rule[:cidr_ip])
+    }
+    return true
+  end
+
+  def delete_security_group(name)
+    post_message("going to delete '#{name}' Security Group...")
+    @logger.debug "delete Security Group (name: #{name})"
+    res = ec2_handler().describe_security_groups(:group_name => name)
+    if res['securityGroupInfo']['item'].size > 0
+      @logger.debug "'#{name}' Security Group found."
+      res = ec2_handler().delete_security_group(:group_name => name) 
+    else
+      @logger.warn "'#{name}' Security Group not found."
+    end
+    return true
+  end
+
   # Create a file-system on a given machine (assumes to be connected already).
   # Input Parameters:
   # * dns_name => IP used
@@ -699,7 +737,7 @@ module StateTransitionHelper
       @logger.error "#{msg}"
       raise Exception.new("#{mount_point} still mounted")
     else
-      msg = "#{mount_point} successfully mounted" 
+      msg = "#{mount_point} successfully unmounted" 
       @logger.info "#{msg}"
     end
     post_message("#{msg}")
@@ -1204,8 +1242,11 @@ module StateTransitionHelper
                             'aki-b4aa75dd' => 'pv-grub-hd00_1.03-x86_64',
 
                             #RHEL kernel Amazon Kernel ID
-                            'aki-36ed075f' => 'aki-rhel-i386',
-                            'aki-08ed0761' => 'aki-rhel-x86_64'	
+                            'aki-36ed075f' => 'aki-rhel-i386',		# RH-pv-grub-hd0-V1.01-i386
+                            'aki-08ed0761' => 'aki-rhel-x86_64',	# RH-pv-grub-hd0-V1.01-x86_64
+
+                            #Ubuntu kernel Amazon Kernel ID
+                            'aki-5f15f636' => 'aki-ubuntu-karmic-v2.6.31-302.i386'
                            }, 
             'us-west-1' => {'aki-9da0f1d8' => 'pv-grub-hd00-V1.01-i386',
                             'aki-9fa0f1da' => 'pv-grub-hd00-V1.01-x86_64',
@@ -1221,8 +1262,11 @@ module StateTransitionHelper
                             'aki-eb7e26ae' => 'pv-grub-hd00_1.03-x86_64',
 
                             #RHEL kernel Amazon Kernel ID:
-                            'aki-772c7f32' => 'aki-rhel-i386',	# RH-pv-grub-hd0-V1.01-i386
-                            'aki-712c7f34' => 'aki-rhel-x86_64'	# RH-pv-grub-hd0-V1.01-x86_64
+                            'aki-772c7f32' => 'aki-rhel-i386',		# RH-pv-grub-hd0-V1.01-i386
+                            'aki-712c7f34' => 'aki-rhel-x86_64',	# RH-pv-grub-hd0-V1.01-x86_64
+
+                            #Ubuntu kernel Amazon Kernel ID
+                            'aki-773c6d32' => 'aki-ubuntu-karmic-v2.6.31-302.i386'
                            },
             'us-west-2' => {'aki-dee26fee' => 'pv-grub-hd00-V1.01-i386',
                             'aki-90e26fa0' => 'pv-grub-hd00-V1.01-x86_64',
@@ -1238,8 +1282,11 @@ module StateTransitionHelper
                             'aki-f837bac8' => 'pv-grub-hd00_1.03-x86_64',
 
                             #RHEL kernel Amazon Kernel ID
-                            'aki-2efa771e' => 'aki-rhel-i386',
-                            'aki-10fa7720' => 'aki-rhel-x86_64'
+                            'aki-2efa771e' => 'aki-rhel-i386',		# RH-pv-grub-hd0-V1.01-i386
+                            'aki-10fa7720' => 'aki-rhel-x86_64',	# RH-pv-grub-hd0-V1.01-x86_64
+
+                            #Ubuntu kernel Amazon Kernel ID
+                            '' => 'aki-ubuntu-karmic-v2.6.31-302.i386'
                            },
             'eu-west-1' => {'aki-47eec433' => 'pv-grub-hd00-V1.01-i386',
                             'aki-41eec435' => 'pv-grub-hd00-V1.01-x86_64',
@@ -1255,8 +1302,11 @@ module StateTransitionHelper
                             'aki-8b655dff' => 'pv-grub-hd00_1.03-x86_64',
 
                             #RHEL kernel Amazon Kernel ID
-                            'aki-af0a3ddb' => 'aki-rhel-i386',
-                            'aki-a90a3ddd' => 'aki-rhel-x86_64'	
+                            'aki-af0a3ddb' => 'aki-rhel-i386',		# RH-pv-grub-hd0-V1.01-i386
+                            'aki-a90a3ddd' => 'aki-rhel-x86_64',	# RH-pv-grub-hd0-V1.01-x86_64
+
+                            #Ubuntu kernel Amazon Kernel ID
+                            'aki-b02a01c4' => 'aki-ubuntu-karmic-v2.6.31-302.i386'	
                            },
             'ap-southeast-1' => {'aki-6fd5aa3d' => 'pv-grub-hd00-V1.01-i386',
                                  'aki-6dd5aa3f' => 'pv-grub-hd00-V1.01-x86_64',
@@ -1272,8 +1322,11 @@ module StateTransitionHelper
                                  'aki-fa1354a8' => 'pv-grub-hd00_1.03-x86_64',
 
                                  #RHEL kernel Amazon Kernel ID
-                                 'aki-9c235ace' => 'aki-rhel-i386',
-                                 'aki-82235ad0' => 'aki-rhel-x86_64'	
+                                 'aki-9c235ace' => 'aki-rhel-i386',	# RH-pv-grub-hd0-V1.01-i386
+                                 'aki-82235ad0' => 'aki-rhel-x86_64',	# RH-pv-grub-hd0-V1.01-x86_64
+
+                                 #Ubuntu kernel Amazon Kernel ID
+                                 'aki-87f38cd5' => 'aki-ubuntu-karmic-v2.6.31-302.i386'
                            },
             'ap-northeast-1' => {'aki-d209a2d3' => 'pv-grub-hd00-V1.01-i386',
                                  'aki-d409a2d5' => 'pv-grub-hd00-V1.01-x86_64',
@@ -1289,8 +1342,11 @@ module StateTransitionHelper
                                  'aki-40992841' => 'pv-grub-hd00_1.03-x86_64',
 
                                  #RHEL kernel Amazon Kernel ID
-                                 'aki-66c06a67' => 'aki-rhel-i386',
-                                 'aki-68c06a69' => 'aki-rhel-x86_64'
+                                 'aki-66c06a67' => 'aki-rhel-i386',	# RH-pv-grub-hd0-V1.01-i386
+                                 'aki-68c06a69' => 'aki-rhel-x86_64',	# RH-pv-grub-hd0-V1.01-x86_64
+
+                                 #Ubuntu kernel Amazon Kernel ID
+                                 'aki-540fa455' => 'aki-ubuntu-karmic-v2.6.31-302.i386'
                            },
             'sa-east-1' => {'aki-803ce39d' => 'pv-grub-hd00-V1.01-i386',
                             'aki-d03ce3cd' => 'pv-grub-hd00-V1.01-x86_64',
@@ -1306,8 +1362,11 @@ module StateTransitionHelper
                             'aki-c88f51d5' => 'pv-grub-hd00_1.03-x86_64',
 
                             #RHEL kernel Amazon Kernel ID
-                            'aki-1a38e707' => 'aki-rhel-i386',
-                            'aki-1438e709' => 'aki-rhel-x86_64'
+                            'aki-1a38e707' => 'aki-rhel-i386',		# RH-pv-grub-hd0-V1.01-i386
+                            'aki-1438e709' => 'aki-rhel-x86_64',	# RH-pv-grub-hd0-V1.01-x86_64
+
+                            #Ubuntu kernel Amazon Kernel ID
+                            '' => 'aki-ubuntu-karmic-v2.6.31-302.i386'
                            }
           }
     target_aki = ''

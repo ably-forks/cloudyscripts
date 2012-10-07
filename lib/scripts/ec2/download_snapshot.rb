@@ -38,17 +38,24 @@ class DownloadSnapshot < Ec2Script
       @input_params[:security_group_name] = "default"
     end
     ec2_helper = Ec2Helper.new(@input_params[:ec2_api_handler])
+    if @input_params[:security_group_name] == nil
+      @input_params[:security_group_name] = "default"
+    end
     if !ec2_helper.check_open_port(@input_params[:security_group_name], 22)
-      raise Exception.new("Port 22 must be opened for security group #{@input_params[:security_group_name]} to connect via SSH")
+      #raise Exception.new("Port 22 must be opened for security group #{@input_params[:security_group_name]} to connect via SSH")
+      post_message("'#{@input_params[:security_group_name]}' Security Group not opened port 22 for connect via SSH")
+      @input_params[:security_group_name] = nil
     end
     if !ec2_helper.check_open_port(@input_params[:security_group_name], 80)
-      raise Exception.new("Port 80 must be opened for security group #{@input_params[:security_group_name]} to make the download link work")
+      #raise Exception.new("Port 80 must be opened for security group #{@input_params[:security_group_name]} to make the download link work")
+      post_message("'#{@input_params[:security_group_name]}' Security Group not opened port 80 for download via HTTP")
+      @input_params[:security_group_name] = nil
     end
     if @input_params[:source_device] == nil
-      @input_params[:source_device] = "/dev/sdj1"
+      @input_params[:source_device] = "/dev/sdj"
     end
     if @input_params[:dest_device] == nil
-      @input_params[:dest_device] = "/dev/sdj2"
+      @input_params[:dest_device] = "/dev/sdk"
     end
     if @input_params[:zip_file_dest] == nil
       @input_params[:zip_file_dest] = "/var/www/html"
@@ -83,10 +90,20 @@ class DownloadSnapshot < Ec2Script
   # Start state. First thing to do is to launch the instance.
   class InitialState < DownloadSnapshotState
     def enter
+      #XXX: create a CloudyScripts Security Group with TCP port 22 publicly opened
+      if @context[:security_group_name] == nil
+        @context[:security_group_name] = Ec2Script::CS_SEC_GRP_NAME
+        create_security_group_with_rules(@context[:security_group_name], Ec2Script::CS_SEC_GRP_DESC,
+          [{:ip_protocol => "tcp", :from_port => 22, :to_port => 22, :cidr_ip => "0.0.0.0/0"},
+          {:ip_protocol => "tcp", :from_port => 80, :to_port => 80, :cidr_ip => "0.0.0.0/0"}])
+        post_message("'#{@context[:security_group_name]}' Security Group created with TCP port 22 and 80 publicly opened.")
+      end
+
       result = launch_instance(@context[:ami_id], @context[:key_name], @context[:security_group_name])
       @context[:instance_id] = result.first
       @context[:dns_name] = result[1]
       @context[:availability_zone] = result[2]
+
       InstanceLaunchedState.new(context)
     end
   end
@@ -99,6 +116,7 @@ class DownloadSnapshot < Ec2Script
       size = ec2_helper.volume_prop(@context[:source_volume_id], :size).to_i
       puts "retrieved volume size of #{size}"
       @context[:dest_volume_id] = create_volume(@context[:availability_zone], size)
+
       VolumesCreated.new(@context)
     end
 
@@ -110,6 +128,7 @@ class DownloadSnapshot < Ec2Script
       @context[:script].post_message("Going to create two volumes. One with the snapshot data, one to store the zipped data for download.")
       attach_volume(@context[:source_volume_id], @context[:instance_id], @context[:source_device])
       attach_volume(@context[:dest_volume_id], @context[:instance_id], @context[:dest_device])
+
       VolumesAttached.new(@context)
     end
   end
@@ -122,6 +141,13 @@ class DownloadSnapshot < Ec2Script
         connect(@context[:dns_name], @context[:ssh_username], @context[:ssh_keyfile], @context[:ssh_keydata])
       # source
       source_dir = "/mnt/tmp_#{@context[:source_volume_id]}"
+      # detect partition vs volume: simply check if we have several /dev/sdx* entries
+      parts_count = get_partition_count(@context[:source_device])
+      if parts_count >= 2
+        @context[:script].post_message("Detected specific volume with a valid partition table on device '#{@context[:source_device]}'...")
+        @context[:source_device] = @context[:source_device] + '1'
+        @context[:script].post_message("Using '#{@context[:source_device]}' as source filesystem")
+      end
       mount_fs(source_dir, @context[:source_device])
       @context[:fs_type], @context[:label] = get_partition_fs_type_and_label(source_dir)
       # target
@@ -129,6 +155,7 @@ class DownloadSnapshot < Ec2Script
       #create_fs(@context[:dns_name], @context[:dest_device])
       create_labeled_fs(@context[:dns_name], @context[:dest_device], @context[:fs_type], @context[:label])
       mount_fs(dest_dir, @context[:dest_device])
+
       FileSystemsReady.new(@context)
     end
   end
@@ -138,9 +165,9 @@ class DownloadSnapshot < Ec2Script
     def enter
       mount_point = "/mnt/tmp_#{@context[:source_volume_id]}"
       zip_volume(mount_point, @context[:zip_file_dest], @context[:zip_file_name])
+
       VolumeZippedAndDownloadableState.new(@context)
     end
-
   end
 
   # Volume is zipped and downloadable. Wait 5 minutes.
@@ -158,6 +185,7 @@ class DownloadSnapshot < Ec2Script
     def wait_some_time
       @context[:script].post_message("The snapshot can be downloaded during #{@context[:wait_time]} seconds from link: #{get_link()}")
       sleep(@context[:wait_time])
+
       DownloadStoppedState.new(@context)
     end
   end
@@ -165,17 +193,39 @@ class DownloadSnapshot < Ec2Script
   # Snapshot can no longer be downloaded. Shut down the instance.
   class DownloadStoppedState < DownloadSnapshotState
     def enter
-      shut_down_instance(@context[:instance_id])
-      InstanceShutDown.new(@context)
-    end
-    
-  end
+      error = []
+      begin
+        shut_down_instance(@context[:instance_id])
+      rescue Exception => e
+        error << e
+        post_message("Unable to shutdown instance '#{@context[:instance_id]}': #{e.to_s}")
+      end
+      #XXX: delete Security Group according to its name
+      if @context[:security_group_name].eql?(Ec2Script::CS_SEC_GRP_NAME)
+        begin
+          delete_security_group(@context[:security_group_name])
+        rescue Exception => e
+          error << e
+          post_message("Unable to delete Security Group '#{@context[:security_group_name]}': #{e.to_s}")
+        end
+      end
+      begin
+        delete_volume(@context[:source_volume_id])
+      rescue Exception => e
+        error << e
+        post_message("Unable to delete volume '#{@context[:source_volume_id]}': #{e.to_s}")
+      end
+      begin
+        delete_volume(@context[:dest_volume_id])
+      rescue Exception => e
+        error << e
+        post_message("Unable to delete volume '#{@context[:dest_volume_id]}': #{e.to_s}")
+      end
 
-  # Instance is shut down. Delete the volume created.
-  class InstanceShutDown < DownloadSnapshotState
-    def enter
-      delete_volume(@context[:source_volume_id])
-      delete_volume(@context[:dest_volume_id])
+      if error.size() > 0
+        raise Exception.new("Cleanup error(s)")
+      end
+
       Done.new(@context)
     end
   end

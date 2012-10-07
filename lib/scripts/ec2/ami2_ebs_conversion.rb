@@ -43,7 +43,6 @@ class Ami2EbsConversion < Ec2Script
     end
     if @input_params[:name] == nil
       @input_params[:name] = "Boot EBS (for AMI #{@input_params[:ami_id]}) at #{Time.now.strftime('%d/%m/%Y %H.%M.%S')}"
-    else
     end
     if @input_params[:description] == nil
       @input_params[:description] = @input_params[:name]
@@ -111,6 +110,7 @@ class Ami2EbsConversion < Ec2Script
   # Storage attached. Create a file-system and mount it
   class StorageAttached < Ami2EbsConversionState
     def enter
+      #TODO: Fix connect to use username even if ssh_keyfile is specified or do not specify it
       @context[:result][:os] =
         connect(@context[:dns_name], @context[:ssh_username],
         @context[:ssh_keyfile], @context[:ssh_keydata],

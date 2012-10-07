@@ -48,12 +48,24 @@ class CopyAmi < Ec2Script
       raise Exception.new("must be an EBS type image")
     end
     local_ec2_helper = ec2_helper
-    if !local_ec2_helper.check_open_port('default', 22)
-      raise Exception.new("Port 22 must be opened for security group 'default' to connect via SSH in source-region")
+    if @input_params[:source_security_group] == nil
+      @input_params[:source_security_group] = "default"
+    end
+    if !local_ec2_helper.check_open_port(@input_params[:source_security_group], 22)
+      post_message("'#{@input_params[:source_security_group]}' Security Group not opened port 22 for connect via SSH in source region")
+      @input_params[:source_security_group] = nil
+    else
+      post_message("'#{@input_params[:source_security_group]}' Security Group opened port 22 for connect via SSH in source region")
     end
     remote_ec2_helper = Ec2Helper.new(@input_params[:target_ec2_handler])
-    if !remote_ec2_helper.check_open_port('default', 22)
-      raise Exception.new("Port 22 must be opened for security group 'default' to connect via SSH in target-region")
+    if @input_params[:target_security_group] == nil
+      @input_params[:target_security_group] = "default"
+    end
+    if !remote_ec2_helper.check_open_port(@input_params[:target_security_group], 22)
+      post_message("'#{@input_params[:target_security_group]}' Security Group not opened port 22 for connect via SSH in target region")
+      @input_params[:target_security_group] = nil
+    else
+      post_message("'#{@input_params[:target_security_group]}' Security Group opened port 22 for connect via SSH in target region")
     end
     if @input_params[:root_device_name] == nil
       @input_params[:root_device_name] = "/dev/sda1"
@@ -67,8 +79,11 @@ class CopyAmi < Ec2Script
     if @input_params[:target_ssh_username] == nil
       @input_params[:target_ssh_username] = "root"
     end
-    if @input_params[:description] == nil || !check_string_alnum(@input_params[:description])
+    if @input_params[:description] == nil || !check_aws_desc(@input_params[:description])
       @input_params[:description] = "Created by CloudyScripts - #{self.class.name}"
+    end
+    if @input_params[:name] == nil || !check_aws_name(@input_params[:name])
+      @input_params[:name] = "Created_by_CloudyScripts/#{self.class.name}_from_#{@input_params[:ami_id]}"
     end
   end
 
@@ -99,12 +114,21 @@ class CopyAmi < Ec2Script
   # Initial state: start up AMI in source region
   class InitialState < CopyAmiState
     def enter()
+      local_region()
+      #XXX: create a CloudyScripts Security Group with TCP port 22 publicly opened
+      if @context[:source_security_group] == nil
+        @context[:source_security_group] = Ec2Script::CS_SEC_GRP_NAME
+        create_security_group_with_rules(@context[:source_security_group], Ec2Script::CS_SEC_GRP_DESC, 
+          [{:ip_protocol => "tcp", :from_port => 22, :to_port => 22, :cidr_ip => "0.0.0.0/0"}])
+        post_message("'#{@context[:source_security_group]}' Security Group created with TCP port 22 publicly opened.")
+      end
+
       @context[:source_instance_id], @context[:source_dns_name], @context[:source_availability_zone], 
         @context[:kernel_id], @context[:ramdisk_id], @context[:architecture], @context[:root_device_name] =
-        launch_instance(@context[:ami_id], @context[:source_key_name], "default")
+        launch_instance(@context[:ami_id], @context[:source_key_name], @context[:source_security_group])
       ec2_helper = Ec2Helper.new(@context[:ec2_api_handler])
-      puts "get_attached returns: #{ec2_helper.get_attached_volumes(@context[:source_instance_id]).inspect}"
-      @context[:ebs_volume_id] = ec2_helper.get_attached_volumes(@context[:source_instance_id])[0]['volumeId']#TODO: what when more root devices?
+      @context[:ebs_volume_id] = ec2_helper.get_attached_volumes(@context[:source_instance_id])[0]['volumeId']	#TODO: what when more root devices?
+
       SourceInstanceLaunchedState.new(@context)
     end
   end
@@ -114,6 +138,7 @@ class CopyAmi < Ec2Script
     def enter()
       @context[:snapshot_id] = create_snapshot(@context[:ebs_volume_id], 
         "Created by CloudyScripts - #{self.get_superclass_name()} from #{@context[:ebs_volume_id]}")
+
       AmiSnapshotCreatedState.new(@context)
     end
   end
@@ -167,6 +192,7 @@ class CopyAmi < Ec2Script
       #@context[:fs_type] = get_root_partition_fs_type()
       @context[:fs_type], @context[:label] = get_root_partition_fs_type_and_label()
       disconnect()
+
       SourceVolumeReadyState.new(@context)
     end
   end
@@ -175,11 +201,19 @@ class CopyAmi < Ec2Script
   class SourceVolumeReadyState < CopyAmiState
     def enter()
       remote_region()
-      result = launch_instance(@context[:target_ami_id], @context[:target_key_name], 
-        "default")
+      #XXX: create a CloudyScripts Security Group with TCP port 22 publicly opened
+      if @context[:target_security_group] == nil
+        @context[:target_security_group] = Ec2Script::CS_SEC_GRP_NAME
+        create_security_group_with_rules(@context[:target_security_group], Ec2Script::CS_SEC_GRP_DESC, 
+          [{:ip_protocol => "tcp", :from_port => 22, :to_port => 22, :cidr_ip => "0.0.0.0/0"}])
+        post_message("'#{@context[:target_security_group]}' Security Group created with TCP port 22 publicly opened.")
+      end
+
+      result = launch_instance(@context[:target_ami_id], @context[:target_key_name], @context[:target_security_group])
       @context[:target_instance_id] = result.first
       @context[:target_dns_name] = result[1]
       @context[:target_availability_zone] = result[2]
+
       TargetInstanceLaunchedState.new(@context)
     end
   end
@@ -211,6 +245,7 @@ class CopyAmi < Ec2Script
       create_labeled_fs(@context[:target_dns_name], device, @context[:fs_type], @context[:label])
       mount_fs(mount_point, device)
       disconnect()
+
       TargetVolumeReadyState.new(@context)
     end
   end
@@ -229,8 +264,8 @@ class CopyAmi < Ec2Script
       #  @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name]}.pem")
       upload_file(@context[:source_dns_name], @context[:source_ssh_username], @context[:source_ssh_keydata],
         @context[:target_ssh_keyfile], "#{key_path}#{@context[:target_key_name].gsub(/\s+/, '_')}.pem")
-
       post_message("credentials are in place to connect source and target.")
+
       KeyInPlaceState.new(@context)
     end
   end
@@ -256,6 +291,7 @@ class CopyAmi < Ec2Script
       enable_ssh_tty(@context[:target_dns_name])
       unmount_fs(dest_dir)
       disconnect()
+
       DataCopiedState.new(@context)
     end
   end
@@ -267,6 +303,7 @@ class CopyAmi < Ec2Script
       remote_region()
       @context[:new_snapshot_id] = create_snapshot(@context[:target_volume_id], 
         "Created by CloudyScripts - #{self.get_superclass_name()} from #{@context[:target_volume_id]}")
+
       TargetSnapshotCreatedState.new(@context)
     end
   end
@@ -285,29 +322,73 @@ class CopyAmi < Ec2Script
       end
       @context[:result][:image_id] = register_snapshot(@context[:new_snapshot_id], @context[:name],
         device, @context[:description], aki, nil, @context[:architecture])
+
       AmiRegisteredState.new(@context)
     end
   end
 
   # AMI is registered. Now only cleanup is missing, i.e. shut down instances and
   # remote the volumes that were created. Start with cleaning the ressources
-  # in the local region.
+  # in the both regions.
   class AmiRegisteredState < CopyAmiState
     def enter()
+      error = []
       local_region()
-      shut_down_instance(@context[:source_instance_id])
-      delete_volume(@context[:source_volume_id])
-      delete_snapshot(@context[:snapshot_id])
-      SourceCleanedUpState.new(@context)
-    end
-  end
-
-  # Cleanup the resources in the target region.
-  class SourceCleanedUpState < CopyAmiState
-    def enter()
+      begin
+        shut_down_instance(@context[:source_instance_id])
+      rescue Exception => e
+        error << e
+        post_message("Unable to shutdown instance '#{@context[:source_instance_id]}' in source region: #{e.to_s}")
+      end
+      begin
+        delete_volume(@context[:source_volume_id])
+      rescue Exception => e
+        error << e
+        post_message("Unable to delete volume '#{@context[:source_volume_id]}' in source region: #{e.to_s}")
+      end
+      begin
+        delete_snapshot(@context[:snapshot_id])
+      rescue Exception => e
+        error << e
+        post_message("Unable to delete snapshot '#{@context[:snapshot_id]}' in source region: #{e.to_s}")
+      end
+      #XXX: delete Security Group according to its name
+      if @context[:source_security_group].eql?(Ec2Script::CS_SEC_GRP_NAME)
+        begin
+          delete_security_group(@context[:source_security_group])
+        rescue Exception => e
+          error << e
+          post_message("Unable to delete Security Group '#{@context[:source_security_group]}' in source region: #{e.to_s}")
+        end
+      end
+      #
       remote_region()
-      shut_down_instance(@context[:target_instance_id])
-      delete_volume(@context[:target_volume_id])
+      begin
+        shut_down_instance(@context[:target_instance_id])
+      rescue Exception => e
+        error << e
+        post_message("Unable to shutdown instance '#{@context[:target_instance_id]}' in target region: #{e.to_s}")
+      end
+      begin
+        delete_volume(@context[:target_volume_id])
+      rescue Exception => e
+        error << e
+        post_message("Unable to delete volume '#{@context[:target_volume_id]}' in target region: #{e.to_s}")
+      end
+      #XXX: delete Security Group according to its name
+      if @context[:target_security_group].eql?(Ec2Script::CS_SEC_GRP_NAME)
+        begin
+          delete_security_group(@context[:target_security_group])
+        rescue
+          error << e
+          post_message("Unable to delete Security Group '#{@context[:target_security_group]}' in target region: #{e.to_s}")
+        end
+      end
+
+      if error.size() > 0
+        raise Exception.new("Cleanup error(s)")
+      end
+
       Done.new(@context)
     end
   end
