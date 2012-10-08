@@ -12,6 +12,7 @@ class RemoteCommandHandler
     else
       @logger = Logger.new(STDOUT)
     end
+    @use_sudo = false
   end
 
   # Checks for a given IP/port if there's a response on that port.
